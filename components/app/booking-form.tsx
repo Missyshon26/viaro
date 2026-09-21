@@ -16,6 +16,7 @@ import { TAX_RATE, type VehicleClassOption } from "@/lib/constants";
 import { money as fmtMoney } from "@/components/app/shell";
 import { VehicleGallery } from "@/components/app/vehicle-gallery";
 import { RoutePreview } from "@/components/app/route-preview";
+import { AddressAutocomplete } from "@/components/app/address-autocomplete";
 import type { FormState } from "@/lib/actions/auth";
 import type { TripType } from "@/lib/api/types";
 
@@ -337,11 +338,10 @@ export function BookingForm({ walletBalance, vehicles }: BookingFormProps) {
                   <label className={labelCls} htmlFor="pickup">
                     Pickup Location
                   </label>
-                  <input
+                  <AddressAutocomplete
                     id="pickup"
-                    type="text"
                     value={pickup}
-                    onChange={(e) => setPickup(e.target.value)}
+                    onChange={setPickup}
                     placeholder="Address, airport, hotel..."
                     className={fieldCls}
                   />
@@ -352,11 +352,10 @@ export function BookingForm({ walletBalance, vehicles }: BookingFormProps) {
                   <label className={labelCls} htmlFor="drop">
                     Drop-off Location
                   </label>
-                  <input
+                  <AddressAutocomplete
                     id="drop"
-                    type="text"
                     value={drop}
-                    onChange={(e) => setDrop(e.target.value)}
+                    onChange={setDrop}
                     placeholder="Destination..."
                     className={fieldCls}
                   />

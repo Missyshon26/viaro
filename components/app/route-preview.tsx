@@ -22,8 +22,8 @@ import { useEffect, useState } from "react";
 
 const MAP_PROVIDER = process.env.NEXT_PUBLIC_MAP_PROVIDER ?? "";
 const MAP_KEY = process.env.NEXT_PUBLIC_MAP_API_KEY ?? "";
+// Only the flag is public. The Directions key lives server-side in /api/directions.
 const DIRECTIONS_PROVIDER = process.env.NEXT_PUBLIC_DIRECTIONS_PROVIDER ?? "";
-const DIRECTIONS_KEY = process.env.NEXT_PUBLIC_DIRECTIONS_API_KEY ?? "";
 
 interface Route {
   distanceText: string;
@@ -50,7 +50,7 @@ export function RoutePreview({
 
   useEffect(() => {
     // Nothing to call until a directions provider exists; leave the figures unknown.
-    if (!DIRECTIONS_PROVIDER || !DIRECTIONS_KEY || !pickup || !drop) {
+    if (!DIRECTIONS_PROVIDER || !pickup || !drop) {
       setRoute(null);
       return;
     }
@@ -207,13 +207,19 @@ function mapEmbedUrl(pickup: string, drop: string) {
 }
 
 /**
- * Distance and journey time.
+ * Distance and journey time, via our own Route Handler.
  *
- * Left unimplemented on purpose: both providers need a server-side call (their browser
- * CORS rules block a direct fetch, and the key would be exposed anyway), so this belongs
- * behind a Route Handler when the credentials arrive. Returning null keeps the banner
- * honest until then.
+ * Both providers need a server-side call — their browser CORS rules block a direct
+ * fetch, and the key would be exposed anyway — so /api/directions holds the credential
+ * and this only ever talks to our own origin. The handler returns null rather than an
+ * estimate on every failure path, which keeps the banner honest.
  */
-async function fetchRoute(_pickup: string, _drop: string): Promise<Route | null> {
-  return null;
+async function fetchRoute(pickup: string, drop: string): Promise<Route | null> {
+  const query = new URLSearchParams({ origin: pickup, destination: drop });
+  const response = await fetch(`/api/directions?${query}`, { cache: "no-store" });
+
+  if (!response.ok) return null;
+
+  const body = (await response.json()) as { route: Route | null };
+  return body.route;
 }
