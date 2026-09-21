@@ -209,8 +209,8 @@ describe('429 responses tell the caller when to retry', () => {
    */
   it('sets Retry-After once the window is exhausted', async () => {
     const express = (await import('express')).default;
-    const { createRateLimiter } = await import('../src/middlewares/rateLimiter');
-    const { errorHandler } = await import('../src/middlewares/errorHandler');
+    const { createRateLimiter } = await import('../src/middlewares/rateLimiter.js');
+    const { errorHandler } = await import('../src/middlewares/errorHandler.js');
 
     const limited = express();
     limited.use(createRateLimiter({ windowMs: 60_000, max: 2, keyPrefix: 'test:retry-after' }));
