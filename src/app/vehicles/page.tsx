@@ -10,8 +10,10 @@ import {
   deleteVehicleClass,
   listVehicleClasses,
   updateVehicleClass,
+  USAGE_LABEL,
   type VehicleClass,
   type VehicleClassInput,
+  type VehicleUsage,
 } from "@/lib/api/vehicles";
 
 /**
@@ -92,10 +94,21 @@ export default function VehiclesPage() {
       sortValue: (r) => r.seats,
     },
     {
+      key: "usage",
+      header: "Available for",
+      cell: (r) => <span className="text-fg-body">{USAGE_LABEL[r.usage ?? "all"]}</span>,
+      sortValue: (r) => r.usage ?? "all",
+    },
+    {
       key: "multiplier",
       header: "Fare multiplier",
       cell: (r) => (
-        <span className="font-bold text-fg">×{r.multiplier}</span>
+        <span className="font-bold text-fg">
+          ×{r.multiplier}
+          {(r.usage ?? "all") === "all" && r.hourlyMultiplier ? (
+            <span className="ml-1.5 text-note font-normal text-fg-muted">· hourly ×{r.hourlyMultiplier}</span>
+          ) : null}
+        </span>
       ),
       sortValue: (r) => r.multiplier,
     },
@@ -240,6 +253,8 @@ function VehicleDialog({
     seats: vehicle?.seats ?? 3,
     bags: vehicle?.bags ?? 2,
     multiplier: vehicle?.multiplier ?? 1,
+    usage: vehicle?.usage ?? "all",
+    hourlyMultiplier: vehicle?.hourlyMultiplier ?? null,
     sortOrder: vehicle?.sortOrder ?? 0,
     active: vehicle?.active ?? true,
   });
@@ -261,13 +276,19 @@ function VehicleDialog({
   async function save() {
     setSaving(true);
     setError(null);
+    // A class limited to one kind of trip has one rate: `multiplier`. A separate hourly
+    // rate only means something when the class serves both.
+    const payload = {
+      ...form,
+      hourlyMultiplier: (form.usage ?? "all") === "all" ? (form.hourlyMultiplier ?? null) : null,
+    };
     try {
       if (isNew) {
-        await createVehicleClass(form);
+        await createVehicleClass(payload);
       } else {
         // `value` is omitted on purpose: the API rejects it, because every existing
         // booking stored the old key.
-        const { value: _ignored, ...rest } = form;
+        const { value: _ignored, ...rest } = payload;
         await updateVehicleClass(vehicle._id, rest);
       }
       await onSaved();
@@ -395,9 +416,45 @@ function VehicleDialog({
             </Field>
           </div>
 
+          {/*
+            Which trips the class can be booked for. A class limited to hourly (or to
+            transfers) is refused by the API for the other kind — quote and booking alike.
+          */}
+          <Field label="Available for" hint="Limit a vehicle to hourly charters, or keep it off them.">
+            <div role="radiogroup" className="grid grid-cols-3 gap-1 rounded-field border border-border bg-surface p-1">
+              {(["all", "transfer", "hourly"] as VehicleUsage[]).map((usage) => {
+                const selected = (form.usage ?? "all") === usage;
+                return (
+                  <button
+                    key={usage}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    onClick={() => set("usage", usage)}
+                    className={`rounded-[0.5rem] px-2 py-2 text-note font-bold transition-colors ${
+                      selected ? "bg-accent text-white" : "text-fg-muted hover:text-fg"
+                    }`}
+                  >
+                    {USAGE_LABEL[usage]}
+                  </button>
+                );
+              })}
+            </div>
+          </Field>
+
           <Field
-            label="Fare multiplier"
-            hint="Applied to every quote and booking for this class, from the next request onward."
+            label={
+              form.usage === "hourly"
+                ? "Hourly fare multiplier"
+                : form.usage === "transfer"
+                  ? "Fare multiplier"
+                  : "Transfer fare multiplier"
+            }
+            hint={
+              form.usage === "hourly"
+                ? "Applied to each hour booked, from the next request onward."
+                : "Point-to-point and airport trips, from the next request onward."
+            }
           >
             <div className="flex items-center gap-3">
               <input
@@ -418,6 +475,35 @@ function VehicleDialog({
               </span>
             </div>
           </Field>
+
+          {(form.usage ?? "all") === "all" ? (
+            <Field
+              label="Hourly fare multiplier"
+              hint="Leave blank to charge hourly charters the same multiplier as transfers."
+            >
+              <div className="flex items-center gap-3">
+                <input
+                  type="number"
+                  step={0.05}
+                  min={0.1}
+                  max={20}
+                  value={form.hourlyMultiplier ?? ""}
+                  placeholder={String(form.multiplier || 1)}
+                  onChange={(e) =>
+                    set("hourlyMultiplier", e.target.value === "" ? null : Number(e.target.value))
+                  }
+                  className="h-10 w-28 rounded-field border border-border bg-surface px-3 text-meta font-bold text-fg focus:border-accent focus:outline-none"
+                />
+                <span className="flex items-center gap-1.5 text-note text-fg-muted">
+                  <IconMoney size={14} />
+                  {money(BASE_FARE_EXAMPLE)} per hour becomes{" "}
+                  <span className="font-bold text-fg">
+                    {money(BASE_FARE_EXAMPLE * (form.hourlyMultiplier || form.multiplier || 0))}
+                  </span>
+                </span>
+              </div>
+            </Field>
+          ) : null}
 
           <label className="flex items-center gap-2.5 rounded-field border border-border bg-surface px-3.5 py-3">
             <input

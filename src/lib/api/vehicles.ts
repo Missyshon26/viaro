@@ -23,6 +23,10 @@ export interface VehicleClass {
   bags: number;
   /** Fare = city base fare × peak multiplier × hours × this. */
   multiplier: number;
+  /** all · hourly (charters only) · transfer (point-to-point and airport only). */
+  usage?: VehicleUsage;
+  /** Hourly-charter multiplier when it differs from `multiplier`; null = same. */
+  hourlyMultiplier?: number | null;
   images: VehicleImage[];
   active: boolean;
   sortOrder: number;
@@ -36,6 +40,14 @@ export const listVehicleClasses = (includeInactive = false) =>
     query: includeInactive ? { includeInactive: true } : {},
   });
 
+export type VehicleUsage = "all" | "hourly" | "transfer";
+
+export const USAGE_LABEL: Record<VehicleUsage, string> = {
+  all: "Transfers & hourly",
+  transfer: "Transfers only",
+  hourly: "Hourly only",
+};
+
 export interface VehicleClassInput {
   value?: string;
   label: string;
@@ -43,6 +55,8 @@ export interface VehicleClassInput {
   seats: number;
   bags: number;
   multiplier: number;
+  usage?: VehicleUsage;
+  hourlyMultiplier?: number | null;
   active?: boolean;
   sortOrder?: number;
   images?: VehicleImage[];

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Card, Kicker, WarnBox } from "@/components/ui/Surfaces";
 import { Button } from "@/components/ui/Button";
 import { ConsolePage, money } from "@/components/ui/DataTable";
+import { ListSearch, matches } from "@/components/ui/ListSearch";
 import {
   listPricingRules,
   createPricingRule,
@@ -25,6 +26,7 @@ const inputClass =
 export default function PricingPage() {
   const [rules, setRules] = useState<PricingRule[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -40,6 +42,10 @@ export default function PricingPage() {
     void load();
   }, [load]);
 
+  const shown = (rules ?? []).filter((rule) =>
+    matches(query, [rule.city, rule.baseFare, rule.peakMultiplier]),
+  );
+
   return (
     <ConsolePage
       title="City pricing"
@@ -50,8 +56,15 @@ export default function PricingPage() {
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] lg:items-start">
         <div className="space-y-4">
           <Card className="p-0">
-            <div className="px-6 pt-6">
+            <div className="space-y-3 px-6 pt-6">
               <Kicker>Rules</Kicker>
+              <ListSearch
+                value={query}
+                onChange={setQuery}
+                placeholder="Search city…"
+                count={shown.length}
+                total={rules?.length ?? 0}
+              />
             </div>
 
             {rules === null ? (
@@ -61,9 +74,11 @@ export default function PricingPage() {
                 No cities priced. Until a city has a rule, quoting there returns 404 and
                 booking is impossible.
               </p>
+            ) : shown.length === 0 ? (
+              <p className="p-6 text-note text-fg-muted">No city matches &ldquo;{query}&rdquo;.</p>
             ) : (
               <ul className="mt-4 divide-y divide-border-subtle">
-                {rules.map((rule) => (
+                {shown.map((rule) => (
                   <li key={rule._id} className="px-6 py-5">
                     <div className="flex flex-wrap items-baseline gap-3">
                       <p className="text-meta font-bold capitalize text-fg">{rule.city}</p>

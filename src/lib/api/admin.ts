@@ -362,3 +362,31 @@ export const monthRange = (): ReportRange => {
   const now = new Date();
   return { from: iso(new Date(now.getFullYear(), now.getMonth(), 1)) };
 };
+
+/* -------------------------------- settings --------------------------------- */
+
+/**
+ * Default chauffeur payout — what a chauffeur with no rate of their own earns per trip.
+ * Edited here instead of the server's .env (backend: modules/admin/settings.service.ts).
+ */
+export interface PlatformSettings {
+  driverPayout: { mode: "percentage" | "flat"; value: number };
+  /** A fleet company's default share of each fare. */
+  companyRevenuePct: number;
+  /** 100 − companyRevenuePct; derived by the API. */
+  platformRevenuePct: number;
+  /** Charged on bank withdrawals only. */
+  withdrawalFeePct: number;
+  /** Receives quote requests, contact messages and support-case alerts. */
+  supportInboxEmail: string;
+  updatedAt: string | null;
+}
+
+export const updatePlatformSettings = (
+  input: Partial<Pick<PlatformSettings, "driverPayout" | "companyRevenuePct" | "withdrawalFeePct" | "supportInboxEmail">>,
+) => api.patch<PlatformSettings>("/admin/settings", input);
+
+export const getPlatformSettings = () => api.get<PlatformSettings>("/admin/settings");
+
+export const updatePayoutDefaults = (input: { mode: "percentage" | "flat"; value: number }) =>
+  api.patch<PlatformSettings>("/admin/settings/payout", input);

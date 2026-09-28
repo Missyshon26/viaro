@@ -1,14 +1,17 @@
 @import "tailwindcss";
 
 /*
-  Theme tokens extracted from the Figma file (mHZbhtKtTnIUG1s3Yfdb2V).
+  Theme tokens — the Viaro brand manual ("Viaro, Manual de Marca"):
 
-  Light  = "B · Monochrome blue"  (the chosen default)
-  Dark   = "C · Dark mode"
+    Midnight Route   #1153A4   primary actions, links, the logo mark on light
+    Azure Drive      #6096BA   accents; the mark and links on dark
+    Cloud Leather    #E1EFE6   light neutral; text on dark
+    Executive Black  #060606   text on light; the dark ground
 
-  Every value below was read from the design's own fills/strokes, not eyeballed:
-  the design has no Figma variables, so the token names are ours while the
-  values are the designer's.
+  Typeface: Clash Display (the manual's only face), self-hosted in src/app/fonts.
+  Greys and tints are derived from these four; red/green/amber are kept only for
+  error, success and warning states. These replaced the Figma palette-B navy
+  (#04182E) and blue (#0055A9), which were never brand colours.
 */
 
 @custom-variant dark (&:where(.dark, .dark *));
@@ -17,17 +20,17 @@
   color-scheme: light;
 
   --bg: #ffffff; /* screen background */
-  --surface: #f5f9fd; /* input fields, icon tiles, back button */
+  --surface: #f2f7f4; /* input fields, icon tiles, back button */
   --surface-raised: #ffffff; /* cards sitting on the page */
-  --border: #d3e1f0; /* field borders */
-  --border-subtle: #e9f0f8; /* footer / divider hairlines */
+  --border: #d6e2dc; /* field borders */
+  --border-subtle: #e7efea; /* footer / divider hairlines */
 
-  --fg: #04182e; /* headings and values */
-  --fg-muted: #527193; /* field labels, secondary copy */
-  --fg-faint: #4e5763; /* captions */
+  --fg: #060606; /* headings and values */
+  --fg-muted: #566068; /* field labels, secondary copy */
+  --fg-faint: #5f666d; /* captions */
 
-  --accent: #0055a9; /* links, "Forgot my password", desktop CTA fill */
-  --primary: #04182e; /* primary button fill */
+  --accent: #1153a4; /* links, "Forgot my password", desktop CTA fill */
+  --primary: #060606; /* primary button fill */
   --primary-fg: #ffffff;
 
   --danger: #b3261e;
@@ -37,27 +40,27 @@
     Desktop-only tokens. The mobile screens never used these; the desktop marketing
     pages lean on them heavily. Values read from the palette-B desktop frames.
   */
-  --fg-body: #083c6e; /* body copy on the marketing pages (72 nodes on Home alone) */
-  --accent-strong: #004484; /* eyebrow labels over tinted fills */
-  --accent-soft: #e3edf8; /* badge fill, segmented-control track */
-  --panel: #04182e; /* dark CTA bands and the "undefined rule" callouts */
-  --panel-fg: #ffffff;
-  --panel-muted: #8fa6c2; /* secondary copy inside a dark panel */
+  --fg-body: #2a3138; /* body copy on the marketing pages (72 nodes on Home alone) */
+  --accent-strong: #0d4285; /* eyebrow labels over tinted fills */
+  --accent-soft: #e3ebf6; /* badge fill, segmented-control track */
+  --panel: #060606; /* dark CTA bands and the "undefined rule" callouts */
+  --panel-fg: #e1efe6;
+  --panel-muted: #a3b1aa; /* secondary copy inside a dark panel */
 
   /* --- Dashboard system additions ------------------------------------------
      Chart series and elevation. The series ramp walks the brand blue from the
      deep navy of --primary out to a pale tint, so a multi-series chart reads as
      one family rather than a rainbow; --chart-warn/-bad are reserved for
      cancelled and penalised states, which must never look like normal traffic. */
-  --chart-1: #0055a9;
-  --chart-2: #2f86d8;
-  --chart-3: #79b3e8;
-  --chart-4: #b6d5f2;
-  --chart-5: #04182e;
+  --chart-1: #1153a4;
+  --chart-2: #6096ba;
+  --chart-3: #9fc0d6;
+  --chart-4: #cfe0ea;
+  --chart-5: #060606;
   --chart-good: #0f7b4f;
   --chart-warn: #b6862c;
   --chart-bad: #b3261e;
-  --chart-grid: #e9f0f8;
+  --chart-grid: #e7efea;
 
   --shadow-card: 0 1px 2px rgba(4, 24, 46, 0.04), 0 1px 3px rgba(4, 24, 46, 0.06);
   --shadow-raised: 0 4px 12px rgba(4, 24, 46, 0.08), 0 1px 3px rgba(4, 24, 46, 0.04);
@@ -66,18 +69,18 @@
 .dark {
   color-scheme: dark;
 
-  --bg: #0f1826;
-  --surface: #182437;
-  --surface-raised: #182437;
-  --border: #26344a;
-  --border-subtle: #26344a;
+  --bg: #060606;
+  --surface: #121416;
+  --surface-raised: #121416;
+  --border: #252a2e;
+  --border-subtle: #1c2023;
 
-  --fg: #ffffff;
-  --fg-muted: #8595ab;
-  --fg-faint: #8595ab;
+  --fg: #e1efe6;
+  --fg-muted: #8f9b95;
+  --fg-faint: #8f9b95;
 
-  --accent: #1273d4;
-  --primary: #1273d4; /* dark mode promotes blue to the button fill */
+  --accent: #6096ba;
+  --primary: #1153a4; /* dark mode promotes blue to the button fill */
   --primary-fg: #ffffff;
 
   --danger: #f2b8b5;
@@ -90,30 +93,30 @@
     soft accent becomes a blue-tinted shade of it. Re-check against 57:5843 when the
     quota resets.
   */
-  --fg-body: #a9b8cc;
-  --accent-strong: #4f9ae8;
-  --accent-soft: #17293f;
-  --panel: #182437;
-  --panel-fg: #ffffff;
-  --panel-muted: #8595ab;
+  --fg-body: #b8c6be;
+  --accent-strong: #6096ba;
+  --accent-soft: #0f1d2c;
+  --panel: #121416;
+  --panel-fg: #e1efe6;
+  --panel-muted: #8f9b95;
 
   /* Dashboard additions — same roles, lifted for the dark ground. */
-  --chart-1: #4f9ae8;
-  --chart-2: #1273d4;
-  --chart-3: #7fb8ee;
-  --chart-4: #2b4d70;
-  --chart-5: #a9b8cc;
+  --chart-1: #6096ba;
+  --chart-2: #1153a4;
+  --chart-3: #9fc0d6;
+  --chart-4: #2c4a66;
+  --chart-5: #b8c6be;
   --chart-good: #6dd6a5;
   --chart-warn: #e0b860;
   --chart-bad: #f2b8b5;
-  --chart-grid: #26344a;
+  --chart-grid: #252a2e;
 
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.2);
   --shadow-raised: 0 4px 12px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.25);
 }
 
 @theme inline {
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-brand), "Helvetica Neue", Arial, sans-serif;
 
   --color-bg: var(--bg);
   --color-surface: var(--surface);
@@ -189,4 +192,18 @@ body {
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+/*
+ * Brand manual typography: Clash Display, running text in LIGHT with the important
+ * phrases in BOLD. Explicit weight classes (font-bold, font-medium…) still apply.
+ * Word space widened slightly — Clash Display sets it very tight.
+ */
+body {
+  word-spacing: 0.06em;
+  font-weight: 300;
+}
+strong,
+b {
+  font-weight: 700;
 }

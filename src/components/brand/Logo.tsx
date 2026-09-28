@@ -7,8 +7,10 @@ import Image from "next/image";
  * would render as a black box on the white palette-B pages. Two trimmed, transparent
  * variants are derived from it, identical except for the wordmark:
  *
- *   viaro-logo.png       navy wordmark  (#04182E) — light surfaces
- *   viaro-logo-dark.png  white wordmark           — dark surfaces
+ *   viaro-logo-v2.png       Midnight Route mark, Executive Black wordmark — light surfaces
+ *   viaro-logo-v2-dark.png  Azure Drive mark, Cloud Leather wordmark      — dark surfaces
+ *
+ * Colours per the brand manual's "Color variants" page.
  *
  * Both are swapped with CSS rather than JS: reading the theme in a hook would render
  * one frame with the wrong file. `onDark` forces the dark variant for the places that
@@ -34,7 +36,7 @@ export function Logo({
   if (onDark) {
     return (
       <Image
-        src="/viaro-logo-dark.png"
+        src="/viaro-logo-v2-dark.png"
         alt="VIARO"
         width={width}
         height={height}
@@ -47,7 +49,7 @@ export function Logo({
   return (
     <span className={`block ${className}`} style={{ width, height }}>
       <Image
-        src="/viaro-logo.png"
+        src="/viaro-logo-v2.png"
         alt="VIARO"
         width={width}
         height={height}
@@ -55,7 +57,7 @@ export function Logo({
         className="block dark:hidden"
       />
       <Image
-        src="/viaro-logo-dark.png"
+        src="/viaro-logo-v2-dark.png"
         alt=""
         aria-hidden
         width={width}
