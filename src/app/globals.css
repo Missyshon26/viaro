@@ -200,7 +200,9 @@ body {
  * Word space widened slightly — Clash Display sets it very tight.
  */
 body {
-  word-spacing: 0.06em;
+  /* Clash Display sets tight; small UI text needs a little air between letters. */
+  letter-spacing: 0.02em;
+  word-spacing: 0.1em;
   font-weight: 300;
 }
 strong,
