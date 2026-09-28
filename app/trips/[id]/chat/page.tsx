@@ -4,13 +4,18 @@ import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { PageShell, Panel, SectionTitle, EmptyState } from "@/components/app/shell";
 import { ChatThread } from "@/components/app/chat-thread";
+import { ChatComposer } from "@/components/app/chat-composer";
+import { LiveRefresh } from "@/components/app/live-refresh";
 import { apiOptional, ApiError } from "@/lib/api/client";
 import { getBooking } from "@/lib/api/bookings";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import type { ChatMessage } from "@/lib/api/trips";
 import type { Booking, Paginated, Receipt, Trip } from "@/lib/api/types";
 
-export const metadata: Metadata = { title: "Chat | Viaro" };
+export const metadata: Metadata = {
+  title: "Chat | Viaro",
+  robots: { index: false, follow: false },
+};
 
 function toMessages(payload: ChatMessage[] | Paginated<ChatMessage> | null): ChatMessage[] {
   if (!payload) return [];
@@ -20,10 +25,9 @@ function toMessages(payload: ChatMessage[] | Paginated<ChatMessage> | null): Cha
 /**
  * Customer to chauffeur chat.
  *
- * History comes from `GET /trips/:id/chat/history`, which is fully implemented.
- * *Sending* is the part that needs the `/chat/:tripId` socket namespace — there is no
- * REST endpoint to post a message — so the composer explains that rather than being
- * hidden. The thread, the polling and the layout are all real.
+ * History comes from `GET /trips/:id/chat/history`; messages are sent with
+ * `POST /trips/:id/chat/messages`. New messages from the chauffeur arrive over the events
+ * stream (LiveRefresh, topic "chat"), which re-reads the thread.
  */
 export default async function ChatPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -75,11 +79,15 @@ export default async function ChatPage({ params }: { params: Promise<{ id: strin
               />
             </div>
           ) : (
-            <ChatThread messages={messages} currentUserId={user?._id ?? ""} />
+            <ChatThread messages={messages} currentUserId={user?._id ?? ""} otherName={driverName} />
           )}
 
           <div className="border-t border-border p-6">
-            <ChatComposer disabled={!trip} />
+            <ChatComposer
+              tripId={trip?._id ?? null}
+              bookingId={booking?._id ?? id}
+              disabled={trip?.status === "completed" || trip?.status === "cancelled"}
+            />
           </div>
         </Panel>
 
@@ -92,39 +100,8 @@ export default async function ChatPage({ params }: { params: Promise<{ id: strin
           </ul>
         </Panel>
       </div>
+      {/* A message from the chauffeur shows up without a reload. */}
+      <LiveRefresh topics={["chat", "trip"]} />
     </PageShell>
-  );
-}
-
-/**
- * Sending needs the socket namespace; there is no REST route that accepts a message.
- * The control is present and disabled with the reason, rather than absent.
- */
-function ChatComposer({ disabled }: { disabled: boolean }) {
-  const realtime = process.env.NEXT_PUBLIC_REALTIME_ENABLED === "true";
-
-  return (
-    <div>
-      <div className="flex gap-3">
-        <input
-          type="text"
-          disabled
-          placeholder={
-            disabled ? "Chat opens when a chauffeur accepts" : "Type a message…"
-          }
-          className="flex h-10 flex-1 rounded-md border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground disabled:opacity-60"
-        />
-        <Button disabled>Send</Button>
-      </div>
-      {!realtime ? (
-        <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-          Sending needs the realtime connection. The backend exposes a{" "}
-          <code className="text-foreground">/chat/:tripId</code> socket namespace and no
-          REST equivalent — set{" "}
-          <code className="text-foreground">NEXT_PUBLIC_REALTIME_ENABLED=true</code> once
-          a socket client is wired and this composer goes live.
-        </p>
-      ) : null}
-    </div>
   );
 }

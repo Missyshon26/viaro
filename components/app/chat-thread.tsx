@@ -1,47 +1,71 @@
+"use client";
+
+import { useEffect, useRef } from "react";
 import { formatDateTime } from "@/components/app/shell";
 import type { ChatMessage } from "@/lib/api/trips";
 import { cn } from "@/lib/utils";
 
-/** Renders the transcript from GET /trips/:id/chat/history. */
+const ROLE_LABEL: Record<string, string> = {
+  driver: "Chauffeur",
+  customer: "Passenger",
+  admin: "Viaro",
+};
+
+/**
+ * The transcript from GET /trips/:id/chat/history, newest at the bottom. It scrolls to the
+ * latest message on open and whenever a new one arrives.
+ */
 export function ChatThread({
   messages,
   currentUserId,
+  otherName,
 }: {
   messages: ChatMessage[];
   currentUserId: string;
+  /** The chauffeur's name, shown above their messages. */
+  otherName?: string | null;
 }) {
-  return (
-    <ul className="max-h-[28rem] space-y-4 overflow-y-auto p-6">
-      {messages.map((message) => {
-        const senderId =
-          typeof message.senderId === "object" ? message.senderId._id : message.senderId;
-        const mine = senderId === currentUserId;
+  const end = useRef<HTMLDivElement>(null);
+  const last = messages[messages.length - 1]?._id;
 
-        return (
-          <li key={message._id} className={cn("flex", mine ? "justify-end" : "justify-start")}>
-            <div
-              className={cn(
-                "max-w-[80%] rounded-xl px-4 py-3",
-                mine
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-secondary text-secondary-foreground",
-              )}
-            >
-              {!mine ? (
-                <p className="text-xs font-semibold uppercase tracking-wider opacity-70">
-                  {message.senderRole}
+  useEffect(() => {
+    end.current?.scrollIntoView({ block: "end" });
+  }, [last]);
+
+  return (
+    <div className="max-h-[32rem] overflow-y-auto p-6">
+      <ul className="space-y-4">
+        {messages.map((message) => {
+          const sender = typeof message.senderId === "object" ? message.senderId : null;
+          const senderId = sender ? sender._id : (message.senderId as string);
+          const mine = senderId === currentUserId;
+          const name = mine
+            ? "You"
+            : (sender?.name ?? otherName ?? ROLE_LABEL[message.senderRole] ?? "Chauffeur");
+
+          return (
+            <li key={message._id} className={cn("flex", mine ? "justify-end" : "justify-start")}>
+              <div className={cn("flex max-w-[80%] flex-col", mine ? "items-end" : "items-start")}>
+                <p className="mb-1 px-1 text-xs text-muted-foreground">
+                  <span className={mine ? "" : "font-medium text-azure"}>{name}</span> ·{" "}
+                  {formatDateTime(message.createdAt, { zone: false })}
                 </p>
-              ) : null}
-              <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed">
-                {message.message}
-              </p>
-              <p className="mt-2 text-[11px] opacity-60">
-                {formatDateTime(message.createdAt)}
-              </p>
-            </div>
-          </li>
-        );
-      })}
-    </ul>
+                <p
+                  className={cn(
+                    "whitespace-pre-wrap break-words rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
+                    mine
+                      ? "rounded-br-md bg-primary text-primary-foreground"
+                      : "rounded-bl-md border border-border bg-secondary text-cloud",
+                  )}
+                >
+                  {message.message}
+                </p>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      <div ref={end} />
+    </div>
   );
 }

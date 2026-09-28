@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { ApiError } from "@/lib/api/client";
-import { rateTrip, changeTripLocation, changeVehicleClass } from "@/lib/api/trips";
+import { rateTrip, changeTripLocation, changeVehicleClass, sendChatMessage } from "@/lib/api/trips";
 import { updateBooking } from "@/lib/api/bookings";
 import { requestFavoriteDriver } from "@/lib/api/bookings";
 import { addFavorite, removeFavorite } from "@/lib/api/account";
@@ -128,8 +128,8 @@ export async function addFavoriteAction(driverId: string): Promise<FormState | v
   } catch (err) {
     return toFormState(err);
   }
-  revalidatePath("/account");
   revalidatePath("/favorites");
+  revalidatePath("/trips");
 }
 
 export async function removeFavoriteAction(driverId: string): Promise<FormState | void> {
@@ -228,4 +228,20 @@ export async function releaseCreditAction(
   revalidatePath(`/trips/${tripId}`);
   revalidatePath("/wallet");
   return { saved: true };
+}
+
+/** Posts a chat message to the trip; the page re-reads the thread afterwards. */
+export async function sendChatMessageAction(
+  tripId: string,
+  bookingId: string,
+  message: string,
+): Promise<FormState | void> {
+  const text = message.trim();
+  if (!text) return { error: "Type a message first" };
+  try {
+    await sendChatMessage(tripId, text.slice(0, 2000));
+  } catch (err) {
+    return toFormState(err);
+  }
+  revalidatePath(`/trips/${bookingId}/chat`);
 }

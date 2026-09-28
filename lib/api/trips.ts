@@ -61,5 +61,9 @@ export interface ChatMessage {
   createdAt: string;
 }
 
+/** REST send — see POST /trips/:id/chat/messages in viaro-backend. */
+export const sendChatMessage = (tripId: string, message: string) =>
+  api.post<ChatMessage>(`/trips/${tripId}/chat/messages`, { message });
+
 export const getChatHistory = (tripId: string) =>
   api.get<ChatMessage[] | Paginated<ChatMessage>>(`/trips/${tripId}/chat/history`);

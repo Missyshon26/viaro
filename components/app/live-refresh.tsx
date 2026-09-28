@@ -26,7 +26,8 @@ export type ChangeTopic =
   | "user"
   | "vehicle"
   | "wallet"
-  | "notification";
+  | "notification"
+  | "chat";
 
 export function LiveRefresh({
   topics = ["booking", "trip", "dispatch"],

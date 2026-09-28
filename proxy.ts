@@ -34,11 +34,14 @@ const CUSTOMER_ONLY = [
   "/favorites",
 ];
 
+/** Not guarded by role, but still private — never indexed. */
+const PRIVATE_ONLY = ["/portal", "/verify-phone"];
+
 /** Signed-in users get bounced away from these. */
 const AUTH_PAGES = ["/login", "/register", "/forgot-password", "/reset-password"];
 
 /** Where a signed-in user belongs on THIS site. Only customers have a home here. */
-const homeFor = (role: UserRole | null) => (role === "customer" ? "/account" : "/portal");
+const homeFor = (role: UserRole | null) => (role === "customer" ? "/trips" : "/portal");
 
 /**
  * Seconds of headroom before expiry at which a token is already treated as spent.
@@ -198,6 +201,13 @@ export async function proxy(request: NextRequest) {
     url.pathname = homeFor(role);
     url.search = "";
     return NextResponse.redirect(url);
+  }
+
+  // Account pages, and the auth screens around them, have nothing a search engine
+  // should index or follow. The header covers every response on these paths, including
+  // ones a crawler reaches without the metadata of a rendered page.
+  if (guarded || PRIVATE_ONLY.some((p) => pathname === p || pathname.startsWith(`${p}/`)) || AUTH_PAGES.includes(pathname)) {
+    response.headers.set("X-Robots-Tag", "noindex, nofollow");
   }
 
   return response;

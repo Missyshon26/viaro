@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Phone, CheckCircle } from "lucide-react";
@@ -10,6 +10,7 @@ import { CtaSection } from "@/components/cta-section";
 import { homeTestimonials } from "@/data/Tetimonials";
 import { MainFa } from "@/data/Fa";
 import { FA } from "../FA";
+import { HeroBookingForm } from "./hero-booking-form";
 
 const inputCls =
   "w-full bg-black/60 border border-white/20 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-primary transition-colors";
@@ -94,391 +95,6 @@ const TRUST_METRICS = [
     ),
   },
 ];
-function BookingForm({ t }: { t: any }) {
-  const [mounted, setMounted] = React.useState(false);
-  const [trip, setTrip] = React.useState<TripType>("oneway");
-  const [stops, setStops] = React.useState<string[]>(["", ""]);
-  const [service, setService] = React.useState("");
-  const [pickup, setPickup] = React.useState("");
-  const [dropoff, setDropoff] = React.useState("");
-  const [date, setDate] = React.useState("");
-  const [time, setTime] = React.useState("");
-  const [dateReturn, setDateReturn] = React.useState("");
-  const [timeReturn, setTimeReturn] = React.useState("");
-  const [dateEnd, setDateEnd] = React.useState("");
-  const [pkgNotes, setPkgNotes] = React.useState("");
-  const [passengers, setPassengers] = React.useState("1");
-
-  React.useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const tabs: { key: TripType; label: string }[] = [
-    { key: "oneway", label: t.trip_oneway ?? "One Way" },
-    { key: "roundtrip", label: t.trip_roundtrip ?? "Round Trip" },
-    { key: "package", label: t.trip_package ?? "Package" },
-    { key: "multicity", label: t.trip_multicity ?? "Multi-City" },
-  ];
-
-  const addStop = () => setStops((s) => [...s, ""]);
-  const removeStop = (i: number) =>
-    setStops((s) => s.filter((_, idx) => idx !== i));
-  const updateStop = (i: number, val: string) =>
-    setStops((s) => s.map((v, idx) => (idx === i ? val : v)));
-
-  if (!mounted) return null;
-
-  return (
-    <div className="bg-white/5 backdrop-blur-xl border border-white/15 rounded-2xl p-6 sm:p-8 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] w-full min-w-0">
-      <h3 className="font-serif font-bold text-xl sm:text-2xl mb-1">
-        {t.form_title ?? "Book Your Ride"}
-      </h3>
-      <p className="text-xs text-white/50 uppercase tracking-widest mb-4">
-        {t.form_subtitle ?? "Instant quote · No commitment"}
-      </p>
-
-      <div className="grid grid-cols-4 gap-1 bg-white/5 rounded-xl p-1 mb-5">
-        {tabs.map(({ key, label }) => (
-          <button
-            key={key}
-            onClick={() => setTrip(key)}
-            className={`py-2 rounded-lg text-[9px] sm:text-xs font-bold uppercase tracking-wider transition-all duration-200 ${
-              trip === key
-                ? "bg-primary text-white"
-                : "text-white/50 hover:text-white"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      <div className="flex flex-col gap-4">
-        <div>
-          <label className={labelCls}>{t.form_service ?? "Service Type"}</label>
-          <select
-            value={service}
-            onChange={(e) => setService(e.target.value)}
-            className={selectCls}
-          >
-            <option value="">
-              {t.form_service_placeholder ?? "Select a service..."}
-            </option>
-            <option value="airport">
-              {t.form_service_airport ?? "Airport Transfer"}
-            </option>
-            <option value="corporate">
-              {t.form_service_corporate ?? "Corporate / Executive"}
-            </option>
-            <option value="cruise">
-              {t.form_service_cruise ?? "Cruise Port"}
-            </option>
-            <option value="fbo">
-              {t.form_service_fbo ?? "Private Jet / FBO"}
-            </option>
-            <option value="hourly">
-              {t.form_service_hourly ?? "Hourly Charter"}
-            </option>
-          </select>
-        </div>
-
-        {/* ONE WAY */}
-        {trip === "oneway" && (
-          <>
-            <div>
-              <label className={labelCls}>
-                {t.form_pickup ?? "Pickup Location"}
-              </label>
-              <input
-                type="text"
-                value={pickup}
-                onChange={(e) => setPickup(e.target.value)}
-                placeholder={
-                  t.form_pickup_placeholder ?? "Address, airport, hotel..."
-                }
-                className={inputCls}
-              />
-            </div>
-            <div>
-              <label className={labelCls}>
-                {t.form_dropoff ?? "Drop-off Location"}
-              </label>
-              <input
-                type="text"
-                value={dropoff}
-                onChange={(e) => setDropoff(e.target.value)}
-                placeholder={t.form_dropoff_placeholder ?? "Destination..."}
-                className={inputCls}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3 sm:gap-4">
-              <div>
-                <label className={labelCls}>{t.form_date ?? "Date"}</label>
-                <input
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className={inputCls}
-                />
-              </div>
-              <div>
-                <label className={labelCls}>{t.form_time ?? "Time"}</label>
-                <input
-                  type="time"
-                  value={time}
-                  onChange={(e) => setTime(e.target.value)}
-                  className={inputCls}
-                />
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* ROUND TRIP */}
-        {trip === "roundtrip" && (
-          <>
-            <div>
-              <label className={labelCls}>
-                {t.form_pickup ?? "Pickup Location"}
-              </label>
-              <input
-                type="text"
-                value={pickup}
-                onChange={(e) => setPickup(e.target.value)}
-                placeholder={
-                  t.form_pickup_placeholder ?? "Address, airport, hotel..."
-                }
-                className={inputCls}
-              />
-            </div>
-            <div>
-              <label className={labelCls}>
-                {t.form_dropoff ?? "Drop-off Location"}
-              </label>
-              <input
-                type="text"
-                value={dropoff}
-                onChange={(e) => setDropoff(e.target.value)}
-                placeholder={t.form_dropoff_placeholder ?? "Destination..."}
-                className={inputCls}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3 sm:gap-4">
-              <div>
-                <label className={labelCls}>
-                  {t.form_date_depart ?? "Departure"}
-                </label>
-                <input
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className={inputCls}
-                />
-              </div>
-              <div>
-                <label className={labelCls}>{t.form_time ?? "Time"}</label>
-                <input
-                  type="time"
-                  value={time}
-                  onChange={(e) => setTime(e.target.value)}
-                  className={inputCls}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3 sm:gap-4">
-              <div>
-                <label className={labelCls}>
-                  {t.form_date_return ?? "Return"}
-                </label>
-                <input
-                  type="date"
-                  value={dateReturn}
-                  onChange={(e) => setDateReturn(e.target.value)}
-                  className={inputCls}
-                />
-              </div>
-              <div>
-                <label className={labelCls}>
-                  {t.form_time_return ?? "Return Time"}
-                </label>
-                <input
-                  type="time"
-                  value={timeReturn}
-                  onChange={(e) => setTimeReturn(e.target.value)}
-                  className={inputCls}
-                />
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* PACKAGE */}
-        {trip === "package" && (
-          <>
-            <div>
-              <label className={labelCls}>
-                {t.form_pickup ?? "Pickup Location"}
-              </label>
-              <input
-                type="text"
-                value={pickup}
-                onChange={(e) => setPickup(e.target.value)}
-                placeholder={
-                  t.form_pickup_placeholder ?? "Address, airport, hotel..."
-                }
-                className={inputCls}
-              />
-            </div>
-            <div>
-              <label className={labelCls}>
-                {t.form_dropoff ?? "Drop-off Location"}
-              </label>
-              <input
-                type="text"
-                value={dropoff}
-                onChange={(e) => setDropoff(e.target.value)}
-                placeholder={t.form_dropoff_placeholder ?? "Destination..."}
-                className={inputCls}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3 sm:gap-4">
-              <div>
-                <label className={labelCls}>
-                  {t.form_date ?? "Start Date"}
-                </label>
-                <input
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className={inputCls}
-                />
-              </div>
-              <div>
-                <label className={labelCls}>
-                  {t.form_date_end ?? "End Date"}
-                </label>
-                <input
-                  type="date"
-                  value={dateEnd}
-                  onChange={(e) => setDateEnd(e.target.value)}
-                  className={inputCls}
-                />
-              </div>
-            </div>
-            <div>
-              <label className={labelCls}>
-                {t.form_package_notes ?? "Package Details"}
-              </label>
-              <input
-                type="text"
-                value={pkgNotes}
-                onChange={(e) => setPkgNotes(e.target.value)}
-                placeholder={
-                  t.form_package_placeholder ??
-                  "E.g. 3-day corporate retreat..."
-                }
-                className={inputCls}
-              />
-            </div>
-          </>
-        )}
-
-        {/* MULTI-CITY */}
-        {trip === "multicity" && (
-          <>
-            {stops.map((val, i) => (
-              <div key={i} className="relative">
-                <label className={labelCls}>
-                  {i === 0
-                    ? (t.form_pickup ?? "Pickup Location")
-                    : i === stops.length - 1
-                      ? (t.form_dropoff ?? "Final Destination")
-                      : `${t.form_stop ?? "Stop"} ${i}`}
-                </label>
-                <div className="flex gap-2 items-center">
-                  <input
-                    type="text"
-                    value={val}
-                    onChange={(e) => updateStop(i, e.target.value)}
-                    placeholder={
-                      i === 0
-                        ? (t.form_pickup_placeholder ?? "Starting point...")
-                        : (t.form_stop_placeholder ?? "Next destination...")
-                    }
-                    className={inputCls}
-                  />
-                  {i > 1 && i === stops.length - 1 && (
-                    <button
-                      onClick={() => removeStop(i)}
-                      className="flex-shrink-0 w-9 h-9 rounded-lg border border-white/20 text-white/40 hover:text-white hover:border-white/50 transition-colors flex items-center justify-center text-lg leading-none"
-                    >
-                      ×
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-            <button
-              onClick={addStop}
-              className="text-xs font-semibold uppercase tracking-widest text-primary hover:text-white transition-colors text-left"
-            >
-              + {t.form_add_stop ?? "Add Stop"}
-            </button>
-            <div className="grid grid-cols-2 gap-3 sm:gap-4">
-              <div>
-                <label className={labelCls}>{t.form_date ?? "Date"}</label>
-                <input
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className={inputCls}
-                />
-              </div>
-              <div>
-                <label className={labelCls}>{t.form_time ?? "Time"}</label>
-                <input
-                  type="time"
-                  value={time}
-                  onChange={(e) => setTime(e.target.value)}
-                  className={inputCls}
-                />
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* Passengers */}
-        <div>
-          <label className={labelCls}>
-            {t.form_passengers ?? "Passengers"}
-          </label>
-          <select
-            value={passengers}
-            onChange={(e) => setPassengers(e.target.value)}
-            className={selectCls}
-          >
-            {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
-              <option key={n} value={n}>
-                {n}{" "}
-                {n === 1
-                  ? (t.form_passenger ?? "passenger")
-                  : (t.form_passengers_label ?? "passengers")}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <a href="/book" className="mt-2">
-          <Button className={`w-full h-12 ${btnPrimary}`}>
-            {t.form_cta ?? "Get Instant Quote"}
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
-        </a>
-      </div>
-    </div>
-  );
-}
-
 // ── MAIN CONTENT ──────────────────────────────────────────────────────────────
 export default function MainContent({ dict}: { dict: any;}) {
   const t = dict;
@@ -489,23 +105,6 @@ export default function MainContent({ dict}: { dict: any;}) {
   const locationsRegions: any[] = t.locations_regions || [];
   const aboutWhy: any[] = t.about_why || [];
   const fa = MainFa;
-  const [isMounted, setIsMounted] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    console.log("Styles applied?", document.body.style.backgroundColor);
-    console.log(
-      "MainContent visibility:",
-      document.getElementById("MainContent")?.style.display,
-    );
-
-    // Forzar visibilidad
-    const mainEl = document.getElementById("MainContent");
-    if (mainEl) {
-      console.log("MainContent found:", mainEl);
-      console.log("Computed styles:", window.getComputedStyle(mainEl).display);
-    }
-  }, []);
 
   return (
     <section id="MainContent" className="bg-black text-white">
@@ -523,20 +122,28 @@ export default function MainContent({ dict}: { dict: any;}) {
             <div className="absolute inset-0 bg-black/50" />
           </div>
 
-          <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-8 lg:px-16 pt-32 sm:pt-36 pb-20 sm:pb-28">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+          <div className="relative z-10 w-full max-w-7xl mx-auto px-5 sm:px-8 lg:px-16 pt-28 sm:pt-36 pb-14 sm:pb-28">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-10 lg:gap-16 items-center">
               <div className="max-w-2xl min-w-0">
-                <p className="mb-3 text-xs sm:text-sm font-semibold uppercase tracking-[0.25em] text-brand [text-shadow:0_1px_3px_rgba(0,0,0,0.9),_0_4px_12px_rgba(0,0,0,0.6)] whitespace-pre-line">
+                <p className="mb-3 text-[11px] sm:text-sm font-semibold uppercase tracking-[0.08em] sm:tracking-[0.08em] text-brand [text-shadow:0_1px_3px_rgba(0,0,0,0.9),_0_4px_12px_rgba(0,0,0,0.6)] whitespace-pre-line">
                   {t.hero_top_text}
                 </p>
-                <h1 className="font-serif font-bold leading-tight text-3xl sm:text-4xl lg:text-5xl xl:text-6xl">
+                <h1 className="font-serif font-medium leading-[1.12] sm:leading-[1.08] tracking-tight text-[2.1rem] sm:text-5xl lg:text-6xl xl:text-[4.25rem] text-balance">
                   {t.hero_title}
                 </h1>
-                <p className="mb-6 mt-2 text-sm font-semibold uppercase tracking-[0.3em]">
+                <p className="mt-4 text-xs sm:text-sm font-normal uppercase tracking-[0.08em] text-white/85">
                   {t.subtitle}
                 </p>
-                <div className="mt-8 flex flex-wrap gap-3">
-                  <a href="/book">
+                <div className="mt-6 sm:mt-8 flex flex-wrap gap-3">
+                  <a href="#hero-booking" className="lg:hidden">
+                    <Button
+                      className={`px-6 sm:px-8 h-11 sm:h-12 ${btnPrimary}`}
+                    >
+                      {t.book_now}
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </a>
+                  <a href="/book" className="hidden lg:inline-block">
                     <Button
                       className={`px-6 sm:px-8 h-11 sm:h-12 ${btnPrimary}`}
                     >
@@ -555,86 +162,27 @@ export default function MainContent({ dict}: { dict: any;}) {
                   </a>
                 </div>
               </div>
-              <div className="min-w-0 w-full">
-                <BookingForm t={t} />
+              <div id="hero-booking" className="min-w-0 w-full scroll-mt-24">
+                <HeroBookingForm t={t} />
               </div>
             </div>
           </div>
         </section>
 
-        <section
-          style={{
-            background: "rgb(30,30,30)",
-            borderTop: "1px solid rgba(255,255,255,0.1)",
-            borderBottom: "1px solid rgba(255,255,255,0.1)",
-            padding: "32px 12px",
-            overflow: "hidden",
-          }}
-        >
-          <p
-            style={{
-              textAlign: "center",
-              fontSize: 11,
-              textTransform: "uppercase",
-              letterSpacing: "0.15em",
-              color: "rgba(255,255,255,0.4)",
-              marginBottom: 24,
-              fontWeight: 500,
-            }}
-          >
-            {"Trusted by thousands across North America"}
+        {/* Trust bar. Four across from sm up; two by two on a phone, where four columns
+            squeezed the labels down to 7px. */}
+        <section className="border-y border-white/10 bg-neutral-900 px-5 py-8 sm:py-10">
+          <p className="mb-6 text-center text-[11px] font-medium uppercase tracking-[0.08em] text-white/45">
+            Trusted by thousands across North America
           </p>
-          <div
-            style={{
-              maxWidth: 900,
-              margin: "0 auto",
-              display: "grid",
-              gridTemplateColumns: "repeat(4, 1fr)", // siempre 4 columnas
-              gap: 8,
-              textAlign: "center",
-            }}
-          >
+          <div className="mx-auto grid max-w-[900px] grid-cols-2 gap-x-4 gap-y-7 text-center sm:grid-cols-4 sm:gap-2">
             {TRUST_METRICS.map((m) => (
-              <div
-                key={m.value.en}
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "0 4px",
-                }}
-              >
-                {/* icono pequeño igual que antes */}
-                <div
-                  style={{
-                    color: "var(--color-primary, #3b82f6)",
-                    width: "clamp(16px, 4.5vw, 28px)",
-                    height: "clamp(16px, 4.5vw, 28px)",
-                    flexShrink: 0,
-                  }}
-                >
-                  {m.icon}
-                </div>
-                <span
-                  style={{
-                    fontSize: "clamp(12px, 3.5vw, 22px)",
-                    fontWeight: 700,
-                    color: "#fff",
-                    lineHeight: 1,
-                  }}
-                >
+              <div key={m.value.en} className="flex flex-col items-center gap-1.5 px-1">
+                <div className="h-6 w-6 flex-shrink-0 text-brand sm:h-7 sm:w-7">{m.icon}</div>
+                <span className="text-xl font-bold leading-none text-white sm:text-[22px]">
                   {m.value.en}
                 </span>
-                <span
-                  style={{
-                    fontSize: "clamp(7px, 1.8vw, 11px)",
-                    color: "rgba(255,255,255,0.4)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.05em",
-                    lineHeight: 1.2,
-                  }}
-                >
+                <span className="text-[11px] uppercase leading-tight tracking-wider text-white/45">
                   {m.label.en}
                 </span>
               </div>
@@ -643,8 +191,8 @@ export default function MainContent({ dict}: { dict: any;}) {
         </section>
 
         {/* ── WELCOME ── */}
-        <section className="py-16 sm:py-20 bg-neutral-950">
-          <div className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-16">
+        <section className="py-12 sm:py-20 bg-neutral-950">
+          <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-16">
             <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
               <div className="min-w-0">
                 <h2 className="font-serif font-bold text-3xl sm:text-4xl lg:text-5xl leading-tight">
@@ -659,7 +207,7 @@ export default function MainContent({ dict}: { dict: any;}) {
                       </React.Fragment>
                     ))}
                 </h2>
-                <p className="mt-6 text-sm sm:text-base text-gray-300 text-justify leading-relaxed whitespace-pre-line">
+                <p className="mt-6 text-sm sm:text-base text-gray-300 text-left md:text-justify leading-relaxed whitespace-pre-line">
                   {t.welcome_description}
                 </p>
               </div>
@@ -678,8 +226,8 @@ export default function MainContent({ dict}: { dict: any;}) {
         
       
   {/* ── LOCATIONS ── */}
-        <section className="py-16 sm:py-20 bg-black">
-          <div className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-16">
+        <section className="py-12 sm:py-20 bg-black">
+          <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-16">
             <h2 className="font-serif font-bold text-3xl sm:text-4xl lg:text-5xl leading-tight text-center mb-8">
               {t.locations_title}
             </h2>
@@ -798,8 +346,8 @@ export default function MainContent({ dict}: { dict: any;}) {
         </section>
         {/* ── FLEET ── */}
         {fleet.length > 0 && (
-          <section id="fleet" className="py-14 sm:py-20 bg-black">
-            <div className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-16">
+          <section id="fleet" className="py-12 sm:py-20 bg-black">
+            <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-16">
               <h2 className="text-center font-serif font-bold text-3xl sm:text-4xl lg:text-5xl leading-tight">
                 {t.fleet_title}
               </h2>
@@ -880,8 +428,8 @@ export default function MainContent({ dict}: { dict: any;}) {
 
         {/* ── About us ── */}
         {t.about_title && (
-          <section className="py-14 sm:py-20 bg-neutral">
-            <div className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-16">
+          <section className="py-12 sm:py-20 bg-neutral">
+            <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-16">
               <h2 className="text-center font-serif font-bold text-3xl sm:text-4xl lg:text-5xl leading-tight">
                 {t.about_title
                   .split("Viaro")
@@ -994,7 +542,7 @@ export default function MainContent({ dict}: { dict: any;}) {
         </div>
 
         <section className="pt-16 sm:pt-24 overflow-hidden">
-          <div className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-16 mb-1 text-center">
+          <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-16 mb-1 text-center">
             <h2 className="font-serif font-bold text-3xl sm:text-4xl lg:text-5xl leading-tight">
               {"5-STAR RATED LUXURY TRANSPORTATION REVIEWS"}
             </h2>
@@ -1003,8 +551,8 @@ export default function MainContent({ dict}: { dict: any;}) {
         </section>
 
         <CtaSection />
-        <section className="py-16 sm:py-24 bg-black">
-          <div className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-16">
+        <section className="py-12 sm:py-24 bg-black">
+          <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-16">
             <h2 className="font-serif font-bold text-3xl sm:text-4xl lg:text-5xl leading-tight text-center mb-6">
               {"BLACK CAR SERVICE FAQs"}
             </h2>

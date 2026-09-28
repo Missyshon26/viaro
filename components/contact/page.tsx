@@ -3,12 +3,16 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { getDictionary } from "@/lib/get-dictionary";
+import { Clock, Mail, MapPin, Phone } from "lucide-react";
+import { send } from "@/lib/email";
 
 export default function ContactPage() {
   const params = useParams();
     const [dict, setDict] = useState<any>(null);
   const [form, setForm] = useState({ name: "", email: "", phone: "", service: "", message: "" });
   const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     getDictionary().then(setDict);
@@ -22,23 +26,51 @@ export default function ContactPage() {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  /*
+   * This used to flip to "Message Sent!" without sending anything. It now goes through
+   * the same server action as the homepage quote form, so both land in the same inbox.
+   */
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSent(true);
+    setError(null);
+    setSending(true);
+
+    const service = t.form.serviceOptions.find((o: any) => o.value === form.service)?.label;
+    const fd = new FormData();
+    fd.set("fullName", form.name);
+    fd.set("email", form.email);
+    // Phone is optional here but required by the shared schema.
+    fd.set("phone", form.phone.trim() || "Not provided");
+    fd.set("message", service ? `Service: ${service}\n\n${form.message}` : form.message);
+
+    try {
+      const result = await send({ success: false }, fd);
+      if (result.success) {
+        setSent(true);
+      } else {
+        const fieldError = Object.values(result.errors ?? {}).flat()[0];
+        setError(fieldError ?? result.message ?? "Something went wrong. Please try again.");
+      }
+    } catch {
+      setError("We couldn't send your message. Please call us on (206) 672-8281.");
+    } finally {
+      setSending(false);
+    }
   };
 
+  // Line icons in the brand blue, not emoji: emoji render in each platform's own colours.
   const infoCards = [
-    { icon: "📞", ...t.info.phone, href: `tel:${t.info.phone.value.replace(/\D/g, "")}` },
-    { icon: "✉️", ...t.info.email, href: `mailto:${t.info.email.value}` },
-    { icon: "🕐", ...t.info.hours, href: null },
-    { icon: "📍", ...t.info.location, href: null },
+    { icon: Phone, ...t.info.phone, href: `tel:+1${t.info.phone.value.replace(/\D/g, "")}` },
+    { icon: Mail, ...t.info.email, href: `mailto:${t.info.email.value}` },
+    { icon: Clock, ...t.info.hours, href: null },
+    { icon: MapPin, ...t.info.location, href: null },
   ];
 
   return (
     <div className="bg-black text-white min-h-screen">
 
       {/* ── HERO ── */}
-      <section className="pt-32 pb-16 px-4 sm:px-8 lg:px-16 max-w-7xl mx-auto">
+      <section className="pt-32 pb-16 px-5 sm:px-8 lg:px-16 max-w-7xl mx-auto">
         <p className="text-xs font-bold uppercase tracking-widest text-primary mb-3">{t.label}</p>
         <h1 className="font-serif font-bold text-4xl sm:text-5xl lg:text-6xl leading-tight max-w-2xl mb-4">
           {t.title}
@@ -47,7 +79,7 @@ export default function ContactPage() {
       </section>
 
       {/* ── MAIN GRID ── */}
-      <section className="pb-24 px-4 sm:px-8 lg:px-16 max-w-7xl mx-auto">
+      <section className="pb-24 px-5 sm:px-8 lg:px-16 max-w-7xl mx-auto">
         <div className="grid gap-12 lg:grid-cols-2 lg:items-start">
 
           {/* ── FORM ── */}
@@ -126,10 +158,16 @@ export default function ContactPage() {
                   />
                 </div>
 
-                <button type="submit"
-                  className="w-full bg-primary text-black font-bold py-3 rounded-full text-xs uppercase tracking-widest hover:bg-white transition"
+                {error ? (
+                  <p role="alert" className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                    {error}
+                  </p>
+                ) : null}
+
+                <button type="submit" disabled={sending}
+                  className="w-full bg-primary text-white font-bold py-3 rounded-full text-xs uppercase tracking-widest hover:bg-brand2 transition disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  {t.form.submit}
+                  {sending ? "Sending…" : t.form.submit}
                 </button>
               </form>
             )}
@@ -140,7 +178,7 @@ export default function ContactPage() {
             {infoCards.map((card) => (
               <div key={card.label} className="flex gap-4 border border-white/5 rounded-2xl bg-neutral-900/30 p-6 hover:border-primary/30 transition group">
                 <div className="flex-shrink-0 h-10 w-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center group-hover:bg-primary/20 transition">
-                  <span className="text-base">{card.icon}</span>
+                  <card.icon className="h-[18px] w-[18px] text-brand" />
                 </div>
                 <div>
                   <p className="text-xs uppercase tracking-widest text-neutral-500 mb-1">{card.label}</p>
@@ -159,7 +197,7 @@ export default function ContactPage() {
               <p className="text-xs uppercase tracking-widest text-neutral-500 mb-4">{t.social.label}</p>
               <div className="flex gap-3 flex-wrap">
                 {t.social.links.map((s: any) => (
-                  <a key={s.label} href={s.href}
+                  <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer"
                     className="text-xs font-semibold uppercase tracking-widest border border-white/10 rounded-full px-4 py-2 text-neutral-400 hover:border-primary hover:text-primary transition"
                   >
                     {s.label}

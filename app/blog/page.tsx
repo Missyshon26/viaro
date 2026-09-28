@@ -14,7 +14,7 @@ export default function BlogPage() {
   return (
     <main className="bg-black min-h-[70vh]">
       <section className="mx-auto max-w-3xl px-6 py-24 text-center sm:py-32">
-        <p className="text-sm uppercase tracking-[0.2em] text-brand">Journal</p>
+        <p className="text-sm uppercase tracking-[0.08em] text-brand">Journal</p>
         <h1 className="mt-4 font-sans text-4xl font-bold text-foreground sm:text-5xl">
           Stories from the road
         </h1>

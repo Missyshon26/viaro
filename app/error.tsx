@@ -19,7 +19,7 @@ export default function Error({
   return (
     <main className="flex min-h-[70vh] items-center justify-center bg-black px-6">
       <div className="max-w-md text-center">
-        <p className="text-sm uppercase tracking-[0.2em] text-brand">Something broke</p>
+        <p className="text-sm uppercase tracking-[0.08em] text-brand">Something broke</p>
         <h1 className="mt-4 font-sans text-3xl font-bold text-foreground">
           That did not go to plan
         </h1>

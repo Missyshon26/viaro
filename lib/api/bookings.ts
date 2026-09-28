@@ -82,7 +82,23 @@ export const requestFavoriteDriver = (bookingId: string, driverId: string) =>
 
 /* --------------------------------- rides --------------------------------- */
 
-export type RideListItem = Booking & { scheduledAtLocal?: string };
+/** What happened to the Trip behind a booking — see listMyRides in viaro-backend. */
+export interface RideTripSummary {
+  tripId: string;
+  status: "accepted" | "started" | "completed" | "cancelled";
+  completedAt?: string;
+  refundPct?: number;
+  refundedAt?: string;
+  rated: boolean;
+  driverId: string;
+  driverName: string | null;
+}
+
+export type RideListItem = Booking & {
+  scheduledAtLocal?: string;
+  /** Null until a chauffeur accepts. Absent from an older API that did not send it. */
+  trip?: RideTripSummary | null;
+};
 
 export const listMyRides = (page = 1, limit = 20) =>
   api.get<Paginated<RideListItem>>("/users/me/rides", { query: { page, limit } });
@@ -105,6 +121,9 @@ export interface ApiVehicleClass {
   seats: number;
   bags: number;
   multiplier: number;
+  /** all · hourly (charters only) · transfer (point-to-point and airport only). */
+  usage?: "all" | "hourly" | "transfer";
+  hourlyMultiplier?: number | null;
   active: boolean;
   sortOrder: number;
 }

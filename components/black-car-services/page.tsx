@@ -150,7 +150,7 @@ export default function ServicesPage() {
 
         <div className="absolute inset-0 z-10 flex flex-col justify-end mx-auto w-full max-w-7xl px-5 sm:px-8 lg:px-16 pt-20 pb-10 sm:pb-20">
           <div>
-            <p className="mb-3 text-xs sm:text-sm font-semibold uppercase tracking-[0.25em] text-brand [text-shadow:0_1px_3px_rgba(0,0,0,0.9),_0_4px_12px_rgba(0,0,0,0.6)] whitespace-pre-line">
+            <p className="mb-3 text-xs sm:text-sm font-semibold uppercase tracking-[0.08em] text-brand [text-shadow:0_1px_3px_rgba(0,0,0,0.9),_0_4px_12px_rgba(0,0,0,0.6)] whitespace-pre-line">
               {t.hero.eyebrow ?? t.hero.subtitle}
             </p>
 
@@ -247,7 +247,7 @@ export default function ServicesPage() {
               {/* Icono con tamaño fijo, sin solaparse */}
               <div
                 style={{
-                  color: "var(--color-primary, #3b82f6)",
+                  color: "#89b4d4",
                   width: 28,
                   height: 28,
                   flexShrink: 0,
@@ -298,15 +298,15 @@ export default function ServicesPage() {
 
       {/* ── SERVICE CARDS ── */}
       <section className="bg-black">
-        <div className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-16 mt-10 mb-5">
+        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-16 mt-10 mb-5">
           <div className="text-center mb-12 sm:mb-16">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand mb-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-brand mb-3">
               {"What We Offer"}
             </p>
             <h2 className="font-serif font-bold text-3xl sm:text-4xl lg:text-5xl leading-tight max-w-3xl mx-auto">
               {t.serviceCards.title}
             </h2>
-            <p className="mt-4 text-sm sm:text-base text-gray-400 leading-relaxed max-w-xl mx-auto text-justify">
+            <p className="mt-4 text-sm sm:text-base text-gray-400 leading-relaxed max-w-xl mx-auto text-left md:text-justify">
               {t.serviceCards.subtitle}
             </p>
           </div>
@@ -332,8 +332,8 @@ export default function ServicesPage() {
       </section>
 
       {/* ── PRICING ── */}
-      <section className="py-16 sm:py-24 bg-neutral-950">
-        <div className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-16">
+      <section className="py-12 sm:py-24 bg-neutral-950">
+        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-16">
           <div className="text-center mb-12">
             <h2 className="font-serif font-bold text-3xl sm:text-4xl lg:text-5xl leading-tight">
               {t.pricing.title.split("Viaro")
@@ -395,7 +395,7 @@ export default function ServicesPage() {
 
       {/* ── TESTIMONIALS ── */}
       <section className="pt-16 sm:pt-24">
-        <div className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-16 mb-2 text-center">
+        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-16 mb-2 text-center">
           <h2 className="font-serif font-bold text-3xl sm:text-4xl lg:text-5xl leading-tight">
             {"What Our Riders Say"}
           </h2>
@@ -404,8 +404,8 @@ export default function ServicesPage() {
       </section>
 
       {/* ── FAQ ── */}
-      <section className="py-16 sm:py-24 bg-black">
-        <div className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-16">
+      <section className="py-12 sm:py-24 bg-black">
+        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-16">
           <h2 className="font-serif font-bold text-3xl sm:text-4xl lg:text-5xl leading-tight text-center mb-2">
             {"Frequently Asked Questions"}
           </h2>

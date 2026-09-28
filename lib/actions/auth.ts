@@ -28,7 +28,7 @@ export interface FormState {
  * valid session here, but has nothing to use — they are handed to /portal, which links
  * them to their own application.
  */
-const homeFor = (role: UserRole) => (role === "customer" ? "/account" : "/portal");
+const homeFor = (role: UserRole) => (role === "customer" ? "/trips" : "/portal");
 
 function toFormState(err: unknown): FormState {
   if (err instanceof ApiError) {
@@ -43,7 +43,10 @@ export async function loginAction(
 ): Promise<FormState> {
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
-  const next = String(formData.get("next") ?? "");
+  const requested = String(formData.get("next") ?? "");
+  // Same-site paths only: "//host" and "/\host" are protocol-relative and would send a
+  // freshly signed-in user to another site.
+  const next = /^\/(?![/\\])/.test(requested) ? requested : "";
 
   let result: AuthResult;
   try {

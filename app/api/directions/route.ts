@@ -11,14 +11,14 @@
 export const runtime = "nodejs";
 
 const KEY = process.env.DIRECTIONS_API_KEY ?? "";
-const PROVIDER = process.env.DIRECTIONS_PROVIDER ?? "";
+// Maps, directions and places are always Google; the key being set is the switch.
 
 export async function GET(request: Request): Promise<Response> {
   const params = new URL(request.url).searchParams;
   const origin = params.get("origin")?.trim() ?? "";
   const destination = params.get("destination")?.trim() ?? "";
 
-  if (!PROVIDER || !KEY || !origin || !destination) {
+  if (!KEY || !origin || !destination) {
     return Response.json({ route: null });
   }
 

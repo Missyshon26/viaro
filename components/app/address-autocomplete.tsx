@@ -10,10 +10,12 @@ import { useEffect, useId, useRef, useState } from "react";
  * provider does not know — a private airstrip, a new development — and still book.
  * Choosing a suggestion fills the field; it does not become a required step.
  *
- * With NEXT_PUBLIC_PLACES_ENABLED unset this degrades to that same plain input.
+ * On by default: the route falls back to a keyless geocoder when Google is not set up,
+ * so there is always something to ask.
  */
 
-const PLACES_ENABLED = process.env.NEXT_PUBLIC_PLACES_ENABLED === "true";
+/** Always on: the route answers from Google, or the keyless fallback, or nothing. */
+const PLACES_ENABLED = true;
 
 /** Mirrors the payload of /api/places/autocomplete. */
 interface PlaceSuggestion {
@@ -30,12 +32,14 @@ export function AddressAutocomplete({
   onChange,
   placeholder,
   className,
+  name,
 }: {
   id: string;
   value: string;
   onChange: (next: string) => void;
   placeholder?: string;
   className?: string;
+  name?: string;
 }) {
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [open, setOpen] = useState(false);
@@ -121,6 +125,7 @@ export function AddressAutocomplete({
     <div className="relative">
       <input
         id={id}
+        name={name}
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}

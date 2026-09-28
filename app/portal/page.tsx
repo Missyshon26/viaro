@@ -6,7 +6,10 @@ import { PageShell, Panel, SectionTitle } from "@/components/app/shell";
 import { SignOutButton } from "@/components/app/account-forms";
 import { getCurrentUser } from "@/lib/auth/current-user";
 
-export const metadata: Metadata = { title: "Your portal | Viaro" };
+export const metadata: Metadata = {
+  title: "Your portal | Viaro",
+  robots: { index: false, follow: false },
+};
 
 /**
  * Hand-off for non-passenger accounts.

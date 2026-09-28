@@ -1,11 +1,12 @@
 "use client";
 
 import { useTransition, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ErrorNote } from "@/components/app/shell";
 import { subscribeAction, cancelSubscriptionAction } from "@/lib/actions/account";
 
-export function SubscribeButton() {
+export function SubscribeButton({ label = "Subscribe" }: { label?: string }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -20,10 +21,11 @@ export function SubscribeButton() {
           start(async () => {
             const result = await subscribeAction();
             setError(result?.error ?? null);
+            if (!result?.error) toast.success("Your plan is active — peak surcharges are off.");
           })
         }
       >
-        {pending ? "Activating…" : "Subscribe"}
+        {pending ? "Activating…" : label}
       </Button>
     </div>
   );
@@ -57,6 +59,7 @@ export function CancelSubscriptionButton() {
             start(async () => {
               const result = await cancelSubscriptionAction();
               setError(result?.error ?? null);
+              if (!result?.error) toast.success("Your plan is cancelled.");
             })
           }
         >

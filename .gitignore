@@ -14,3 +14,9 @@ node_modules/
 # Fontspring DEMO faces: evaluation-only, not licensed for distribution.
 # Nothing renders from these — the site uses Archivo via next/font/google.
 public/Demo_Fonts/
+
+# Deployment env values (real credentials) — never commit.
+.env.live
+
+# Vercel CLI project link — local, not shared.
+.vercel

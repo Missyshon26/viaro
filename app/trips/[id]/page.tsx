@@ -20,12 +20,15 @@ import { getBooking } from "@/lib/api/bookings";
 import type { Booking, Driver, Receipt, Trip, Wallet } from "@/lib/api/types";
 import { VEHICLE_CLASSES } from "@/lib/constants";
 import { LiveRefresh } from "@/components/app/live-refresh";
+import { RideStatusBadge } from "@/components/app/status-badge";
+import { AddFavoriteButton } from "@/components/app/favorite-forms";
+import { rideStatus } from "@/lib/ride-status";
 import {
   CancelRequestedCreditForm,
   ReleaseCreditForm,
 } from "@/components/app/trip-forms";
 
-export const metadata: Metadata = { title: "Trip | Viaro" };
+export const metadata: Metadata = { title: "Trip | Viaro", robots: { index: false, follow: false } };
 
 /**
  * One journey, from the passenger's side.
@@ -47,12 +50,6 @@ const SERVICE_LABEL: Record<string, string> = {
   hourly: "Hourly charter",
 };
 
-const STATUS_TONE: Record<string, string> = {
-  completed: "border-emerald-500/40 bg-emerald-500/10 text-emerald-400",
-  cancelled: "border-border bg-secondary text-muted-foreground",
-  started: "border-brand/40 bg-brand/10 text-brand",
-  accepted: "border-brand/40 bg-brand/10 text-brand",
-};
 
 /** Changes close this many hours before pickup — mirrors CHANGE_CUTOFF_HOURS server-side. */
 const CHANGE_CUTOFF_HOURS = 3;
@@ -97,10 +94,17 @@ export default async function TripDetailPage({
 
   const [wallet, favorites] = await Promise.all([
     receipt && receipt.amountDue > 0 ? apiOptional<Wallet>("/wallet/me") : null,
-    booking?.status === "pending" ? apiOptional<Driver[]>("/users/me/favorites") : null,
+    booking?.status === "pending" || trip?.status === "completed"
+      ? apiOptional<Driver[]>("/users/me/favorites")
+      : null,
   ]);
 
   const status = trip?.status ?? booking?.status ?? "";
+  const displayStatus = rideStatus({
+    bookingStatus: booking?.status,
+    tripStatus: trip?.status,
+    refundPct: trip?.cancellation?.refundPct ?? receipt?.refund?.refundPct,
+  });
   const cancellable = booking && booking.status !== "cancelled" && status !== "completed";
   const inFlight = trip?.status === "accepted" || trip?.status === "started";
   const completed = trip?.status === "completed";
@@ -136,13 +140,7 @@ export default async function TripDetailPage({
       }
       action={
         <div className="flex flex-wrap items-center gap-3">
-          <span
-            className={`inline-flex h-8 items-center rounded-full border px-3 text-xs font-medium capitalize ${
-              STATUS_TONE[status] ?? "border-border bg-secondary text-foreground"
-            }`}
-          >
-            {status}
-          </span>
+          <RideStatusBadge status={displayStatus} className="h-8" />
           {trip ? (
             <Button asChild variant="outline">
               <Link href={`/trips/${id}/track`}>Track live</Link>
@@ -216,7 +214,12 @@ export default async function TripDetailPage({
                     }
                   />
                   <Detail label="Vehicle" value={vehicle?.label ?? booking.vehicleClass} />
-                  {booking.city ? <Detail label="City" value={booking.city} /> : null}
+                  {booking.city ? (
+                    <Detail
+                      label="City"
+                      value={booking.city.replace(/\b\w/g, (c) => c.toUpperCase())}
+                    />
+                  ) : null}
                   {booking.flightDetails?.flightNumber ? (
                     <Detail label="Flight" value={booking.flightDetails.flightNumber} />
                   ) : null}
@@ -319,9 +322,17 @@ export default async function TripDetailPage({
                   </p>
                 </div>
 
-                <Button asChild className="w-full sm:w-auto">
-                  <Link href={`/trips/${id}/chat`}>Message</Link>
-                </Button>
+                {completed ? (
+                  <AddFavoriteButton
+                    driverId={trip.driver.driverId}
+                    name={trip.driver.name}
+                    already={(favorites ?? []).some((f) => f._id === trip?.driver?.driverId)}
+                  />
+                ) : (
+                  <Button asChild className="w-full sm:w-auto">
+                    <Link href={`/trips/${id}/chat`}>Message</Link>
+                  </Button>
+                )}
               </div>
 
               {/* Customers get a masked number by design (spec §8 rule 4), so say why
@@ -463,7 +474,7 @@ export default async function TripDetailPage({
             </Panel>
           ) : null}
 
-          {favorites && favorites.length > 0 && booking ? (
+          {booking?.status === "pending" && favorites && favorites.length > 0 && booking ? (
             <Panel>
               <SectionTitle>Request a favourite</SectionTitle>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">

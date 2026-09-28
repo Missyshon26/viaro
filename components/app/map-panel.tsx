@@ -3,10 +3,10 @@ import { cn } from "@/lib/utils";
 /**
  * The map surface for live tracking.
  *
- * No map provider is wired yet, so this draws a labelled panel with the real
- * coordinates it *would* plot. The moment NEXT_PUBLIC_MAP_PROVIDER and a key are set,
- * swap the placeholder branch for the provider's component — everything around it
- * (the page, the polling, the driver card) already works.
+ * With a reported position it shows a dark, brand-styled map centred on the chauffeur
+ * (drawn by /api/route-map?point=lat,lng, the same Static Maps route as the booking
+ * preview). Without one — or if the map image cannot be drawn — it falls back to a
+ * labelled panel. It used to show passengers a developer note about env variables.
  */
 export function MapPanel({
   lat,
@@ -21,8 +21,10 @@ export function MapPanel({
   label?: string;
   className?: string;
 }) {
-  const provider = process.env.NEXT_PUBLIC_MAP_PROVIDER;
   const hasPosition = typeof lat === "number" && typeof lng === "number";
+  const src = hasPosition
+    ? `/api/route-map?point=${lat.toFixed(5)},${lng.toFixed(5)}&w=640&h=420`
+    : null;
 
   return (
     <div
@@ -31,7 +33,7 @@ export function MapPanel({
         className,
       )}
     >
-      {/* A faint grid so the panel reads as a map surface rather than an empty box. */}
+      {/* A faint grid, so without an image the panel still reads as a map surface. */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 opacity-[0.07]"
@@ -42,24 +44,27 @@ export function MapPanel({
         }}
       />
 
-      <div className="relative z-10 px-6 text-center">
+      {src ? (
+        // eslint-disable-next-line @next/next/no-img-element -- a same-origin API image
+        <img
+          src={src}
+          alt={`Map showing ${label ?? "your chauffeur"}'s position`}
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      ) : null}
+
+      <div
+        className={cn(
+          "relative z-10 px-6 text-center",
+          src && "self-end mb-4 rounded-lg bg-background/85 px-4 py-2.5 backdrop-blur",
+        )}
+      >
         {hasPosition ? (
           <>
-            <span
-              aria-hidden
-              className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/20"
-            >
-              <span className="h-3 w-3 animate-pulse rounded-full bg-primary" />
-            </span>
-            <p className="mt-4 text-sm font-medium text-foreground">
-              {label ?? "Your chauffeur"}
-            </p>
-            <p className="mt-1 font-mono text-xs text-muted-foreground">
-              {lat.toFixed(5)}, {lng.toFixed(5)}
-            </p>
+            <p className="text-sm font-medium text-foreground">{label ?? "Your chauffeur"}</p>
             {updatedAt ? (
-              <p className="mt-1 text-xs text-muted-foreground">
-                updated{" "}
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Position updated{" "}
                 {new Date(updatedAt).toLocaleTimeString("en-US", {
                   hour: "numeric",
                   minute: "2-digit",
@@ -73,15 +78,6 @@ export function MapPanel({
             No position reported yet. The map updates once the chauffeur is moving.
           </p>
         )}
-
-        {!provider ? (
-          <p className="mx-auto mt-5 max-w-xs text-xs leading-relaxed text-muted-foreground">
-            Map rendering is not connected. Set{" "}
-            <code className="text-foreground">NEXT_PUBLIC_MAP_PROVIDER</code> and{" "}
-            <code className="text-foreground">NEXT_PUBLIC_MAP_API_KEY</code> to replace
-            this panel with a live map.
-          </p>
-        ) : null}
       </div>
     </div>
   );

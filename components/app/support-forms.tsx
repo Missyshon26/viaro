@@ -17,7 +17,13 @@ const CATEGORY_LABEL: Record<string, string> = {
   other: "Other",
 };
 
-export function NewTicketForm() {
+export function NewTicketForm({
+  defaultCategory = "other",
+  defaultSubject = "",
+}: {
+  defaultCategory?: string;
+  defaultSubject?: string;
+}) {
   const [state, action, pending] = useActionState<FormState | undefined, FormData>(
     createTicketAction,
     undefined,
@@ -31,8 +37,10 @@ export function NewTicketForm() {
         <select
           id="category"
           name="category"
-          defaultValue="other"
-          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          defaultValue={
+            (TICKET_CATEGORIES as readonly string[]).includes(defaultCategory) ? defaultCategory : "other"
+          }
+          className="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {TICKET_CATEGORIES.map((category) => (
             <option key={category} value={category}>
@@ -43,7 +51,14 @@ export function NewTicketForm() {
       </Field>
 
       <Field label="Subject" htmlFor="subject" error={state?.fieldErrors?.subject}>
-        <Input id="subject" name="subject" required minLength={3} maxLength={200} />
+        <Input
+          id="subject"
+          name="subject"
+          defaultValue={defaultSubject.slice(0, 200)}
+          required
+          minLength={3}
+          maxLength={200}
+        />
       </Field>
 
       <Field label="What happened?" htmlFor="message" error={state?.fieldErrors?.message}>

@@ -100,7 +100,7 @@ export default function AboutContent() {
         {/* Todo abajo siempre — se eliminó justify-between y el eyebrow flotante de móvil */}
         <div className="absolute inset-0 z-10 flex flex-col justify-end mx-auto w-full max-w-7xl px-5 sm:px-8 lg:px-16 pb-10 sm:pb-20">
           <div>
-            <p className="mb-3 text-[10px] sm:text-xs font-semibold uppercase tracking-[0.25em] text-brand whitespace-pre-line">
+            <p className="mb-3 text-[10px] sm:text-xs font-semibold uppercase tracking-[0.08em] text-brand whitespace-pre-line">
               {t.hero.eyebrow}
             </p>
 
@@ -189,7 +189,7 @@ export default function AboutContent() {
               {/* Icono con tamaño fijo, sin solaparse */}
               <div
                 style={{
-                  color: "var(--color-primary, #3b82f6)",
+                  color: "#89b4d4",
                   width: 28,
                   height: 28,
                   flexShrink: 0,
@@ -239,8 +239,8 @@ export default function AboutContent() {
       </section>
 
       {/* ── STORY ── */}
-      <section className="py-16 sm:py-24 bg-black">
-        <div className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-16">
+      <section className="py-12 sm:py-24 bg-black">
+        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-16">
           <p className="text-xs font-bold uppercase tracking-widest text-primary mb-3">
             {t.story.label}
           </p>
@@ -275,7 +275,7 @@ export default function AboutContent() {
       </section>
 
       {/* ── TEAM ── */}
-      <section className="relative py-16 sm:py-24 overflow-hidden">
+      <section className="relative py-12 sm:py-24 overflow-hidden">
         <div className="absolute inset-0">
           <Image
             src="/images/ImagenTAbout.png"
@@ -286,7 +286,7 @@ export default function AboutContent() {
           />
           <div className="absolute inset-0 bg-neutral-950/80" />
         </div>
-        <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-8 lg:px-16">
+        <div className="relative z-10 mx-auto max-w-7xl px-5 sm:px-8 lg:px-16">
           <p className="text-xs font-bold uppercase tracking-widest text-primary mb-3">{t.team.label}</p>
           <h2 className="font-serif font-bold text-3xl sm:text-4xl lg:text-5xl leading-tight max-w-2xl mb-12">{t.team.title}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -311,8 +311,8 @@ export default function AboutContent() {
       </section>
 
       {/* ── VALUES ── */}
-      <section className="py-16 sm:py-24 bg-black">
-        <div className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-16">
+      <section className="py-12 sm:py-24 bg-black">
+        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-16">
           <p className="text-xs font-bold uppercase tracking-widest text-primary mb-3">{t.values.label}</p>
           <h2 className="font-serif font-bold text-3xl sm:text-4xl lg:text-5xl leading-tight mb-12">{t.values.title}</h2>
           <div className="grid gap-6 sm:grid-cols-2">
@@ -328,8 +328,8 @@ export default function AboutContent() {
       </section>
 
       {/* ── MISSION ── */}
-      <section className="py-16 sm:py-24 bg-neutral-950">
-        <div className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-16">
+      <section className="py-12 sm:py-24 bg-neutral-950">
+        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-16">
           <div className="grid gap-8 lg:grid-cols-2 lg:items-center">
             <div>
               <p className="text-xs font-bold uppercase tracking-widest text-primary mb-3">{t.mission.label ?? "Mission"}</p>
@@ -350,8 +350,8 @@ export default function AboutContent() {
       </section>
 
       {/* ── VISION ── */}
-      <section className="py-16 sm:py-24 bg-black">
-        <div className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-16">
+      <section className="py-12 sm:py-24 bg-black">
+        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-16">
           <div className="grid gap-8 lg:grid-cols-2 lg:items-center">
             <div className="relative w-full aspect-video sm:aspect-[4/3] rounded-2xl overflow-hidden order-1 lg:order-1">
               <Image
@@ -373,7 +373,7 @@ export default function AboutContent() {
 
       {/* ── TESTIMONIALS ── */}
       <section className="pt-16 sm:pt-24">
-        <div className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-16 mb-2 text-center">
+        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-16 mb-2 text-center">
           <h2 className="font-serif font-bold text-3xl sm:text-4xl lg:text-5xl leading-tight">
             {"What Our Clients Say About Us"}
           </h2>
@@ -382,8 +382,8 @@ export default function AboutContent() {
       </section>
 
       {/* ── FAQ ── */}
-      <section className="py-16 sm:py-24 bg-black">
-        <div className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-16">
+      <section className="py-12 sm:py-24 bg-black">
+        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-16">
           <h2 className="font-serif font-bold text-3xl sm:text-4xl lg:text-5xl leading-tight text-center mb-2">
             {"Frequently Asked Questions ABOUT VIARO"}
           </h2>

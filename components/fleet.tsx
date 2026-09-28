@@ -38,7 +38,7 @@ export function Fleet() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center">
-          <p className="text-sm font-semibold uppercase tracking-[0.3em] text-primary">
+          <p className="text-sm font-semibold uppercase tracking-[0.08em] text-primary">
             Nuestra Flota
           </p>
           <h2 className="mt-4 font-serif text-4xl font-bold tracking-tight text-card-foreground sm:text-5xl text-balance">

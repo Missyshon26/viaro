@@ -89,8 +89,8 @@ const UsMapScroll = ({ onSelectRegion }: UsMapScrollProps) => {
             <RegionButton
               onClick={() => onSelectRegion("costa-rica")}
               label={t.costarica || "Costa Rica Support"}
-              dotColor="bg-green-500"
-              hoverBorder="hover:border-green-500/40"
+              dotColor="bg-brand"
+              hoverBorder="hover:border-brand/40"
             />
           </div>
         </div>
@@ -102,7 +102,7 @@ const UsMapScroll = ({ onSelectRegion }: UsMapScrollProps) => {
 const RegionButton = ({ onClick, label, dotColor, hoverBorder }: any) => (
   <button
     onClick={onClick}
-    className={`group py-5 px-8 rounded-2xl bg-neutral-900/50 backdrop-blur-sm border border-white/5 text-neutral-400 hover:text-white ${hoverBorder} transition-all duration-300 font-bold uppercase text-xs tracking-[0.2em] flex items-center justify-between`}
+    className={`group py-5 px-8 rounded-2xl bg-neutral-900/50 backdrop-blur-sm border border-white/5 text-neutral-400 hover:text-white ${hoverBorder} transition-all duration-300 font-bold uppercase text-xs tracking-[0.08em] flex items-center justify-between`}
   >
     <div className="flex items-center gap-4">
       <span

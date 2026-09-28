@@ -127,7 +127,7 @@ export default function FleetContent() {
 
         <div className="absolute inset-0 z-10 flex flex-col justify-end mx-auto w-full max-w-7xl px-5 sm:px-8 lg:px-16 pb-10 sm:pb-20">
           <div>
-            <p className="mb-3 text-[10px] sm:text-xs font-semibold uppercase tracking-[0.25em] text-brand">
+            <p className="mb-3 text-[10px] sm:text-xs font-semibold uppercase tracking-[0.08em] text-brand">
               {t.hero.eyebrow}
             </p>
             <h1 className="font-serif font-bold leading-[1.1] text-[1.6rem] xs:text-3xl sm:text-4xl lg:text-5xl xl:text-6xl max-w-[280px] xs:max-w-sm sm:max-w-2xl lg:max-w-3xl">
@@ -219,7 +219,7 @@ export default function FleetContent() {
           gap: 10,
         }}
       >
-        <div className="trust-icon" style={{ color: "var(--color-primary, #2563eb)" }}>
+        <div className="trust-icon" style={{ color: "#89b4d4" }}>
           {m.icon}
         </div>
         <span
@@ -247,8 +247,8 @@ export default function FleetContent() {
   </div>
 </section>
       {/* ── FLEET CARDS ── */}
-      <section className="py-16 sm:py-24 bg-black">
-        <div className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-16">
+      <section className="py-12 sm:py-24 bg-black">
+        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-16">
           <p className="text-xs font-bold uppercase tracking-widest text-primary mb-3">
             {t.fleet.label}
           </p>
@@ -331,8 +331,8 @@ export default function FleetContent() {
       </section>
 
       {/* ── SAFETY ── */}
-      <section className="py-16 sm:py-24 bg-neutral-950">
-        <div className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-16">
+      <section className="py-12 sm:py-24 bg-neutral-950">
+        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-16">
           <p className="text-xs font-bold uppercase tracking-widest text-primary mb-3">
             {t.safety.label}
           </p>
@@ -406,7 +406,7 @@ export default function FleetContent() {
 
       {/* ── TESTIMONIALS ── */}
       <section className="pt-16 sm:pt-24">
-        <div className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-16 mb-10 text-center">
+        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-16 mb-10 text-center">
           <h2 className="font-serif font-bold text-3xl sm:text-4xl lg:text-5xl leading-tight">
             {" What Our Clients Say About Our Fleet"}
           </h2>
@@ -415,8 +415,8 @@ export default function FleetContent() {
       </section>
 
       {/* ── FAQ ── */}
-      <section className="py-16 sm:py-24 bg-black">
-        <div className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-16">
+      <section className="py-12 sm:py-24 bg-black">
+        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-16">
           <h2 className="font-serif font-bold text-3xl sm:text-4xl lg:text-5xl leading-tight text-center mb-12">
             {"Fleet & Vehicle FAQs"}
           </h2>

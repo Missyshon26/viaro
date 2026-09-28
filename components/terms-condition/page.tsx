@@ -24,10 +24,12 @@ export default function TermsContent() {
     <main className="bg-black text-white">
 
       {/* ── HERO ── */}
-      <section className="relative w-full overflow-hidden py-32 sm:py-48 bg-neutral-950">
+      {/* Top padding clears the fixed navbar; the bottom is kept short so the first
+          section follows the title rather than floating a screen below it. */}
+      <section className="relative w-full overflow-hidden pt-32 pb-10 sm:pt-44 sm:pb-14 bg-neutral-950">
         <div className="absolute inset-0 bg-gradient-to-b from-black via-neutral-950 to-black" />
         <div className="relative z-10 mx-auto max-w-7xl px-5 sm:px-8 lg:px-16">
-          <p className="text-xs font-bold uppercase tracking-[0.25em] text-primary mb-4">
+          <p className="text-xs font-bold uppercase tracking-[0.08em] text-primary mb-4">
             {t.hero.eyebrow}
           </p>
           <h1 className="font-serif font-bold leading-tight text-3xl sm:text-4xl lg:text-5xl xl:text-6xl max-w-3xl">
@@ -40,8 +42,8 @@ export default function TermsContent() {
       </section>
 
       {/* ── SECTIONS ── */}
-      <section className="py-10 sm:py-24 bg-black">
-        <div className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-16 space-y-24">
+      <section className="pt-8 pb-16 sm:pt-12 sm:pb-24 bg-black">
+        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-16 space-y-14 sm:space-y-20">
           {t.sections.map((section: any, i: number) => (
             <div key={i}>
               <div className="flex items-center gap-4 mb-4">
@@ -84,7 +86,7 @@ export default function TermsContent() {
 
       {/* ── CTA ── */}
       <section className="py-16 bg-neutral-950 border-t border-white/5">
-        <div className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-16 text-center">
+        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-16 text-center">
           <p className="text-xs font-bold uppercase tracking-widest text-primary mb-4">{t.cta.eyebrow}</p>
           <h2 className="font-serif font-bold text-3xl sm:text-4xl mb-4">{t.cta.title}</h2>
           <p className="text-sm sm:text-base text-white/50 max-w-xl mx-auto mb-8">{t.cta.subtitle}</p>

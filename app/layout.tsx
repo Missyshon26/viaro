@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Archivo, Playfair_Display } from "next/font/google";
+import localFont from "next/font/local";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { getDictionary } from "@/lib/get-dictionary";
@@ -7,43 +7,32 @@ import { readTokens } from "@/lib/auth/session";
 import { ScrollReveal } from "@/components/scroll-reveal";
 import { QuoteButton } from "@/components/quote-button";
 import { RatingGate } from "@/components/app/rating-gate";
+import { SiteChrome } from "@/components/site-chrome";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import "./globals.css";
 import { Suspense } from "react";
 
 /**
- * Brand typeface.
+ * Brand typeface: Clash Display, per the Viaro brand manual ("Viaro, Manual de Marca",
+ * Typography page — Extra Light through Bold). It is the only face the manual names, so
+ * it sets headings and body alike.
  *
- * The design calls for Roc Grotesk Extrawide, but the files in public/Demo_Fonts are
- * Fontspring DEMO releases: evaluation-only, unlicensed for a live site, and they
- * render a "DEMO" watermark over the text — which is what was showing up on headings.
+ * Self-hosted from public/fonts (variable, 200–700). Licensed under the ITF Free Font
+ * License, which permits commercial use and self-hosting — see
+ * public/fonts/ClashDisplay-LICENSE.txt.
  *
- * Archivo is the closest freely licensed substitute: the same grotesque skeleton, and
- * a variable width axis that reaches the expanded width the design uses (see the
- * `--font-roc-grotesk` rule in globals.css).
- *
- * To restore the real face once it is licensed, drop the .woff2 files into
- * public/fonts and swap this back to next/font/local pointing at them. Nothing else
- * needs to change — the whole site reads the CSS variable below.
+ * This replaced Archivo (sans) and Playfair Display (serif), stand-ins that were never in
+ * the brand; the serif is what the "What happened to the font chosen?" feedback showed.
+ * `font-sans` and `font-serif` both resolve to this face, so the ~70 elements tagged
+ * `font-serif` needed no edits.
  */
-const brandFont = Archivo({
-  subsets: ["latin"],
-  // No `weight` here on purpose: naming weights pins a static cut, and the width axis
-  // is only available on the variable font.
-  axes: ["wdth"],
+const brandFont = localFont({
+  src: "../public/fonts/ClashDisplay-Variable.woff2",
+  weight: "200 700",
+  style: "normal",
   display: "swap",
-  variable: "--font-roc-grotesk",
-});
-
-/**
- * `font-serif` is used on 67 elements across the site, but tailwind.config.ts points it
- * at `--font-serif`, which nothing ever defined — so every one of them was falling back
- * to Georgia. Playfair Display is a high-contrast display serif that suits the black and
- * blue palette; change this import to swap it for the licensed brand serif.
- */
-const serifFont = Playfair_Display({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-serif",
+  variable: "--font-brand",
+  fallback: ["Helvetica Neue", "Arial", "sans-serif"],
 });
 
 export const metadata: Metadata = {
@@ -52,7 +41,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0a0a0a",
+  themeColor: "#060606",
 };
 
 export default async function RootLayout({
@@ -70,26 +59,34 @@ export default async function RootLayout({
   const auth = {
     signedIn: Boolean(accessToken || refreshToken),
     // Non-passenger roles are handed off at /portal; they have no home on this site.
-    home: role === "customer" ? "/account" : "/portal",
+    // A passenger lands on their trips — Profile is settings, and comes last.
+    home: role === "customer" ? "/trips" : "/portal",
   };
+  // Only fetched for signed-in customers, and cached for the rest of this render.
+  const user = auth.signedIn && role === "customer" ? await getCurrentUser() : null;
   return (
     <html lang="en" className="scroll-smooth">
-      <body className={`${brandFont.variable} ${serifFont.variable} antialiased`}>
+      <body className={`${brandFont.variable} font-sans antialiased`}>
         <ScrollReveal />
-        <Navbar dict={dict} auth={auth} />
-
-        {children}
-
-        <Suspense fallback={null}>
-          <QuoteButton label={dict.cta_button || "Get Quote"} />
-        </Suspense>
+        <SiteChrome
+          signedIn={auth.signedIn && role === "customer"}
+          userName={user?.name}
+          navbar={<Navbar key="navbar" dict={dict} auth={auth} />}
+          footer={<Footer key="footer" dict={dict.footer} />}
+          marketingExtras={
+            <Suspense key="quote-button" fallback={null}>
+              <QuoteButton label={dict.cta_button || "Get Quote"} />
+            </Suspense>
+          }
+        >
+          {children}
+        </SiteChrome>
 
         {/* Asks for a rating on any page once a trip is finished. Renders nothing for
             signed-out visitors, and nothing when there is no unrated trip. */}
         <Suspense fallback={null}>
           <RatingGate />
         </Suspense>
-        <Footer dict={dict.footer} />
       </body>
     </html>
   );

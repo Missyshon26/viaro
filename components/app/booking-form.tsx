@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,8 @@ import { money as fmtMoney } from "@/components/app/shell";
 import { VehicleGallery } from "@/components/app/vehicle-gallery";
 import { RoutePreview } from "@/components/app/route-preview";
 import { AddressAutocomplete } from "@/components/app/address-autocomplete";
+import { PassengerPicker } from "@/components/passenger-picker";
+import { DateField, TimeField } from "@/components/date-time-fields";
 import type { FormState } from "@/lib/actions/auth";
 import type { TripType } from "@/lib/api/types";
 
@@ -41,11 +43,24 @@ interface BookingFormProps {
   walletBalance: number | null;
   /** Fetched from the API by the page — operations owns this list, not this build. */
   vehicles: VehicleClassOption[];
+  /** Answers carried over from the homepage widget; see app/book/page.tsx. */
+  prefill?: JourneyPrefill;
 }
 
 /* ------------------------------- vocabulary -------------------------------- */
 
 type JourneyShape = "oneway" | "roundtrip" | "package" | "multicity";
+
+export interface JourneyPrefill {
+  shape: "oneway" | "roundtrip";
+  pickup: string;
+  drop: string;
+  date: string;
+  time: string;
+  returnDate: string;
+  returnTime: string;
+  passengers: number;
+}
 
 const TABS: { key: JourneyShape; label: string }[] = [
   { key: "oneway", label: "One Way" },
@@ -110,18 +125,18 @@ function tomorrow() {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-export function BookingForm({ walletBalance, vehicles }: BookingFormProps) {
+export function BookingForm({ walletBalance, vehicles, prefill }: BookingFormProps) {
   const [step, setStep] = useState(0);
 
   // Every answer lives here so stepping back never loses what was typed.
-  const [shape, setShape] = useState<JourneyShape>("oneway");
-  const [pickup, setPickup] = useState("");
-  const [drop, setDrop] = useState("");
-  const [date, setDate] = useState(tomorrow());
-  const [time, setTime] = useState("06:30");
-  const [returnDate, setReturnDate] = useState("");
-  const [returnTime, setReturnTime] = useState("");
-  const [passengers, setPassengers] = useState(1);
+  const [shape, setShape] = useState<JourneyShape>(prefill?.shape ?? "oneway");
+  const [pickup, setPickup] = useState(prefill?.pickup ?? "");
+  const [drop, setDrop] = useState(prefill?.drop ?? "");
+  const [date, setDate] = useState(prefill?.date || tomorrow());
+  const [time, setTime] = useState(prefill?.time || "06:30");
+  const [returnDate, setReturnDate] = useState(prefill?.returnDate ?? "");
+  const [returnTime, setReturnTime] = useState(prefill?.returnTime ?? "");
+  const [passengers, setPassengers] = useState(prefill?.passengers ?? 1);
   const [vehicleClass, setVehicleClass] = useState("sedan");
 
   /** Fare per class for this journey, quoted by the API when the step is entered. */
@@ -252,6 +267,20 @@ export function BookingForm({ walletBalance, vehicles }: BookingFormProps) {
     setStep(target);
   }
 
+  /*
+   * Arriving from the homepage search with the journey already described, go straight to
+   * vehicle choice, as Blacklane does after its search box. If anything is missing or
+   * wrong, validate() leaves them on the journey step with the problems listed.
+   */
+  const autoAdvanced = useRef(false);
+  useEffect(() => {
+    if (!prefill || autoAdvanced.current) return;
+    autoAdvanced.current = true;
+    goTo(1);
+    // Runs once, on arrival; goTo reads the initial state set from `prefill`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
 
   const showRoute = step > 0 && pickup.trim().length >= 3 && drop.trim().length >= 3;
 
@@ -367,26 +396,14 @@ export function BookingForm({ walletBalance, vehicles }: BookingFormProps) {
                     <label className={labelCls} htmlFor="date">
                       Pickup Date
                     </label>
-                    <input
-                      id="date"
-                      type="date"
-                      value={date}
-                      onChange={(e) => setDate(e.target.value)}
-                      className={fieldCls}
-                    />
+                    <DateField id="date" value={date} onChange={setDate} className={fieldCls} />
                     <FieldNote error={errors.date} />
                   </div>
                   <div>
                     <label className={labelCls} htmlFor="time">
                       Pickup Time
                     </label>
-                    <input
-                      id="time"
-                      type="time"
-                      value={time}
-                      onChange={(e) => setTime(e.target.value)}
-                      className={fieldCls}
-                    />
+                    <TimeField id="time" value={time} onChange={setTime} className={fieldCls} />
                     <FieldNote error={errors.time} hint="Pacific time." />
                   </div>
                 </div>
@@ -397,11 +414,11 @@ export function BookingForm({ walletBalance, vehicles }: BookingFormProps) {
                       <label className={labelCls} htmlFor="returnDate">
                         Return Date
                       </label>
-                      <input
+                      <DateField
                         id="returnDate"
-                        type="date"
                         value={returnDate}
-                        onChange={(e) => setReturnDate(e.target.value)}
+                        onChange={setReturnDate}
+                        min={date}
                         className={fieldCls}
                       />
                       <FieldNote error={errors.returnDate} />
@@ -410,11 +427,10 @@ export function BookingForm({ walletBalance, vehicles }: BookingFormProps) {
                       <label className={labelCls} htmlFor="returnTime">
                         Return Time
                       </label>
-                      <input
+                      <TimeField
                         id="returnTime"
-                        type="time"
                         value={returnTime}
-                        onChange={(e) => setReturnTime(e.target.value)}
+                        onChange={setReturnTime}
                         className={fieldCls}
                       />
                       <FieldNote error={errors.returnTime} />
@@ -426,22 +442,24 @@ export function BookingForm({ walletBalance, vehicles }: BookingFormProps) {
                   <label className={labelCls} htmlFor="passengers">
                     Passengers
                   </label>
-                  <select
+                  <PassengerPicker
                     id="passengers"
                     value={passengers}
-                    onChange={(e) => setPassengers(Number(e.target.value))}
+                    onChange={setPassengers}
                     className={fieldCls}
-                  >
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].map((n) => (
-                      <option key={n} value={n}>
-                        {n} {n === 1 ? "passenger" : "passengers"}
-                      </option>
-                    ))}
-                  </select>
+                  />
                   <FieldNote
                     error={errors.passengers}
                     hint="Sets which vehicle classes you can pick next."
                   />
+                  {errors.passengers ? (
+                    <Link
+                      href="/?scrollTo=contact-us"
+                      className="mt-2 inline-block text-xs font-semibold uppercase tracking-widest text-brand underline underline-offset-4"
+                    >
+                      Request a group quote
+                    </Link>
+                  ) : null}
                 </div>
               </div>
 
@@ -734,94 +752,78 @@ export function BookingForm({ walletBalance, vehicles }: BookingFormProps) {
                 {/* Everything above is the breakdown; the commitment sits at the foot. */}
                 <div className="flex-1" />
 
+                {/*
+                  Wallet credit, compact: one line with a switch, and the amount only once
+                  it is switched on. It used to be a large boxed panel with three
+                  paragraphs, heavier than the price it adjusts.
+                */}
                 {available > 0 && creditCeiling > 0 ? (
-                  <div className="mt-3 rounded-xl border border-border bg-secondary/40 p-4">
-                    <label className="flex cursor-pointer items-start gap-3">
-                      <input
-                        type="checkbox"
-                        checked={useCredit}
-                        onChange={(event) => setUseCredit(event.target.checked)}
-                        className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--brand)]"
-                      />
-                      <span className="min-w-0">
-                        <span className="block text-sm font-medium text-foreground">
-                          Use your wallet credit on this ride
-                        </span>
-                        <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
-                          {money(available)} available · no withdrawal fee.{" "}
-                          {useCredit
-                            ? "It comes off when your chauffeur is assigned — nothing leaves your wallet before then, and you can remove it any time until the fare is charged."
-                            : "Nothing is taken now."}
+                  <div className="mt-3 rounded-lg border border-border px-3 py-2.5">
+                    <label className="flex cursor-pointer items-center gap-3">
+                      <span className="min-w-0 flex-1 text-sm">
+                        <span className="text-cloud">Use wallet credit</span>
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          {money(available)} available
                         </span>
                       </span>
+                      <input
+                        type="checkbox"
+                        role="switch"
+                        checked={useCredit}
+                        onChange={(event) => setUseCredit(event.target.checked)}
+                        className="peer sr-only"
+                      />
+                      <span
+                        aria-hidden
+                        className="relative h-5 w-9 shrink-0 rounded-full bg-secondary transition-colors peer-checked:bg-primary peer-focus-visible:ring-2 peer-focus-visible:ring-ring after:absolute after:left-0.5 after:top-0.5 after:h-4 after:w-4 after:rounded-full after:bg-cloud after:transition-transform peer-checked:after:translate-x-4"
+                      />
                     </label>
 
                     {useCredit ? (
-                      <div className="mt-3 border-t border-border pt-3">
-                        <div className="flex flex-wrap items-end gap-3">
-                          <div className="w-36">
-                            <label
-                              htmlFor="credit-amount"
-                              className="text-xs font-medium text-muted-foreground"
-                            >
-                              Amount to use
-                            </label>
-                            <Input
-                              id="credit-amount"
-                              type="number"
-                              step="0.01"
-                              min={0.01}
-                              max={creditCeiling}
-                              value={creditInput}
-                              placeholder={creditCeiling.toFixed(2)}
-                              onChange={(event) => setCreditInput(event.target.value)}
-                              className="mt-1.5"
-                            />
-                          </div>
-                          {chosen < creditCeiling && !overCeiling ? (
-                            <button
-                              type="button"
-                              onClick={() => setCreditInput(creditCeiling.toFixed(2))}
-                              className="pb-2.5 text-xs font-medium text-brand underline underline-offset-4"
-                            >
-                              Use all {money(creditCeiling)}
-                            </button>
-                          ) : null}
+                      <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-border pt-2.5 text-sm">
+                        <label htmlFor="credit-amount" className="text-muted-foreground">
+                          Amount
+                        </label>
+                        <div className="relative w-28">
+                          <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                          <Input
+                            id="credit-amount"
+                            type="number"
+                            inputMode="decimal"
+                            step="0.01"
+                            min={0.01}
+                            max={creditCeiling}
+                            value={creditInput}
+                            placeholder={creditCeiling.toFixed(2)}
+                            onChange={(event) => setCreditInput(event.target.value)}
+                            className="h-8 pl-6 text-sm"
+                          />
                         </div>
-
-                        {overCeiling ? (
-                          <p className="mt-2 text-xs text-destructive">
-                            The most you can put towards this ride is {money(creditCeiling)}.
-                          </p>
-                        ) : (
-                          <dl className="mt-3 space-y-1.5 text-sm">
-                            <div className="flex justify-between gap-4">
-                              <dt className="text-muted-foreground">Wallet credit</dt>
-                              <dd className="text-brand">−{money(creditApplied)}</dd>
-                            </div>
-                            <div className="flex items-baseline justify-between gap-4">
-                              <dt className="font-medium text-foreground">You pay</dt>
-                              <dd className="font-sans text-lg font-bold text-foreground">
-                                {money(payable)}
-                              </dd>
-                            </div>
-                          </dl>
-                        )}
-
-                        {/* The question everyone asks before spending credit on something
-                            that has not happened yet. */}
-                        <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-                          Cancel this ride and the credit returns to your wallet: in full
-                          if no chauffeur was ever assigned, otherwise 90% like any other
-                          refund.
-                        </p>
+                        {chosen < creditCeiling && !overCeiling ? (
+                          <button
+                            type="button"
+                            onClick={() => setCreditInput(creditCeiling.toFixed(2))}
+                            className="text-xs font-medium text-azure underline underline-offset-4"
+                          >
+                            Max
+                          </button>
+                        ) : null}
+                        <span className={`ml-auto ${overCeiling ? "text-destructive" : "text-azure"}`}>
+                          {overCeiling ? `Max ${money(creditCeiling)}` : `−${money(creditApplied)}`}
+                        </span>
                       </div>
                     ) : null}
                   </div>
-                ) : available > 0 ? (
-                  <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-                    You have {money(available)} in wallet credit, which will go towards a
-                    future ride.
+                ) : null}
+                {useCredit && !overCeiling && creditApplied > 0 ? (
+                  <div className="mt-3 flex items-baseline justify-between gap-4 text-sm">
+                    <span className="font-medium text-cloud">You pay</span>
+                    <span className="font-sans text-lg font-semibold text-cloud">{money(payable)}</span>
+                  </div>
+                ) : null}
+                {useCredit ? (
+                  <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                    Taken when your chauffeur is assigned. Cancel before then and it all comes back.
                   </p>
                 ) : null}
 

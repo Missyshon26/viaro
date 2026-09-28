@@ -1,16 +1,17 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Field, ErrorNote } from "@/components/app/shell";
+import { AddressAutocomplete } from "@/components/app/address-autocomplete";
+import { DateField, TimeField } from "@/components/date-time-fields";
 import { updateBookingAction } from "@/lib/actions/trip";
 import { CITIES, VEHICLE_CLASSES } from "@/lib/constants";
 import type { FormState } from "@/lib/actions/auth";
 import type { Booking } from "@/lib/api/types";
 
 const selectClass =
-  "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 /**
  * Splits the stored timestamp into the date and time inputs — in Pacific time.
@@ -51,6 +52,11 @@ export function EditBookingForm({ booking }: { booking: Booking }) {
   );
 
   const when = splitSchedule(booking.scheduledAt);
+  // Controlled so the pickers and suggestions can drive them; posted by `name`.
+  const [pickup, setPickup] = useState(booking.pickup.address);
+  const [drop, setDrop] = useState(booking.drop.address);
+  const [date, setDate] = useState(when.date);
+  const [time, setTime] = useState(when.time);
   const defaultCity =
     CITIES.find((c) => c.name.toLowerCase() === (booking.city ?? "").toLowerCase())?.name ??
     "Seattle";
@@ -72,24 +78,19 @@ export function EditBookingForm({ booking }: { booking: Booking }) {
 
       <div className="grid gap-5 sm:grid-cols-2">
         <Field label="Pickup" htmlFor="pickup" error={state?.fieldErrors?.pickup}>
-          <Input
-            id="pickup"
-            name="pickup"
-            defaultValue={booking.pickup.address}
-            minLength={3}
-          />
+          <AddressAutocomplete id="pickup" name="pickup" value={pickup} onChange={setPickup} className={selectClass} />
         </Field>
         <Field label="Drop-off" htmlFor="drop" error={state?.fieldErrors?.drop}>
-          <Input id="drop" name="drop" defaultValue={booking.drop.address} minLength={3} />
+          <AddressAutocomplete id="drop" name="drop" value={drop} onChange={setDrop} className={selectClass} />
         </Field>
       </div>
 
       <div className="grid gap-5 sm:grid-cols-2">
         <Field label="Date" htmlFor="date">
-          <Input id="date" name="date" type="date" defaultValue={when.date} />
+          <DateField id="date" name="date" value={date} onChange={setDate} className={selectClass} />
         </Field>
         <Field label="Time" htmlFor="time" hint="Pacific time.">
-          <Input id="time" name="time" type="time" defaultValue={when.time} />
+          <TimeField id="time" name="time" value={time} onChange={setTime} className={selectClass} />
         </Field>
       </div>
 

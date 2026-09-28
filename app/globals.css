@@ -10,40 +10,49 @@
 }
 
 @layer base {
+  /*
+   * The Viaro brand manual palette — nothing outside it:
+   *   Midnight Route   #1153A4  primary actions, links
+   *   Azure Drive      #6096BA  accents, eyebrows, the logo mark on dark
+   *   Cloud Leather    #E1EFE6  text on dark surfaces
+   *   Executive Black  #060606  page background
+   * Greys are tints of Executive Black / Cloud Leather. Red is kept for errors only, and
+   * the semantic status colours live in components/app/status-badge.tsx.
+   */
   :root {
-    --background: 0 0% 0%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 7%;
-    --card-foreground: 40 20% 92%;
-    --popover: 0 0% 7%;
-    --popover-foreground: 40 20% 92%;
-    --primary: 221 83% 40%; /* #1153A4 */
-    --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 12%;
-    --secondary-foreground: 40 20% 92%;
-    --muted: 0 0% 12%;
-    --muted-foreground: 40 10% 55%;
-    --accent: 40 60% 50%;
-    --accent-foreground: 0 0% 4%;
-    --destructive: 0 84.2% 60.2%;
+    --background: 0 0% 2.4%;          /* Executive Black */
+    --foreground: 141 30% 91%;        /* Cloud Leather */
+    --card: 0 0% 6.5%;
+    --card-foreground: 141 30% 91%;
+    --popover: 0 0% 6.5%;
+    --popover-foreground: 141 30% 91%;
+    --primary: 213 81% 35.5%;         /* Midnight Route */
+    --primary-foreground: 141 30% 96%;
+    --secondary: 0 0% 11%;
+    --secondary-foreground: 141 30% 91%;
+    --muted: 0 0% 11%;
+    --muted-foreground: 141 8% 66%;
+    --accent: 204 39% 55.3%;          /* Azure Drive */
+    --accent-foreground: 0 0% 2.4%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 98%;
-    --border: 40 15% 18%;
-    --input: 40 15% 18%;
-    --ring: 40 60% 50%;
-    --chart-1: 40 60% 50%;
-    --chart-2: 40 40% 40%;
-    --chart-3: 40 20% 30%;
-    --chart-4: 0 0% 50%;
-    --chart-5: 0 0% 70%;
+    --border: 0 0% 17%;
+    --input: 0 0% 17%;
+    --ring: 204 39% 55.3%;
+    --chart-1: 213 81% 35.5%;
+    --chart-2: 204 39% 55.3%;
+    --chart-3: 141 30% 91%;
+    --chart-4: 213 81% 24%;
+    --chart-5: 0 0% 60%;
     --radius: 0.5rem;
-    --sidebar-background: 0 0% 5%;
-    --sidebar-foreground: 40 20% 92%;
-    --sidebar-primary: 40 60% 50%;
-    --sidebar-primary-foreground: 0 0% 4%;
-    --sidebar-accent: 0 0% 12%;
-    --sidebar-accent-foreground: 40 20% 92%;
-    --sidebar-border: 40 15% 18%;
-    --sidebar-ring: 40 60% 50%;
+    --sidebar-background: 0 0% 4%;
+    --sidebar-foreground: 141 30% 91%;
+    --sidebar-primary: 213 81% 35.5%;
+    --sidebar-primary-foreground: 141 30% 96%;
+    --sidebar-accent: 0 0% 11%;
+    --sidebar-accent-foreground: 141 30% 91%;
+    --sidebar-border: 0 0% 17%;
+    --sidebar-ring: 204 39% 55.3%;
   }
 }
 
@@ -51,23 +60,42 @@
   * {
     @apply border-border;
   }
+  /*
+   * 17px root instead of 16px: every rem-based size scales with it, which answers
+   * "overall lettering is too small" across the whole site in one place rather than by
+   * editing hundreds of text-* classes. Clash Display also sets small next to Arial.
+   */
+  html {
+    font-size: 106.25%;
+    /* Native date/time pickers, scrollbars and form controls render in dark mode —
+       without this the picker icons were black on black and looked broken. */
+    color-scheme: dark;
+  }
   body {
-    @apply bg-background text-foreground;
-    font-family: Arial, Helvetica, sans-serif;
+    @apply bg-background text-foreground font-sans;
+    /* Clash Display's word space is very tight — "My trips" read as "Mytrips". */
+    word-spacing: 0.08em;
+    /*
+     * The brand manual sets running text in Clash Display LIGHT, with the phrases that
+     * matter in BOLD ("Viaro, Manual de Marca", p. 2). Anything given an explicit
+     * weight class (font-medium / semibold / bold) keeps it.
+     */
+    font-weight: 300;
+  }
+  strong, b {
+    font-weight: 700;
   }
   html, body {
     margin: 0;
     padding: 0;
     scroll-behavior: smooth;
   }
-  /*
-   * Archivo stands in for Roc Grotesk Extrawide (see the note in app/layout.tsx).
-   * Archivo is a variable font with a width axis, so pushing it toward expanded keeps
-   * the wide display proportions the design was drawn with. Body copy is Arial and is
-   * unaffected — only elements tagged `font-sans` use the brand face.
-   */
-  .font-sans {
-    font-variation-settings: "wdth" 112;
+  /* Make the calendar / clock icon of native inputs visible and obviously clickable. */
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="time"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.85);
+    cursor: pointer;
+    opacity: 0.8;
   }
 }
 

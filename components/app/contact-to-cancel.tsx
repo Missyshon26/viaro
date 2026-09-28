@@ -1,5 +1,9 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { SUPPORT_HOURS, SUPPORT_PHONE, SUPPORT_PHONE_HREF } from "@/lib/constants";
+
+const PHONE = SUPPORT_PHONE;
+const HOURS = SUPPORT_HOURS;
 
 /**
  * Cancellations and late changes go through a person.
@@ -10,15 +14,9 @@ import { Button } from "@/components/ui/button";
  * someone discover that by pressing a button and losing the fare is a bad way to learn
  * it. A call means the amount is agreed before anything moves.
  *
- * The number comes from NEXT_PUBLIC_SUPPORT_PHONE. With none set the panel still works
- * and routes to the support desk instead of showing a fake number.
+ * The number is SUPPORT_PHONE (lib/constants), which ignores a placeholder value — the
+ * production build was showing "000000000" here.
  */
-const PHONE = process.env.NEXT_PUBLIC_SUPPORT_PHONE ?? "";
-const HOURS = process.env.NEXT_PUBLIC_SUPPORT_HOURS ?? "";
-
-/** Strips spaces and punctuation for the tel: href, which wants digits and a plus. */
-const dial = (value: string) => value.replace(/[^\d+]/g, "");
-
 export function ContactToCancel({
   reason,
   /**
@@ -45,7 +43,7 @@ export function ContactToCancel({
       <p className="text-xs leading-relaxed text-muted-foreground">
         Not sure what you would get back?{" "}
         {PHONE ? (
-          <a href={`tel:${dial(PHONE)}`} className={linkClass}>
+          <a href={SUPPORT_PHONE_HREF} className={linkClass}>
             Call {PHONE}
           </a>
         ) : (
@@ -66,7 +64,7 @@ export function ContactToCancel({
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
       {PHONE ? (
         <Button asChild size="lg">
-          <a href={`tel:${dial(PHONE)}`}>
+          <a href={SUPPORT_PHONE_HREF}>
             {label} · {PHONE}
           </a>
         </Button>

@@ -12,9 +12,15 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        brand: "#89b4d4 ",
-         brand2: "#072F7F ",
+        // Brand manual palette. `brand` is Azure Drive (accents, eyebrows, links on dark);
+        // `brand2` is a pressed/hover shade of Midnight Route, not a separate brand colour.
+        brand: "#6096ba",
+        brand2: "#0d4285",
         muted2: "#6096ba",
+        midnight: "#1153a4",
+        azure: "#6096ba",
+        cloud: "#e1efe6",
+        ink: "#060606",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         card: "hsl(var(--card))",
@@ -60,9 +66,20 @@ const config: Config = {
           ring: "hsl(var(--sidebar-ring))",
         },
       },
+      /*
+       * The brand manual sets Clash Display at normal spacing. The UI's small caps
+       * labels used 0.1–0.3em tracking, which the manual never does, so the named
+       * steps are pulled in to a hint of air (and the one-off values below match).
+       */
+      letterSpacing: {
+        wide: "0.02em",
+        wider: "0.03em",
+        widest: "0.06em",
+      },
       fontFamily: {
-        sans: ["var(--font-roc-grotesk)", "Arial", "sans-serif"],
-        serif: ["var(--font-serif)", "Georgia", "serif"],
+        // Both resolve to Clash Display, the only typeface in the brand manual.
+        sans: ["var(--font-brand)", "Helvetica Neue", "Arial", "sans-serif"],
+        serif: ["var(--font-brand)", "Helvetica Neue", "Arial", "sans-serif"],
       },
       borderRadius: {
         lg: "var(--radius)",

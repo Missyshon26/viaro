@@ -9,7 +9,10 @@ import { getBooking } from "@/lib/api/bookings";
 import { ApiError } from "@/lib/api/client";
 import type { Booking } from "@/lib/api/types";
 
-export const metadata: Metadata = { title: "Change booking | Viaro" };
+export const metadata: Metadata = {
+  title: "Change booking | Viaro",
+  robots: { index: false, follow: false },
+};
 
 /** Changes close this many hours before pickup — mirrors CHANGE_CUTOFF_HOURS server-side. */
 const CHANGE_CUTOFF_HOURS = 3;

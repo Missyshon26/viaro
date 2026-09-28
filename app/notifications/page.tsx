@@ -4,7 +4,10 @@ import { MarkReadButton } from "@/components/app/notification-actions";
 import { listNotifications } from "@/lib/api/account";
 import type { NotificationItem, Paginated } from "@/lib/api/types";
 
-export const metadata: Metadata = { title: "Notifications | Viaro" };
+export const metadata: Metadata = {
+  title: "Notifications | Viaro",
+  robots: { index: false, follow: false },
+};
 
 /** The list endpoint may answer with a bare array or a paginated envelope. */
 function toItems(

@@ -6,7 +6,10 @@ import { PageShell, Panel } from "@/components/app/shell";
 import { VerifyPhoneForm } from "@/components/app/verify-phone-form";
 import { getCurrentUser } from "@/lib/auth/current-user";
 
-export const metadata: Metadata = { title: "Verify your phone | Viaro" };
+export const metadata: Metadata = {
+  title: "Verify your phone | Viaro",
+  robots: { index: false, follow: false },
+};
 
 export default async function VerifyPhonePage() {
   const user = await getCurrentUser();

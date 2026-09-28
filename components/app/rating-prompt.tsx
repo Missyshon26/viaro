@@ -24,6 +24,9 @@ import type { Trip } from "@/lib/api/types";
  */
 const DISMISSED_KEY = "viaro-rating-dismissed";
 
+/** Dispatched (with a trip id) to open the prompt for a specific trip. */
+export const RATE_TRIP_EVENT = "viaro:rate-trip";
+
 /** Paths where an interruption is worse than a missing rating. */
 const QUIET_PATHS = ["/book", "/login", "/register", "/forgot-password", "/reset-password"];
 
@@ -65,6 +68,24 @@ export function RatingPrompt({ trips }: { trips: Trip[] }) {
     // Oldest unrated first: the one most likely to be forgotten.
     setTrip(trips.find((candidate) => !dismissed.has(candidate._id)) ?? null);
   }, [trips, quiet]);
+
+  // "Rate chauffeur" on a row in My Trips opens this prompt for that trip, even if it
+  // was dismissed earlier — asking explicitly overrides "not now".
+  useEffect(() => {
+    function onRequest(event: Event) {
+      const id = (event as CustomEvent<string>).detail;
+      const wanted = trips.find((candidate) => candidate._id === id);
+      if (wanted) {
+        setScore(0);
+        setComment("");
+        setDone(false);
+        setError(null);
+        setTrip(wanted);
+      }
+    }
+    window.addEventListener(RATE_TRIP_EVENT, onRequest);
+    return () => window.removeEventListener(RATE_TRIP_EVENT, onRequest);
+  }, [trips]);
 
   const close = useCallback(() => {
     if (trip) dismiss(trip._id);
@@ -171,7 +192,7 @@ export function RatingPrompt({ trips }: { trips: Trip[] }) {
                   <svg
                     viewBox="0 0 24 24"
                     className={`h-8 w-8 transition-colors ${
-                      value <= shown ? "text-amber-400" : "text-muted-foreground/30"
+                      value <= shown ? "text-brand" : "text-muted-foreground/30"
                     }`}
                     fill={value <= shown ? "currentColor" : "none"}
                     stroke="currentColor"

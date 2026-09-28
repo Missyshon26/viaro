@@ -5,6 +5,7 @@ import { Menu, X, Phone, ChevronDown, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { BrandLogo } from "@/components/brand-logo";
 
 interface NavbarProps {
   dict: any;
@@ -62,8 +63,8 @@ export function Navbar({ dict, auth }: NavbarProps) {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-20 items-center justify-between">
 
-          <Link href={"/"} className="flex items-center gap-2">
-            <img src="/Logo/Logo.png" alt="Viaro Logo" className="h-12 w-auto" />
+          <Link href={"/"} className="flex items-center gap-2" aria-label="Viaro home">
+            <BrandLogo height={40} />
           </Link>
 
           {/* ── Desktop nav ── */}

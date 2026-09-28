@@ -402,7 +402,7 @@ export default function ServicePage() {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-black/50" />
 
-        <div className="absolute bottom-0 left-0 right-0 z-10 max-w-7xl mx-auto px-4 sm:px-8 lg:px-16 pb-24 sm:pb-20">
+        <div className="absolute bottom-0 left-0 right-0 z-10 max-w-7xl mx-auto px-5 sm:px-8 lg:px-16 pb-24 sm:pb-20">
           <h1 className="font-serif font-bold leading-tight text-3xl sm:text-4xl lg:text-5xl xl:text-6xl max-w-3xl">
             {cityData.hero.h1}
           </h1>
@@ -491,7 +491,7 @@ export default function ServicePage() {
               >
                 <div
                   className="trust-bar-icon"
-                  style={{ color: "var(--color-primary, #3b82f6)" }}
+                  style={{ color: "#89b4d4" }}
                 >
                   {getTrustIcon(item)}
                 </div>
@@ -514,7 +514,7 @@ export default function ServicePage() {
       {/* ── BODY CONTENT ── */}
       {cityData.bodyContent && (
         <section className="bg-black">
-          <div className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-16 mt-6 mb-4">
+          <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-16 mt-6 mb-4">
             <h2 className="font-serif font-bold text-3xl sm:text-4xl lg:text-5xl leading-tight">
               {cityData.bodyContent.h2
                 .split("Viaro")
@@ -530,7 +530,7 @@ export default function ServicePage() {
             <h3 className="text-sm font-bold uppercase tracking-widest text-primary mb-8">
               {cityData.bodyContent.h3}
             </h3>
-            <div className="max-w-3xl space-y-5 mb-16 text-justify">
+            <div className="max-w-3xl space-y-5 mb-16 text-left md:text-justify">
               {cityData.bodyContent.content?.map((p, i) => (
                 <p
                   key={i}
@@ -575,7 +575,7 @@ export default function ServicePage() {
 
       {cityData.extraContent && cityData.extraContent.length > 0 && (
         <section className="py-10 sm:py-24 bg-black">
-          <div className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-16 space-y-24">
+          <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-16 space-y-24">
             {cityData.extraContent.map((section, i) => (
               <div key={i}>
                 <div className="flex items-center gap-4 ">
@@ -737,8 +737,8 @@ export default function ServicePage() {
       )}
 
       {/* ── PRICING ── */}
-      <section className="py-16 sm:py-24 bg-neutral-950">
-        <div className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-16">
+      <section className="py-12 sm:py-24 bg-neutral-950">
+        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-16">
           <h2 className="font-serif font-bold text-3xl sm:text-4xl lg:text-5xl leading-tight text-center mb-12 whitespace-pre-line">
             {cityData.pricing.h2}
           </h2>
@@ -814,7 +814,7 @@ export default function ServicePage() {
 
       {/* ── TESTIMONIALS ── */}
       <section className="pt-16 sm:pt-24">
-        <div className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-16 mb-10 text-center">
+        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-16 mb-10 text-center">
           <h2 className="font-serif font-bold text-3xl sm:text-4xl lg:text-5xl leading-tight">
             {" WHAT OUR TRAVELERS SAY"}
           </h2>
@@ -823,8 +823,8 @@ export default function ServicePage() {
       </section>
 
       {/* ── FAQ ── */}
-      <section className="py-16 sm:py-24 bg-black">
-        <div className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-16">
+      <section className="py-12 sm:py-24 bg-black">
+        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-16">
           <h2 className="font-serif font-bold text-3xl sm:text-4xl lg:text-5xl leading-tight text-center mb-12">
             {"Frequently Asked Questions"}
           </h2>

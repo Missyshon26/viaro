@@ -184,6 +184,18 @@ export const TRIP_TYPE_LABEL: Record<TripType, string> = {
 export const cityCoords = (name: string) =>
   CITIES.find((c) => c.name.toLowerCase() === name.toLowerCase()) ?? CITIES[0];
 
+/**
+ * Support contact details, shown on the cancel panel, support pages and booking flow.
+ *
+ * Kept in code rather than .env: they are public business facts, not configuration,
+ * and an empty or placeholder env value ("000000000" reached production) is exactly
+ * how the wrong number ended up on screen. Change them here.
+ */
+export const SUPPORT_PHONE = "(206) 672-8281";
+export const SUPPORT_PHONE_HREF = "tel:+12066728281";
+export const SUPPORT_HOURS = "24 hours a day, 7 days a week";
+export const SUPPORT_EMAIL = "reservations@viaro.io";
+
 /** The API does not define a plan price, so the product states the offer. */
 export const MONTHLY_PLAN = { plan: "monthly", price: 49.99 } as const;
 

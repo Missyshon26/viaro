@@ -1,21 +1,25 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageShell, Panel, SectionTitle, formatDateTime } from "@/components/app/shell";
 import { MapPanel } from "@/components/app/map-panel";
+import { RideStatusBadge } from "@/components/app/status-badge";
+import { rideStatus } from "@/lib/ride-status";
 import { TrackingRefresh } from "@/components/app/tracking-refresh";
 import { apiOptional, ApiError } from "@/lib/api/client";
 import { getBooking } from "@/lib/api/bookings";
 import type { Booking, Receipt, Trip } from "@/lib/api/types";
 
-export const metadata: Metadata = { title: "Live tracking | Viaro" };
+export const metadata: Metadata = {
+  title: "Live tracking | Viaro",
+  robots: { index: false, follow: false },
+};
 
 const STATUS_COPY: Record<string, string> = {
   accepted: "On the way to you",
   started: "On the trip",
-  completed: "Trip finished",
+  completed: "Trip completed",
   cancelled: "Cancelled",
 };
 
@@ -79,9 +83,14 @@ export default async function TrackTripPage({
           <Panel>
             <div className="flex flex-wrap items-center gap-3">
               <SectionTitle>Status</SectionTitle>
-              <Badge variant="secondary" className="ml-auto capitalize">
-                {trip?.status ?? booking?.status ?? "pending"}
-              </Badge>
+              <RideStatusBadge
+                className="ml-auto"
+                status={rideStatus({
+                  bookingStatus: booking?.status,
+                  tripStatus: trip?.status,
+                  refundPct: trip?.cancellation?.refundPct,
+                })}
+              />
             </div>
 
             {trip?.driver ? (

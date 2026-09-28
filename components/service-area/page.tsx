@@ -171,7 +171,7 @@ export default function LocationPage() {
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-black/50" />
         <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
 
-        <div className="absolute bottom-0 left-0 right-0 z-10 max-w-7xl mx-auto px-4 sm:px-8 lg:px-16 pb-24 sm:pb-20">
+        <div className="absolute bottom-0 left-0 right-0 z-10 max-w-7xl mx-auto px-5 sm:px-8 lg:px-16 pb-24 sm:pb-20">
          
 
           <h1 className="font-serif font-bold leading-tight text-3xl sm:text-4xl lg:text-5xl xl:text-6xl max-w-3xl">
@@ -269,7 +269,7 @@ export default function LocationPage() {
               >
                 <div
                   className="trust-bar-icon"
-                  style={{ color: "var(--color-primary, #3b82f6)" }}
+                  style={{ color: "#89b4d4" }}
                 >
                   {getTrustIcon(item)}
                 </div>
@@ -291,7 +291,7 @@ export default function LocationPage() {
       )}
 
       <section className="bg-black">
-        <div className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-16 pt-16 sm:pt-20 pb-4">
+        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-16 pt-16 sm:pt-20 pb-4">
 
           <h2 className="font-serif font-bold text-3xl sm:text-4xl lg:text-5xl leading-tight mb-2">
             {data.bodyContent.h2}
@@ -301,7 +301,7 @@ export default function LocationPage() {
           </h3>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-start mb-16">
-            <div className="max-w-3xl space-y-5 text-justify">
+            <div className="max-w-3xl space-y-5 text-left md:text-justify">
               {data.bodyContent.content.map((p, i) => (
                 <p key={i} className="text-sm sm:text-base text-neutral-400 leading-relaxed">
                   {p}
@@ -334,7 +334,7 @@ export default function LocationPage() {
 
       {data.extraContent && data.extraContent.length > 0 && (
         <section className="py-10 sm:py-24 bg-black">
-          <div className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-16 space-y-24">
+          <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-16 space-y-24">
             {data.extraContent.map((section, i) => (
               <div key={i}>
 
@@ -493,13 +493,13 @@ export default function LocationPage() {
       )}
 {data.whereSection && (
   <section
-    className="py-16 sm:py-24"
+    className="py-12 sm:py-24"
     style={{
       background: "rgb(10,10,10)",
       borderTop: "1px solid rgba(255,255,255,0.06)",
     }}
   >
-    <div className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-16">
+    <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-16">
 
       {/* Header centrado */}
       <div className="flex flex-col items-center text-center mb-10">
@@ -600,8 +600,8 @@ export default function LocationPage() {
       {/* ══════════════════════════════════════════════════════════════
           PRICING
       ══════════════════════════════════════════════════════════════ */}
-      <section className="py-16 sm:py-24 bg-neutral-950">
-        <div className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-16">
+      <section className="py-12 sm:py-24 bg-neutral-950">
+        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-16">
           <h2 className="font-serif font-bold text-3xl sm:text-4xl lg:text-5xl leading-tight text-center mb-12">
             {data.pricing.h2}
           </h2>
@@ -681,7 +681,7 @@ export default function LocationPage() {
           TESTIMONIALS
       ══════════════════════════════════════════════════════════════ */}
       <section className="pt-16 sm:pt-24">
-        <div className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-16 mb-10 text-center">
+        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-16 mb-10 text-center">
           <h2 className="font-serif font-bold text-3xl sm:text-4xl lg:text-5xl leading-tight">
             {"WHAT OUR TRAVELERS SAY"}
           </h2>
@@ -692,8 +692,8 @@ export default function LocationPage() {
       {/* ══════════════════════════════════════════════════════════════
           FAQ
       ══════════════════════════════════════════════════════════════ */}
-      <section className="py-16 sm:py-24 bg-black">
-        <div className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-16">
+      <section className="py-12 sm:py-24 bg-black">
+        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-16">
           <h2 className="font-serif font-bold text-3xl sm:text-4xl lg:text-5xl leading-tight text-center mb-12">
             {"Frequently Asked Questions"}
           </h2>

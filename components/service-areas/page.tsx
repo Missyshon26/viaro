@@ -491,16 +491,16 @@ export default function LocationsContent() {
         </div>
         <div className="relative z-20 max-w-7xl pl-6 lg:pl-16 pt-20">
           <div className="max-w-3xl">
-            <p className="mb-3 text-xs sm:text-sm font-semibold uppercase tracking-[0.25em] text-brand [text-shadow:0_1px_3px_rgba(0,0,0,0.9),_0_4px_12px_rgba(0,0,0,0.6)]">
+            <p className="mb-3 text-xs sm:text-sm font-semibold uppercase tracking-[0.08em] text-brand [text-shadow:0_1px_3px_rgba(0,0,0,0.9),_0_4px_12px_rgba(0,0,0,0.6)]">
               {t.hero.subtitle}
             </p>
-            <p className="mb-3 text-xs sm:text-sm font-semibold uppercase tracking-[0.25em] text-brand [text-shadow:0_1px_3px_rgba(0,0,0,0.9),_0_4px_12px_rgba(0,0,0,0.6)]">
+            <p className="mb-3 text-xs sm:text-sm font-semibold uppercase tracking-[0.08em] text-brand [text-shadow:0_1px_3px_rgba(0,0,0,0.9),_0_4px_12px_rgba(0,0,0,0.6)]">
               {t.subtitle}
             </p>
             <h1 className="font-serif text-5xl font-bold leading-tight tracking-tight text-foreground sm:text-6xl lg:text-7xl text-balance">
               {t.hero.title}
             </h1>
-            <p className="mt-4 mb-6 text-sm font-semibold uppercase tracking-[0.3em]">
+            <p className="mt-4 mb-6 text-sm font-semibold uppercase tracking-[0.08em]">
               {t.hero.description}
             </p>
             <div className="flex flex-wrap gap-3">
@@ -584,7 +584,7 @@ export default function LocationsContent() {
             >
               <div
                 className="tm-icon"
-                style={{ color: "var(--color-primary, #2563eb)" }}
+                style={{ color: "#89b4d4" }}
               >
                 {m.icon}
               </div>
@@ -767,7 +767,7 @@ export default function LocationsContent() {
       </div>
       {/* ── TESTIMONIALS ── */}
       <section>
-        <div className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-16 mb-2 text-center">
+        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-16 mb-2 text-center">
           <h2 className="font-serif font-bold text-3xl sm:text-4xl lg:text-5xl leading-tight">
             {"CLIENT EXPERIENCES"}
           </h2>
@@ -775,8 +775,8 @@ export default function LocationsContent() {
         <Testimonials data={testimonios} />
       </section>
       {/* ── FAQ ── */}
-      <section className="py-16 sm:py-24 bg-black">
-        <div className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-16">
+      <section className="py-12 sm:py-24 bg-black">
+        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-16">
           <h2 className="font-serif font-bold text-3xl sm:text-4xl lg:text-5xl leading-tight text-center mb-2">
             {"CHAUFFEUR SERVICE FAQs"}
           </h2>
