@@ -201,9 +201,9 @@ export function TripFilters({
             <table className="w-full table-fixed text-left text-sm">
               <thead className="border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
                 <tr>
-                  <th className="w-[26%] px-5 py-3 font-medium">Pickup</th>
+                  <th className="w-[25%] px-5 py-3 font-medium">Pickup</th>
                   <th className="px-5 py-3 font-medium">Route</th>
-                  <th className="w-[18%] px-5 py-3 font-medium">Status</th>
+                  <th className="w-[22%] px-5 py-3 font-medium">Status</th>
                   <th className="w-[11%] px-5 py-3 text-right font-medium">Fare</th>
                 </tr>
               </thead>

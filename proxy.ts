@@ -40,8 +40,12 @@ const PRIVATE_ONLY = ["/portal", "/verify-phone"];
 /** Signed-in users get bounced away from these. */
 const AUTH_PAGES = ["/login", "/register", "/forgot-password", "/reset-password"];
 
-/** Where a signed-in user belongs on THIS site. Only customers have a home here. */
-const homeFor = (role: UserRole | null) => (role === "customer" ? "/trips" : "/portal");
+/**
+ * Where a signed-in user lands when they open a sign-in page. A passenger goes back to
+ * the website, not into the account area — "My account" in the navbar is how they get
+ * there. Other roles have no home on this site and are sent to /portal.
+ */
+const homeFor = (role: UserRole | null) => (role === "customer" ? "/" : "/portal");
 
 /**
  * Seconds of headroom before expiry at which a token is already treated as spent.

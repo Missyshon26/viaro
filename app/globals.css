@@ -73,8 +73,13 @@
   }
   body {
     @apply bg-background text-foreground font-sans;
-    /* Clash Display's word space is very tight — "My trips" read as "Mytrips". */
-    word-spacing: 0.08em;
+    /*
+     * Clash Display is a display face: tight by design, which suits large headings but
+     * runs small text together ("My trips" read as "Mytrips"). Running text gets a
+     * little air between letters and words; headings keep their own tracking classes.
+     */
+    letter-spacing: 0.02em;
+    word-spacing: 0.1em;
     /*
      * The brand manual sets running text in Clash Display LIGHT, with the phrases that
      * matter in BOLD ("Viaro, Manual de Marca", p. 2). Anything given an explicit

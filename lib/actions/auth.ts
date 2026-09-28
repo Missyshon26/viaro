@@ -28,7 +28,12 @@ export interface FormState {
  * valid session here, but has nothing to use — they are handed to /portal, which links
  * them to their own application.
  */
-const homeFor = (role: UserRole) => (role === "customer" ? "/trips" : "/portal");
+/**
+ * After signing in or registering, a passenger returns to the website (unless a `next`
+ * page asked for them). The account area is one click away under "My account" — landing
+ * inside it made the site feel like it had been left behind.
+ */
+const homeFor = (role: UserRole) => (role === "customer" ? "/" : "/portal");
 
 function toFormState(err: unknown): FormState {
   if (err instanceof ApiError) {

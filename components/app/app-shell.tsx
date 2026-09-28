@@ -4,7 +4,9 @@ import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  ArrowLeft,
   Bell,
+  Home,
   CalendarClock,
   CircleUserRound,
   Crown,
@@ -89,6 +91,16 @@ export function AppShell({
     </ul>
   );
 
+  const backToSite = (
+    <Link
+      href="/"
+      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-[0.95rem] text-muted-foreground transition-colors hover:bg-white/[0.04] hover:text-cloud"
+    >
+      <Home className="h-[18px] w-[18px]" />
+      Back to website
+    </Link>
+  );
+
   const signOut = (
     <button
       type="button"
@@ -116,8 +128,17 @@ export function AppShell({
             {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
 
-          <Link href="/trips" aria-label="Viaro — my trips" className="flex items-center">
+          {/* The logo leads back to the website, as it does everywhere else. */}
+          <Link href="/" aria-label="Viaro home" className="flex items-center">
             <BrandLogo height={30} />
+          </Link>
+
+          <Link
+            href="/"
+            className="ml-2 hidden items-center gap-1.5 rounded-lg px-2.5 py-2 text-sm text-muted-foreground transition-colors hover:bg-white/5 hover:text-cloud sm:inline-flex"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to website
           </Link>
 
           <div className="ml-auto flex items-center gap-1 sm:gap-2">
@@ -156,7 +177,10 @@ export function AppShell({
         {/* ── Sidebar (desktop) ── */}
         <aside className="sticky top-16 hidden h-[calc(100vh-4rem)] w-60 shrink-0 flex-col border-r border-border px-3 py-6 lg:flex">
           <nav aria-label="Account">{navList}</nav>
-          <div className="mt-auto border-t border-border pt-4">{signOut}</div>
+          <div className="mt-auto space-y-1 border-t border-border pt-4">
+            {backToSite}
+            {signOut}
+          </div>
         </aside>
 
         {/* ── Drawer (mobile) ── */}
@@ -173,7 +197,10 @@ export function AppShell({
                 <p className="mb-4 truncate px-3 text-sm text-muted-foreground">{userName}</p>
               ) : null}
               <nav aria-label="Account">{navList}</nav>
-              <div className="mt-auto border-t border-border pt-4">{signOut}</div>
+              <div className="mt-auto space-y-1 border-t border-border pt-4">
+            {backToSite}
+            {signOut}
+          </div>
             </div>
           </div>
         ) : null}
