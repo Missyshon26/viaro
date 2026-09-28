@@ -1,6 +1,11 @@
 import { Router } from 'express';
 import * as controller from './reports.controller';
-import { exportQuerySchema, jobParamSchema, reportRangeSchema } from './reports.validation';
+import {
+  exportQuerySchema,
+  jobParamSchema,
+  monthlyQuerySchema,
+  reportRangeSchema,
+} from './reports.validation';
 import { validate } from '../../utils/validate';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { authGuard } from '../../middlewares/authGuard';
@@ -18,6 +23,13 @@ const withRange = validate({ query: reportRangeSchema });
 router.get('/trips-completed', withRange, asyncHandler(controller.tripsCompleted));
 router.get('/earnings-payout', withRange, asyncHandler(controller.earningsPayout));
 router.get('/cancellations-penalties', withRange, asyncHandler(controller.cancellationsPenalties));
+// A chauffeur's own rides and pay by calendar month. Drivers only (checked in the service).
+router.get(
+  '/monthly',
+  roleGuard('driver'),
+  validate({ query: monthlyQuerySchema }),
+  asyncHandler(controller.monthly),
+);
 
 router.get(
   '/exports/:jobId/download',

@@ -1,6 +1,7 @@
 import { Booking, type BookingDocument } from '../../models/Booking';
 import { Driver } from '../../models/Driver';
 import { Trip } from '../../models/Trip';
+import { Rating } from '../../models/Rating';
 import { ApiError } from '../../utils/ApiError';
 import type { AuthUser } from '../../middlewares/authGuard';
 import { format, now, toDate } from '../../config/timezone';
@@ -28,7 +29,7 @@ export async function createBooking(customerId: string, input: CreateBookingInpu
    * canonical key is used from here on, so casing from the client cannot diverge from
    * what the rest of the system looks up.
    */
-  const vehicleClass = await vehicleService.resolveBookableClass(input.vehicleClass);
+  const vehicleClass = await vehicleService.resolveBookableClass(input.vehicleClass, input.tripType);
 
   // Quote through the shared calculator so the estimate matches what pricing would charge.
   const fare = await pricingService.calculateFare({
@@ -155,7 +156,7 @@ export async function updateBooking(bookingId: string, customerId: string, input
   if (input.pickup) changed = applyAmendment(booking, 'pickup', input.pickup, 'customer') || changed;
   if (input.drop) changed = applyAmendment(booking, 'drop', input.drop, 'customer') || changed;
   if (input.vehicleClass) {
-    const next = await vehicleService.resolveBookableClass(input.vehicleClass);
+    const next = await vehicleService.resolveBookableClass(input.vehicleClass, booking.tripType);
     changed = applyAmendment(booking, 'vehicleClass', next, 'customer') || changed;
   }
   if (input.scheduledAt) {
@@ -279,6 +280,25 @@ export async function requestFavoriteDriver(bookingId: string, customerId: strin
   return booking;
 }
 
+/**
+ * What happened to the Trip behind a booking, for the passenger's history list.
+ *
+ * A Booking's own status stops at pending / dispatched / assigned / cancelled, so without
+ * this the list could not say "Completed" or "Refunded" and had to guess from the clock.
+ * The chauffeur's id and name are included so a finished ride can be favourited
+ * directly — passengers were being asked to paste a 24-character driver id instead.
+ */
+export interface RideTripSummary {
+  tripId: string;
+  status: 'accepted' | 'started' | 'completed' | 'cancelled';
+  completedAt?: Date;
+  refundPct?: number;
+  refundedAt?: Date;
+  rated: boolean;
+  driverId: string;
+  driverName: string | null;
+}
+
 export async function listMyRides(customerId: string, q: PaginationQuery) {
   const { skip, limit } = toSkipLimit(q);
   const [items, total] = await Promise.all([
@@ -286,8 +306,42 @@ export async function listMyRides(customerId: string, q: PaginationQuery) {
     Booking.countDocuments({ customerId }),
   ]);
 
+  // One query each for the page's trips, their drivers' names and their ratings — not
+  // one per row.
+  const trips = await Trip.find({ bookingId: { $in: items.map((b) => b._id) } })
+    .select('bookingId driverId status timestamps.completed cancellation.refundPct cancellation.refundedAt')
+    .populate({ path: 'driverId', select: 'userId', populate: { path: 'userId', select: 'name' } })
+    .lean();
+  const ratedTripIds = new Set(
+    (await Rating.find({ tripId: { $in: trips.map((t) => t._id) } }).select('tripId').lean()).map(
+      (r) => String(r.tripId),
+    ),
+  );
+
+  const tripByBooking = new Map<string, RideTripSummary>();
+  for (const trip of trips) {
+    const driver = trip.driverId as unknown as {
+      _id: unknown;
+      userId?: { name?: string } | null;
+    } | null;
+    tripByBooking.set(String(trip.bookingId), {
+      tripId: String(trip._id),
+      status: trip.status,
+      completedAt: trip.timestamps?.completed,
+      refundPct: trip.cancellation?.refundPct,
+      refundedAt: trip.cancellation?.refundedAt,
+      rated: ratedTripIds.has(String(trip._id)),
+      driverId: String(driver?._id ?? trip.driverId),
+      driverName: driver?.userId?.name ?? null,
+    });
+  }
+
   return paginated(
-    items.map((b) => ({ ...b, scheduledAtLocal: format(b.scheduledAt) })),
+    items.map((b) => ({
+      ...b,
+      scheduledAtLocal: format(b.scheduledAt),
+      trip: tripByBooking.get(String(b._id)) ?? null,
+    })),
     total,
     q,
   );

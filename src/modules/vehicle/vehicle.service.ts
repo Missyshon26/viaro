@@ -1,4 +1,6 @@
 import { ApiError } from '../../utils/ApiError';
+import type { TripType } from '../../models/Booking';
+import type { VehicleUsage } from '../../models/VehicleClass';
 import { logger } from '../../utils/logger';
 import { VEHICLE_CLASSES as DEFAULT_CLASSES } from '../../config/vehicles';
 import * as repo from './vehicle.repository';
@@ -57,11 +59,15 @@ export async function remove(id: string) {
  * so an unknown key is a real possibility, and billing at the base rate can never
  * overcharge.
  */
-export async function multiplierFor(value?: string | null): Promise<number> {
+export async function multiplierFor(value?: string | null, tripType?: TripType): Promise<number> {
   if (!value) return 1;
 
   const stored = await repo.findByValue(value);
-  if (stored) return stored.multiplier;
+  if (stored) {
+    // Hourly charters can carry their own rate for a class (hourlyMultiplier).
+    if (tripType === 'hourly' && stored.hourlyMultiplier) return stored.hourlyMultiplier;
+    return stored.multiplier;
+  }
 
   return DEFAULT_CLASSES.find((v) => v.value === value)?.multiplier ?? 1;
 }
@@ -84,7 +90,10 @@ export async function multiplierFor(value?: string | null): Promise<number> {
  * Returning the stored `value` rather than the caller's spelling is the other half of
  * the fix: one canonical key reaches the database however the client capitalised it.
  */
-export async function resolveBookableClass(value?: string | null): Promise<string> {
+export async function resolveBookableClass(
+  value?: string | null,
+  tripType?: TripType,
+): Promise<string> {
   if (!value?.trim()) {
     throw ApiError.badRequest('A vehicle class is required');
   }
@@ -99,7 +108,33 @@ export async function resolveBookableClass(value?: string | null): Promise<strin
     });
   }
 
+  if (tripType) assertOffered(stored, tripType);
+
   return stored.value;
+}
+
+/** Whether a class may be booked for a trip type (VehicleClass.usage). */
+export function offersTripType(usage: VehicleUsage | undefined, tripType: TripType): boolean {
+  if (!usage || usage === 'all') return true;
+  return usage === 'hourly' ? tripType === 'hourly' : tripType !== 'hourly';
+}
+
+function assertOffered(stored: { value: string; label: string; usage?: VehicleUsage }, tripType: TripType) {
+  if (offersTripType(stored.usage, tripType)) return;
+  throw new ApiError(
+    400,
+    stored.usage === 'hourly'
+      ? `${stored.label} is only available for hourly charters`
+      : `${stored.label} is not available for hourly charters`,
+    { code: 'VEHICLE_CLASS_NOT_OFFERED', usage: stored.usage, tripType },
+  );
+}
+
+/** For quotes: refuse a known class that is not offered for this trip type. */
+export async function assertClassOffered(value: string | undefined, tripType: TripType) {
+  if (!value) return;
+  const stored = await repo.findByValue(value);
+  if (stored) assertOffered(stored, tripType);
 }
 
 export async function seedDefaults(): Promise<number> {

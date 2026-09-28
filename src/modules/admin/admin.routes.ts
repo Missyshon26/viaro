@@ -4,6 +4,8 @@ import {
   createDriverSchema,
   idParamSchema,
   listQuerySchema,
+  payoutDefaultsSchema,
+  settingsUpdateSchema,
   updateDriverSchema,
 } from './admin.validation';
 import { validate } from '../../utils/validate';
@@ -47,6 +49,25 @@ router.patch(
   asyncHandler(controller.updateDriver),
 );
 
+/* -------------------------------- settings -------------------------------- */
+
+// Business settings edited in the console instead of .env (settings.service.ts).
+router.get('/settings', roleGuard('admin'), asyncHandler(controller.getSettings));
+
+router.patch(
+  '/settings',
+  roleGuard('admin'),
+  validate({ body: settingsUpdateSchema }),
+  asyncHandler(controller.updateSettings),
+);
+
+router.patch(
+  '/settings/payout',
+  roleGuard('admin'),
+  validate({ body: payoutDefaultsSchema }),
+  asyncHandler(controller.updatePayoutDefaults),
+);
+
 /* ------------------------------- dashboards ------------------------------- */
 
 router.get(
@@ -79,3 +100,10 @@ router.get(
 );
 
 export default router;
+
+/**
+ * Mounted at /settings — the one setting the public website needs: which inbox quote
+ * requests and contact messages go to. No auth, and nothing commercial is exposed.
+ */
+export const publicSettingsRouter = Router();
+publicSettingsRouter.get('/public', asyncHandler(controller.publicSettings));

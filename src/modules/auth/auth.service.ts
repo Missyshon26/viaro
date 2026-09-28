@@ -1,4 +1,6 @@
 import crypto from 'node:crypto';
+import { getSettingsValues } from '../admin/settings.service';
+import { ACCESS_TOKEN_TTL, REFRESH_TOKEN_TTL } from '../../config/constants';
 import bcrypt from 'bcrypt';
 import jwt, { type JwtPayload, type SignOptions } from 'jsonwebtoken';
 import { User, type UserDocument } from '../../models/User';
@@ -36,7 +38,7 @@ export interface TokenPair {
 
 function signAccessToken(userId: string, role: UserRole): string {
   const options: SignOptions = {
-    expiresIn: env.JWT_ACCESS_EXPIRES_IN as SignOptions['expiresIn'],
+    expiresIn: ACCESS_TOKEN_TTL as SignOptions['expiresIn'],
     jwtid: crypto.randomUUID(),
   };
   return jwt.sign({ userId, role }, env.JWT_ACCESS_SECRET, options);
@@ -44,7 +46,7 @@ function signAccessToken(userId: string, role: UserRole): string {
 
 function signRefreshToken(userId: string, role: UserRole): string {
   const options: SignOptions = {
-    expiresIn: env.JWT_REFRESH_EXPIRES_IN as SignOptions['expiresIn'],
+    expiresIn: REFRESH_TOKEN_TTL as SignOptions['expiresIn'],
     // jti is what logout blacklists; without it a refresh token could not be revoked.
     jwtid: crypto.randomUUID(),
   };
@@ -133,13 +135,12 @@ export async function register(input: InternalRegisterInput) {
   }
 
   if (input.role === 'company') {
-    // Read from config, not hardcoded: env.COMPANY_REVENUE_PCT is the one place the split
-    // is configured (and is validated to total 100 with ADMIN_REVENUE_PCT). A literal 60
-    // here silently ignored any deployment that changed it.
+    // The admin-set default split (Settings), not a literal: a new company starts on
+    // whatever share operations currently offer, and can be given its own later.
     await Company.create({
       userId: user._id,
       driverIds: [],
-      revenueSharePct: env.COMPANY_REVENUE_PCT,
+      revenueSharePct: (await getSettingsValues()).companyRevenuePct,
     });
   }
 

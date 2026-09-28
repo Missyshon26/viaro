@@ -1,10 +1,15 @@
 import { Types } from 'mongoose';
+import { getSettingsValues } from '../admin/settings.service';
 import { SupportTicket } from '../../models/SupportTicket';
 import { ApiError } from '../../utils/ApiError';
 import { now, toDate } from '../../config/timezone';
 import type { AuthUser } from '../../middlewares/authGuard';
 import { paginated, toSkipLimit, type PaginationQuery } from '../../utils/pagination';
 import * as notify from '../notifications/notifications.service';
+import { User } from '../../models/User';
+import { env } from '../../config/env';
+import { logger } from '../../utils/logger';
+import { sendEmail } from '../../integrations/email';
 import type { CreateTicketInput, ReplyInput, UpdateTicketInput } from './support.validation';
 
 /**
@@ -22,8 +27,59 @@ async function loadTicketFor(ticketId: string, user: AuthUser) {
   return ticket;
 }
 
+const CATEGORY_LABEL: Record<string, string> = {
+  trip_dispute: 'Trip dispute',
+  penalty_appeal: 'Penalty appeal',
+  payment: 'Payment',
+  account: 'Account',
+  other: 'Other',
+};
+
+/**
+ * Emails the support inbox (admin Settings) when a user opens a case or adds to one.
+ *
+ * Cases used to exist only in the admin console, so nobody knew one had arrived until
+ * they happened to look. Best effort and never awaited by the caller's outcome: a mail
+ * outage must not stop a customer filing a dispute.
+ */
+async function alertSupportInbox(
+  ticket: { _id: unknown; subject: string; category: string; tripId?: unknown },
+  user: AuthUser,
+  message: string,
+  kind: 'new' | 'reply',
+) {
+  try {
+    const { supportInboxEmail } = await getSettingsValues();
+    if (!supportInboxEmail) return;
+    const from = await User.findById(user.userId).select('name email phone').lean();
+    const who = from ? `${from.name} <${from.email}>${from.phone ? `, ${from.phone}` : ''}` : user.userId;
+    const lines = [
+      kind === 'new' ? 'A new support case was opened.' : 'The customer replied to a support case.',
+      '',
+      `Case:     ${ticket.subject}`,
+      `Type:     ${CATEGORY_LABEL[ticket.category] ?? ticket.category}`,
+      `From:     ${who} (${user.role})`,
+      ticket.tripId ? `Trip:     ${String(ticket.tripId)}` : null,
+      `Case ID:  ${String(ticket._id)}`,
+      '',
+      message,
+      '',
+      'Reply from the admin console so the customer sees it in their account.',
+    ].filter((line) => line !== null);
+
+    await sendEmail({
+      to: supportInboxEmail,
+      replyTo: from?.email,
+      subject: `${kind === 'new' ? '[New case]' : '[Reply]'} ${CATEGORY_LABEL[ticket.category] ?? 'Support'}: ${ticket.subject}`,
+      text: lines.join('\n'),
+    });
+  } catch (err) {
+    logger.error('[support] inbox alert failed', err);
+  }
+}
+
 export async function createTicket(user: AuthUser, input: CreateTicketInput) {
-  return SupportTicket.create({
+  const ticket = await SupportTicket.create({
     userId: user.userId,
     category: input.category,
     subject: input.subject,
@@ -31,6 +87,8 @@ export async function createTicket(user: AuthUser, input: CreateTicketInput) {
     status: 'open',
     messages: [{ senderId: user.userId, senderRole: user.role, message: input.message }],
   });
+  void alertSupportInbox(ticket, user, input.message, 'new');
+  return ticket;
 }
 
 export async function listTickets(user: AuthUser, q: PaginationQuery) {
@@ -71,6 +129,8 @@ export async function reply(ticketId: string, user: AuthUser, input: ReplyInput)
       message: `Support replied to "${ticket.subject}"`,
       ticketId: String(ticket._id),
     });
+  } else {
+    void alertSupportInbox(ticket, user, input.message, 'reply');
   }
 
   return ticket;

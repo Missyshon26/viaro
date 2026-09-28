@@ -80,7 +80,9 @@ export async function calculateFare(opts: {
   // plan waives surge pricing, it does not buy a bigger car at saloon rates.
   // The catalogue is a collection now, so operations can change a class multiplier
   // without a deploy. config/vehicles.ts is only the seed and the last-resort fallback.
-  const vehicle = await vehicleService.multiplierFor(opts.vehicleClass);
+  // A class restricted to hourly (or to transfers) cannot be quoted for the other kind.
+  await vehicleService.assertClassOffered(opts.vehicleClass, opts.tripType);
+  const vehicle = await vehicleService.multiplierFor(opts.vehicleClass, opts.tripType);
   const fare = round2(rule.baseFare * multiplier * (hours ?? 1) * vehicle);
 
   return {

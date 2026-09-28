@@ -562,7 +562,7 @@ export async function changeVehicleClass(tripId: string, customerId: string, veh
   assertChangeable(booking);
 
   // Same catalogue check as booking creation — this route reaches the same field.
-  const next = await vehicleService.resolveBookableClass(vehicleClass);
+  const next = await vehicleService.resolveBookableClass(vehicleClass, booking.tripType);
 
   if (applyAmendment(booking, 'vehicleClass', next, 'customer')) {
     await booking.save();

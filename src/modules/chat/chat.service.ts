@@ -5,6 +5,8 @@ import { Driver } from '../../models/Driver';
 import { ApiError } from '../../utils/ApiError';
 import type { AuthUser } from '../../middlewares/authGuard';
 import type { UserRole } from '../../utils/roles';
+import { emitTo, ns } from '../../sockets/io';
+import * as events from '../events/events.bus';
 
 export interface ChatParticipation {
   tripId: string;
@@ -55,6 +57,51 @@ export async function saveMessage(
   if (text.length > 2000) throw ApiError.badRequest('Message is too long');
 
   return ChatMessage.create({ tripId, senderId, senderRole, message: text });
+}
+
+/**
+ * Post a message — shared by the REST route and the socket namespace, so both save,
+ * broadcast and notify identically.
+ *
+ * Messages used to be accepted ONLY over the '/chat/:tripId' socket, and no Viaro app
+ * ever opened that socket, so nobody could send anything. The REST route makes chat work
+ * from any client; the socket broadcast is kept for clients that do connect.
+ */
+export async function postMessage(tripId: string, user: AuthUser, message: string) {
+  const participation = await assertChatAccess(tripId, user);
+  if (!participation.canSend) {
+    throw ApiError.forbidden('Read-only access — admins may monitor chats only');
+  }
+
+  const saved = await saveMessage(tripId, user.userId, user.role, message);
+  const payload = {
+    _id: saved._id,
+    tripId,
+    senderId: user.userId,
+    senderRole: user.role,
+    message: saved.message,
+    createdAt: saved.createdAt,
+  };
+
+  // Anyone connected to the trip's chat socket gets it immediately.
+  emitTo(ns.chat(tripId), 'message:new', payload);
+
+  // Open chat screens on the passenger site, chauffeur portal and admin console are
+  // told to re-read the thread (they listen on /events).
+  const trip = await Trip.findById(tripId).select('bookingId driverId').lean();
+  const [booking, driver] = await Promise.all([
+    trip ? Booking.findById(trip.bookingId).select('customerId').lean() : null,
+    trip ? Driver.findById(trip.driverId).select('userId').lean() : null,
+  ]);
+  events.publish({
+    topic: 'chat',
+    action: 'message',
+    id: tripId,
+    userIds: [booking?.customerId, driver?.userId].filter(Boolean).map(String),
+    roles: ['admin'],
+  });
+
+  return payload;
 }
 
 /** Persisted log for a trip, oldest first (spec §4.9). */

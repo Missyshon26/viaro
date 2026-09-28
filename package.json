@@ -39,12 +39,14 @@
     "luxon": "^3.7.2",
     "mongoose": "^9.9.1",
     "morgan": "^1.11.0",
+    "nodemailer": "^10.0.12",
     "pdfkit": "^0.19.1",
     "socket.io": "^4.8.3",
     "typescript": "^5.9.3",
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@types/nodemailer": "^8.0.2",
     "@types/supertest": "^7.2.1",
     "newman": "^6.2.2",
     "socket.io-client": "^4.8.3",

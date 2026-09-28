@@ -1,4 +1,5 @@
 import { redis } from '../../config/redis';
+import { ACCESS_TOKEN_TTL } from '../../config/constants';
 import { env } from '../../config/env';
 import { logger } from '../../utils/logger';
 
@@ -31,7 +32,7 @@ export function parseDurationSeconds(value: string, fallback = 900): number {
 
 /** A little headroom over the access-token lifetime, for clock skew between processes. */
 function cutoffTtlSeconds(): number {
-  return parseDurationSeconds(env.JWT_ACCESS_EXPIRES_IN) + 60;
+  return parseDurationSeconds(ACCESS_TOKEN_TTL) + 60;
 }
 
 /**

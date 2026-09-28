@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon';
-import { env } from './env';
+import { APP_TIMEZONE } from './constants';
 
 /**
  * Shared timezone helper — spec §8 rule 1.
@@ -13,7 +13,7 @@ import { env } from './env';
  * display layer fixed to APP_TIMEZONE (America/Los_Angeles).
  */
 
-export const APP_TIMEZONE = env.APP_TIMEZONE;
+export { APP_TIMEZONE };
 
 export type DateInput = Date | string | number | DateTime;
 

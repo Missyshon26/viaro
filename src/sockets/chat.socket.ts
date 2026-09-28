@@ -47,15 +47,9 @@ export function attachChatNamespace(io: SocketIOServer): void {
       }
 
       try {
-        const saved = await chatService.saveMessage(tripId, user.userId, user.role, parsed.data.message);
-        socket.nsp.emit('message:new', {
-          _id: saved._id,
-          tripId,
-          senderId: user.userId,
-          senderRole: user.role,
-          message: saved.message,
-          createdAt: saved.createdAt,
-        });
+        // Same path as POST /trips/:id/chat/messages: saves, broadcasts on this
+        // namespace and notifies open chat screens.
+        await chatService.postMessage(tripId, user, parsed.data.message);
       } catch (err) {
         logger.warn(`Chat message rejected for trip ${tripId}`, err);
         socket.emit('chat:error', { message: 'Message could not be delivered' });

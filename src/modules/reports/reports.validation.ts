@@ -28,3 +28,7 @@ export const jobParamSchema = z.object({
 });
 
 export type JobParam = z.infer<typeof jobParamSchema>;
+
+export const monthlyQuerySchema = z.object({
+  months: z.coerce.number().int().min(1).max(24).optional(),
+});

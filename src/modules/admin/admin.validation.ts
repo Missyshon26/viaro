@@ -47,3 +47,34 @@ export const idParamSchema = z.object({
 export type IdParam = z.infer<typeof idParamSchema>;
 
 export const listQuerySchema = paginationSchema;
+
+/** PATCH /admin/settings/payout — the default rate for chauffeurs with none of their own. */
+export const payoutDefaultsSchema = z
+  .object({
+    mode: z.enum(DRIVER_PAYOUT_MODES),
+    value: z.coerce.number().min(0).max(10_000),
+  })
+  .refine((d) => !(d.mode === 'percentage' && d.value > 100), {
+    message: 'A percentage payout cannot exceed 100',
+    path: ['value'],
+  });
+
+export type PayoutDefaultsInput = z.infer<typeof payoutDefaultsSchema>;
+
+/** PATCH /admin/settings — any subset of the admin-editable business settings. */
+export const settingsUpdateSchema = z
+  .object({
+    driverPayout: z
+      .object({ mode: z.enum(DRIVER_PAYOUT_MODES), value: z.coerce.number().min(0).max(10_000) })
+      .refine((d) => !(d.mode === 'percentage' && d.value > 100), {
+        message: 'A percentage payout cannot exceed 100',
+        path: ['value'],
+      })
+      .optional(),
+    companyRevenuePct: z.coerce.number().min(0).max(100).optional(),
+    withdrawalFeePct: z.coerce.number().min(0).max(50).optional(),
+    supportInboxEmail: z.string().trim().toLowerCase().email().optional(),
+  })
+  .refine((d) => Object.keys(d).length > 0, 'Nothing to update');
+
+export type SettingsUpdateInput = z.infer<typeof settingsUpdateSchema>;

@@ -20,3 +20,46 @@ export const applySchema = z.object({
 });
 
 export type ApplyInput = z.infer<typeof applySchema>;
+
+/* -------------------------------- documents -------------------------------- */
+
+const businessText = (max: number) => z.string().trim().min(1).max(max);
+
+export const documentProfileSchema = z.object({
+  operatorType: z.enum(['independent', 'company']),
+  business: z
+    .object({
+      legalName: businessText(200).optional(),
+      entityType: businessText(60).optional(),
+      registrationStatus: businessText(60).optional(),
+      ubiNumber: z
+        .string()
+        .trim()
+        .regex(/^[A-Za-z0-9\- ]{4,40}$/, 'Enter the UBI or state registration number')
+        .optional(),
+    })
+    .optional(),
+});
+
+export type DocumentProfileInput = z.infer<typeof documentProfileSchema>;
+
+/**
+ * The upload body is the raw file; everything else rides in the query so the bytes
+ * never have to be base64-inflated into JSON.
+ */
+export const uploadDocumentQuerySchema = z.object({
+  type: z.string().regex(/^[a-z0-9_]{2,40}$/, 'Unknown document type'),
+  fileName: z.string().trim().min(1).max(200),
+  expiresAt: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use yyyy-mm-dd')
+    .optional(),
+});
+
+export type UploadDocumentQuery = z.infer<typeof uploadDocumentQuerySchema>;
+
+export const documentIdParamSchema = z.object({
+  documentId: z.string().regex(/^[a-fA-F0-9]{24}$/, 'Invalid document id'),
+});
+
+export type DocumentIdParam = z.infer<typeof documentIdParamSchema>;

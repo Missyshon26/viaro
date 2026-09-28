@@ -1,4 +1,13 @@
 import { ApiError } from '../../utils/ApiError';
+import { checklist, expiredDocuments } from './driver.documents';
+import {
+  adjustRate,
+  ratingAdjustment,
+  RATING_PAY_ENABLED,
+  RATING_PAY_MIN_RATINGS,
+  RATING_PAY_TIERS,
+} from '../wallet/ratingPay';
+import { getPayoutDefaults } from '../admin/settings.service';
 import { logger } from '../../utils/logger';
 import * as dispatchService from '../dispatch/dispatch.service';
 import * as repo from './driver.repository';
@@ -37,6 +46,17 @@ export async function setOwnStatus(userId: string, input: SetStatusInput) {
     throw ApiError.forbidden('Upload your documents before going online');
   }
 
+  // "Dispatch stops the day a document lapses" — an expired licence, COI or inspection
+  // keeps a chauffeur offline until the renewal is uploaded (driver.documents.ts).
+  if (input.status === 'available') {
+    const lapsed = expiredDocuments(driver);
+    if (lapsed.length > 0) {
+      throw ApiError.forbidden(
+        `Upload a current ${lapsed.join(', ')} before going online — the one on file has expired`,
+      );
+    }
+  }
+
   const updated = await repo.updateStatus(driver._id, input.status);
 
   if (input.status === 'available' && input.lat !== undefined && input.lng !== undefined) {
@@ -57,7 +77,22 @@ export async function getOwnProfile(userId: string) {
     repo.countTripsByStatus(driver._id, ['completed']),
   ]);
 
-  return { driver, stats: { activeTrips, completedTrips } };
+  // What they are paid per trip right now, and how their rating moves it.
+  const defaults = await getPayoutDefaults();
+  const mode = driver.payout?.mode ?? defaults.mode;
+  const baseValue = driver.payout?.value ?? defaults.value;
+  const rating = ratingAdjustment(driver.rating, driver.ratingCount);
+  const pay = {
+    mode,
+    baseValue,
+    effectiveValue: adjustRate(mode, baseValue, rating.adjustmentPct),
+    ...rating,
+    minRatings: RATING_PAY_MIN_RATINGS,
+    enabled: RATING_PAY_ENABLED,
+    tiers: RATING_PAY_TIERS,
+  };
+
+  return { driver, stats: { activeTrips, completedTrips }, pay };
 }
 
 /**
@@ -84,8 +119,16 @@ export async function apply(userId: string, input: ApplyInput) {
     documents: input.documents,
   });
 
-  // Documents are reviewed before the driver can take work.
-  const accountStatus = (driver?.documents.length ?? 0) > 0 ? 'active' : 'pending_documents';
+  /*
+   * Documents are reviewed before the driver can take work. A chauffeur who has chosen
+   * independent/company must have the whole checklist on file (driver.documents.ts);
+   * one from before typed documents existed keeps the old "anything on file" rule so
+   * their account is not locked by a vehicle-class change.
+   */
+  const accountStatus =
+    driver && (driver.operatorType ? checklist(driver).complete : driver.documents.length > 0)
+      ? 'active'
+      : 'pending_documents';
   await repo.setUserStatus(userId, accountStatus);
 
   return {

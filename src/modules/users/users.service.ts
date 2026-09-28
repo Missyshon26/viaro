@@ -1,5 +1,7 @@
 import { User } from '../../models/User';
 import { Driver } from '../../models/Driver';
+import { Booking } from '../../models/Booking';
+import { Trip } from '../../models/Trip';
 import { ApiError } from '../../utils/ApiError';
 import { uploadToS3 } from '../../utils/s3';
 import type { UpdateProfileInput, UploadDocumentInput } from './users.validation';
@@ -55,12 +57,12 @@ export async function addDocument(userId: string, input: UploadDocumentInput) {
   driver.documents.push(url);
   await driver.save();
 
-  // First document clears the registration hold placed on the account at signup.
-  const user = await User.findById(userId);
-  if (user && user.status === 'pending_documents') {
-    user.status = 'active';
-    await user.save();
-  }
+  /*
+   * This legacy route records a file NAME only (utils/s3.ts stores nothing), so it no
+   * longer lifts the pending-documents hold — it used to activate an account on the
+   * first call, with no file behind it. The hold is released by POST
+   * /drivers/me/documents once the full checklist is on file.
+   */
 
   return { documents: driver.documents, uploaded: url };
 }
@@ -70,6 +72,21 @@ export async function addDocument(userId: string, input: UploadDocumentInput) {
 export async function addFavorite(userId: string, driverId: string) {
   const driver = await Driver.findById(driverId).lean();
   if (!driver) throw ApiError.notFound('Driver not found');
+
+  /*
+   * Only a chauffeur who has actually completed a ride for this passenger. A favourite is
+   * a preference built from experience — and without this check any driver id, guessed or
+   * copied, could be pinned to a customer's account and preferred by dispatch.
+   */
+  const ownBookings = await Booking.find({ customerId: userId }).select('_id').lean();
+  const rodeWith = await Trip.exists({
+    driverId: driver._id,
+    status: 'completed',
+    bookingId: { $in: ownBookings.map((b) => b._id) },
+  });
+  if (!rodeWith) {
+    throw ApiError.forbidden('You can only favourite a chauffeur who has completed a trip with you');
+  }
 
   // $addToSet keeps the operation idempotent — favouriting twice is not an error.
   await User.updateOne({ _id: userId }, { $addToSet: { favorites: driver._id } });

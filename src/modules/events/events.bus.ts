@@ -28,6 +28,7 @@ export const CHANGE_TOPICS = [
   'vehicle',
   'wallet',
   'notification',
+  'chat',
 ] as const;
 
 export type ChangeTopic = (typeof CHANGE_TOPICS)[number];

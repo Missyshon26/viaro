@@ -29,8 +29,6 @@ const envSchema = z.object({
 
   JWT_ACCESS_SECRET: z.string().min(1, 'JWT_ACCESS_SECRET is required'),
   JWT_REFRESH_SECRET: z.string().min(1, 'JWT_REFRESH_SECRET is required'),
-  JWT_ACCESS_EXPIRES_IN: z.string().default('15m'),
-  JWT_REFRESH_EXPIRES_IN: z.string().default('30d'),
 
   // Flight data: aviationstack | flightaware. Empty = mock data.
   FLIGHT_API_PROVIDER: z.string().optional(),
@@ -50,10 +48,16 @@ const envSchema = z.object({
   FCM_PROJECT_ID: z.string().optional(),
   FCM_ACCESS_TOKEN: z.string().optional(),
 
-  // Transactional email for password resets: resend. Empty = log only.
+  // Transactional email (password resets, support alerts): 'resend' or 'smtp'.
+  // Empty = log only.
   EMAIL_PROVIDER: z.string().optional(),
   EMAIL_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().optional(),
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().positive().optional(),
+  SMTP_SECURE: z.enum(['true', 'false']).optional(),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
   /** Where the password-reset link points (the frontend). */
   APP_WEB_URL: z.string().default('http://localhost:3000'),
 
@@ -62,28 +66,8 @@ const envSchema = z.object({
   S3_ACCESS_KEY: z.string().optional(),
   S3_SECRET_KEY: z.string().optional(),
 
-  // Business rule (spec §8.1): every time comparison happens in this zone.
-  APP_TIMEZONE: z.string().default('America/Los_Angeles'),
-
-  /**
-   * Revenue split of the customer's fare (spec §8 / UML "Apply Revenue Split").
-   * The two must total 100 — validated below.
-   */
-  COMPANY_REVENUE_PCT: z.coerce.number().min(0).max(100).default(60),
-  ADMIN_REVENUE_PCT: z.coerce.number().min(0).max(100).default(40),
-
-  /**
-   * Default driver payout, used when a driver has no explicit payout configured by their
-   * owner. The driver is paid BY whoever owns them (company or admin/platform) OUT OF
-   * that owner's share — never straight from the fare. See wallet.service.ts.
-   *
-   * 'percentage' is a percentage OF THE OWNER'S SHARE, not of the fare.
-   */
-  DRIVER_PAYOUT_MODE: z.enum(['percentage', 'flat']).default('percentage'),
-  DRIVER_PAYOUT_VALUE: z.coerce.number().min(0).default(70),
-
-  /** Spec §8 rule 3: withdrawal fee. Never applied to refunds or ride credit. */
-  WITHDRAWAL_FEE_PCT: z.coerce.number().min(0).max(100).default(10),
+  // Timezone, token lifetimes: config/constants.ts. Payout, revenue split, withdrawal
+  // fee and the support inbox: admin console (modules/admin/settings.service.ts).
 
   CORS_ORIGIN: z.string().default('*'),
 
@@ -100,10 +84,6 @@ const envSchema = z.object({
 export type Env = z.infer<typeof envSchema>;
 
 const parsed = envSchema
-  .refine((e) => e.COMPANY_REVENUE_PCT + e.ADMIN_REVENUE_PCT === 100, {
-    message: 'COMPANY_REVENUE_PCT + ADMIN_REVENUE_PCT must total exactly 100',
-    path: ['COMPANY_REVENUE_PCT'],
-  })
   .safeParse(process.env);
 
 if (!parsed.success) {

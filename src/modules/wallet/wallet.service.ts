@@ -1,4 +1,10 @@
 import { Types } from 'mongoose';
+import { adjustRate, ratingAdjustment, type RatingPayResult } from './ratingPay';
+import {
+  getPayoutDefaults,
+  getSettingsValues,
+  type PayoutDefaults,
+} from '../admin/settings.service';
 import { Wallet, type WalletDocument, type WalletOwnerType } from '../../models/Wallet';
 import { Transaction, type TransactionType } from '../../models/Transaction';
 import { PaymentMethod } from '../../models/PaymentMethod';
@@ -126,12 +132,13 @@ export async function resolveDriverOwner(driverId: Types.ObjectId | string): Pro
       type: 'company',
       walletId: wallet._id,
       companyId: company._id,
-      revenueSharePct: company.revenueSharePct ?? env.COMPANY_REVENUE_PCT,
+      revenueSharePct: company.revenueSharePct ?? (await getSettingsValues()).companyRevenuePct,
     };
   }
 
   const wallet = await getPlatformWallet();
-  return { type: 'platform', walletId: wallet._id, revenueSharePct: env.ADMIN_REVENUE_PCT };
+  const { companyRevenuePct } = await getSettingsValues();
+  return { type: 'platform', walletId: wallet._id, revenueSharePct: 100 - companyRevenuePct };
 }
 
 /**
@@ -195,7 +202,7 @@ async function settleClaimedTrip(trip: TripDocument): Promise<void> {
   const owner = await resolveDriverOwner(driver._id);
   const company = owner.type === 'company' ? await Company.findById(owner.companyId) : null;
 
-  const companyPct = company?.revenueSharePct ?? env.COMPANY_REVENUE_PCT;
+  const companyPct = company?.revenueSharePct ?? (await getSettingsValues()).companyRevenuePct;
   const platformPct = 100 - companyPct;
 
   let ownerShare: number;
@@ -231,18 +238,38 @@ async function settleClaimedTrip(trip: TripDocument): Promise<void> {
   // `settled` was already claimed atomically by applyRevenueSplit before any credit ran.
 }
 
-/** Resolves what this driver is owed for one trip, given their owner's share of it. */
+/**
+ * Resolves what this driver is owed for one trip, given their owner's share of it.
+ *
+ * The owner's rate (or the env default) is adjusted by the driver's rating tier —
+ * better-rated chauffeurs earn a larger share, poorly rated ones a smaller one
+ * (ratingPay.ts). `baseValue` is the rate before that adjustment, kept for the ledger.
+ */
 export function resolveDriverPayout(
-  driver: { payout?: { mode: 'percentage' | 'flat'; value: number } | null },
+  driver: {
+    payout?: { mode: 'percentage' | 'flat'; value: number } | null;
+    rating?: number;
+    ratingCount?: number;
+  },
   ownerShare: number,
-): { amount: number; mode: string; value: number } {
-  const mode = driver.payout?.mode ?? env.DRIVER_PAYOUT_MODE;
-  const value = driver.payout?.value ?? env.DRIVER_PAYOUT_VALUE;
+  /** The admin-set default (settings.service), for a driver with no rate of their own. */
+  defaults: PayoutDefaults,
+): {
+  amount: number;
+  mode: string;
+  value: number;
+  baseValue: number;
+  rating: RatingPayResult;
+} {
+  const mode = driver.payout?.mode ?? defaults.mode;
+  const baseValue = driver.payout?.value ?? defaults.value;
+  const rating = ratingAdjustment(driver.rating, driver.ratingCount);
+  const value = adjustRate(mode, baseValue, rating.adjustmentPct);
 
   // A flat rate is capped at the owner's share only in reporting, not here — if an owner
   // agreed a flat charge above what the trip earned, they wear the difference (below).
   const amount = mode === 'flat' ? round2(value) : pct(ownerShare, value);
-  return { amount, mode, value };
+  return { amount, mode, value, baseValue, rating };
 }
 
 /**
@@ -267,7 +294,7 @@ export async function creditDriverWallet(
     ownerShareOverride ??
     (owner.type === 'company' ? pct(trip.fareAmount, owner.revenueSharePct) : round2(trip.fareAmount));
 
-  const payout = resolveDriverPayout(driver, ownerShare);
+  const payout = resolveDriverPayout(driver, ownerShare, await getPayoutDefaults());
   if (payout.amount <= 0) return;
 
   const meta = {
@@ -276,6 +303,10 @@ export async function creditDriverWallet(
     paidBy: owner.type,
     payoutMode: payout.mode,
     payoutValue: payout.value,
+    payoutBaseValue: payout.baseValue,
+    ratingTier: payout.rating.tier,
+    ratingAdjustmentPct: payout.rating.adjustmentPct,
+    ratingAtSettlement: payout.rating.rating,
     ownerShare,
   };
 
@@ -369,7 +400,9 @@ export async function withdraw(userId: string, amount: number, destination?: str
   if (value <= 0) throw ApiError.badRequest('Withdrawal amount must be greater than zero');
 
   const wallet = await getOrCreateWallet(userId, 'driver');
-  const feeApplied = pct(value, env.WITHDRAWAL_FEE_PCT);
+  // Set by an admin (Settings); charged on withdrawals only, never refunds or credit.
+  const { withdrawalFeePct } = await getSettingsValues();
+  const feeApplied = pct(value, withdrawalFeePct);
   const netPayout = round2(value - feeApplied);
   const reference = `wd_${String(wallet._id)}_${Date.now()}`;
 
@@ -377,7 +410,7 @@ export async function withdraw(userId: string, amount: number, destination?: str
   // concurrent withdrawals from both passing the check.
   await debit(wallet._id, value, 'withdrawal', feeApplied, {
     reason: 'driver_withdrawal',
-    feePct: env.WITHDRAWAL_FEE_PCT,
+    feePct: withdrawalFeePct,
     netPayout,
     reference,
     payoutStatus: 'pending',
@@ -397,7 +430,7 @@ export async function withdraw(userId: string, amount: number, destination?: str
       reason: 'withdrawal_fee',
       reference,
       fromWalletId: wallet._id,
-      feePct: env.WITHDRAWAL_FEE_PCT,
+      feePct: withdrawalFeePct,
     });
   }
 

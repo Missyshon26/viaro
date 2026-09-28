@@ -95,6 +95,7 @@ export const MATRIX: MatrixEntry[] = [
   { method: 'PATCH', path: '/trips/:id/location', allowed: ['customer'] },
   { method: 'PATCH', path: '/trips/:id/vehicle-class', allowed: ['customer'] },
   { method: 'GET', path: '/trips/:id/chat/history', allowed: ['customer', 'driver', 'admin'] },
+  { method: 'POST', path: '/trips/:id/chat/messages', allowed: ['customer', 'driver'] },
 
   /* ----------------------------- cancellation ------------------------------- */
   { method: 'POST', path: '/trips/:id/cancel/point-to-point', allowed: ['customer'] },
@@ -118,6 +119,16 @@ export const MATRIX: MatrixEntry[] = [
   { method: 'GET', path: '/drivers/me', allowed: ['driver'] },
   { method: 'PATCH', path: '/drivers/me/status', allowed: ['driver'] },
   { method: 'POST', path: '/drivers/apply', allowed: ['driver'] },
+  { method: 'GET', path: '/drivers/me/documents', allowed: ['driver'] },
+  { method: 'PATCH', path: '/drivers/me/documents/profile', allowed: ['driver'] },
+  { method: 'POST', path: '/drivers/me/documents', allowed: ['driver'] },
+  { method: 'DELETE', path: '/drivers/me/documents/:documentId', allowed: ['driver'] },
+  {
+    method: 'GET',
+    path: '/drivers/documents/:documentId/file',
+    allowed: ['driver', 'admin', 'company'],
+    note: 'ownership re-checked in driver.documents.openFile',
+  },
 
   /* ---------------------------- vehicle catalogue --------------------------- */
   {
@@ -210,6 +221,7 @@ export const MATRIX: MatrixEntry[] = [
   { method: 'GET', path: '/reports', allowed: ['driver', 'admin', 'company'] },
   { method: 'GET', path: '/reports/trips-completed', allowed: ['driver', 'admin', 'company'] },
   { method: 'GET', path: '/reports/earnings-payout', allowed: ['driver', 'admin', 'company'] },
+  { method: 'GET', path: '/reports/monthly', allowed: ['driver'] },
   {
     method: 'GET',
     path: '/reports/cancellations-penalties',
@@ -230,6 +242,10 @@ export const MATRIX: MatrixEntry[] = [
     note: 'company-only: admin cannot create a driver',
   },
   { method: 'GET', path: '/admin/drivers', allowed: ['admin', 'company'] },
+  { method: 'GET', path: '/admin/settings', allowed: ['admin'] },
+  { method: 'PATCH', path: '/admin/settings/payout', allowed: ['admin'] },
+  { method: 'PATCH', path: '/admin/settings', allowed: ['admin'] },
+  { method: 'GET', path: '/settings/public', allowed: PUBLIC },
   { method: 'PATCH', path: '/admin/drivers/:id', allowed: ['admin', 'company'] },
   { method: 'GET', path: '/admin/drivers/penalties', allowed: ['admin', 'company'] },
   { method: 'GET', path: '/admin/dashboard/bookings', allowed: ['admin'] },

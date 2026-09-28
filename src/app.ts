@@ -23,7 +23,7 @@ import notificationRoutes from './modules/notifications/notifications.routes';
 import eventRoutes from './modules/events/events.routes';
 import flightRoutes from './modules/flight/flight.routes';
 import reportRoutes from './modules/reports/reports.routes';
-import adminRoutes from './modules/admin/admin.routes';
+import adminRoutes, { publicSettingsRouter } from './modules/admin/admin.routes';
 
 const app: Application = express();
 
@@ -98,6 +98,7 @@ app.use('/admin/vehicle-classes', adminVehicleRouter);
 app.use('/admin/pricing', adminPricingRouter);
 app.use('/admin/dispatch', adminDispatchRouter);
 app.use('/admin', adminRoutes);
+app.use('/settings', publicSettingsRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler); // must stay last

@@ -20,7 +20,7 @@ import notificationRoutes from '../src/modules/notifications/notifications.route
 import eventRoutes from '../src/modules/events/events.routes';
 import flightRoutes from '../src/modules/flight/flight.routes';
 import reportRoutes from '../src/modules/reports/reports.routes';
-import adminRoutes from '../src/modules/admin/admin.routes';
+import adminRoutes, { publicSettingsRouter } from '../src/modules/admin/admin.routes';
 
 /**
  * Mirrors the `app.use(...)` calls in src/app.ts.
@@ -55,6 +55,7 @@ export const MOUNTS: [prefix: string, router: Router][] = [
   ['/admin/pricing', adminPricingRouter],
   ['/admin/dispatch', adminDispatchRouter],
   ['/admin', adminRoutes],
+  ['/settings', publicSettingsRouter],
 ];
 
 export interface DiscoveredRoute {

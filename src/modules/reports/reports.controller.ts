@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import type { Request, Response } from 'express';
 import * as reportsService from './reports.service';
+import { monthlyReport } from './reports.monthly';
 import { params, query } from '../../utils/validate';
 import { ApiError } from '../../utils/ApiError';
 import { getExportStatus, scheduleReportExport } from '../../jobs/reportExport.job';
@@ -13,6 +14,12 @@ export async function tripsCompleted(req: Request, res: Response): Promise<void>
 
 export async function earningsPayout(req: Request, res: Response): Promise<void> {
   const data = await reportsService.earningsPayout(req.user!, query<ReportRangeQuery>(req));
+  res.json({ success: true, data });
+}
+
+export async function monthly(req: Request, res: Response): Promise<void> {
+  const months = Number(query<{ months?: string }>(req).months) || undefined;
+  const data = await monthlyReport(req.user!, { months });
   res.json({ success: true, data });
 }
 

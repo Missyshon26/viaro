@@ -21,6 +21,10 @@ export const createVehicleClassSchema = z.object({
   seats: z.coerce.number().int().min(1).max(60),
   bags: z.coerce.number().int().min(0).max(60),
   multiplier: z.coerce.number().min(0.1).max(20),
+  /** all | hourly (charters only) | transfer (point-to-point and airport only). */
+  usage: z.enum(['all', 'hourly', 'transfer']).optional(),
+  /** Hourly-trip multiplier when it differs; null clears it back to `multiplier`. */
+  hourlyMultiplier: z.coerce.number().min(0.1).max(20).nullable().optional(),
   images: z.array(imageSchema).max(10).optional(),
   active: z.boolean().optional(),
   sortOrder: z.coerce.number().int().min(0).max(999).optional(),
