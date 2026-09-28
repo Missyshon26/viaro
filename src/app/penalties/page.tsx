@@ -1,98 +1,126 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Badge, Card, Kicker, WarnBox } from "@/components/ui/Surfaces";
-import { ConsolePage, DataTable, formatDateTime, type Column } from "@/components/ui/DataTable";
-import { listPenalties, getCancellations, type PenaltiesReport, type CancellationsReport } from "@/lib/api/admin";
+import { ConsolePage, formatDateTime } from "@/components/ui/DataTable";
+import { listPenalties, type PenaltiesReport } from "@/lib/api/admin";
 import { ApiError } from "@/lib/api/client";
 
-type PenaltyRow = PenaltiesReport["drivers"][number];
-type CancelRow = CancellationsReport["cancellations"][number];
-
-/** Where the fleet is losing money: late cancellations and alert-delay penalties. */
+/**
+ * Penalties, by chauffeur.
+ *
+ * This page used to be "Penalties and cancellations": two unrelated things on one screen,
+ * with penalties reduced to a count per driver. A penalty is something a specific
+ * chauffeur did (let a ride alert time out), so each one is listed under the chauffeur
+ * who incurred it, with when it happened and on which booking. Cancellations have their
+ * own page.
+ */
 export default function PenaltiesPage() {
-  const [penalties, setPenalties] = useState<PenaltiesReport | null>(null);
-  const [cancels, setCancels] = useState<CancellationsReport | null>(null);
+  const [report, setReport] = useState<PenaltiesReport | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      const [p, c] = await Promise.allSettled([listPenalties(), getCancellations()]);
-      if (cancelled) return;
-      if (p.status === "fulfilled") setPenalties(p.value);
-      if (c.status === "fulfilled") setCancels(c.value);
-      if (p.status === "rejected") {
-        setError(p.reason instanceof ApiError ? p.reason.message : "Could not load penalties");
-      }
-    })();
-    return () => { cancelled = true; };
+    listPenalties()
+      .then((value) => {
+        if (cancelled) return;
+        setReport(value);
+        // Open the worst offender by default.
+        setOpen(value.drivers[0]?.driverId ?? null);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof ApiError ? err.message : "Could not load penalties");
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const penaltyColumns: Column<PenaltyRow>[] = [
-    { key: "name", header: "Chauffeur", cell: (r) => <span className="font-bold">{r.user?.name ?? r.driverId}</span> },
-    { key: "class", header: "Class", cell: (r) => <span className="capitalize">{r.vehicleClass}</span>, secondary: true },
-    { key: "status", header: "Status", cell: (r) => <Badge>{r.status}</Badge>, secondary: true },
-    { key: "count", header: "Penalties", align: "right", cell: (r) => r.penaltyCount },
-  ];
-
-  const cancelColumns: Column<CancelRow>[] = [
-    { key: "trip", header: "Trip", cell: (r) => r.tripId.slice(-6).toUpperCase() },
-    { key: "by", header: "Cancelled by", cell: (r) => r.cancelledBy ?? "—" },
-    { key: "reason", header: "Reason", cell: (r) => r.reason ?? "—", secondary: true },
-    { key: "refunded", header: "Refunded", cell: (r) => formatDateTime(r.refundedAt), secondary: true },
-    { key: "pct", header: "Refund", align: "right", cell: (r) => `${r.refundPct}%` },
-  ];
+  const drivers = [...(report?.drivers ?? [])].sort((a, b) => b.penaltyCount - a.penaltyCount);
 
   return (
-    <ConsolePage title="Penalties and cancellations" description="Where the fleet is losing rides.">
+    <ConsolePage
+      title="Penalties"
+      description="Each penalty, under the chauffeur who incurred it."
+      action={
+        <Link href="/cancellations" className="text-note font-bold text-accent hover:underline">
+          Cancellations →
+        </Link>
+      }
+    >
       {error ? <p className="mb-4 text-note font-bold text-danger">{error}</p> : null}
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2">
         <Card className="p-5">
-          <Kicker>Penalty events</Kicker>
-          <p className="mt-3 text-[1.75rem] font-bold tracking-tight text-fg">
-            {penalties?.totalEvents ?? "—"}
-          </p>
+          <Kicker>Penalties</Kicker>
+          <p className="mt-3 text-[1.75rem] font-bold tracking-tight text-fg">{report?.totalEvents ?? "—"}</p>
         </Card>
         <Card className="p-5">
-          <Kicker>Drivers affected</Kicker>
-          <p className="mt-3 text-[1.75rem] font-bold tracking-tight text-fg">
-            {penalties?.totalDrivers ?? "—"}
-          </p>
-        </Card>
-        <Card className="p-5">
-          <Kicker>Cancellations</Kicker>
-          <p className="mt-3 text-[1.75rem] font-bold tracking-tight text-fg">
-            {cancels?.counts.cancellations ?? "—"}
-          </p>
+          <Kicker>Chauffeurs with a penalty</Kicker>
+          <p className="mt-3 text-[1.75rem] font-bold tracking-tight text-fg">{report?.totalDrivers ?? "—"}</p>
         </Card>
       </div>
 
-      <div className="mt-6">
+      <div className="mt-6 space-y-3">
         <Kicker>By chauffeur</Kicker>
-        <div className="mt-3">
-          <DataTable
-            rows={penalties?.drivers ?? null}
-            columns={penaltyColumns}
-            rowKey={(r) => r.driverId}
-            minWidth="38rem"
-            empty={{ title: "No penalties", description: "Nobody on the roster has one." }}
-          />
-        </div>
-      </div>
+        {report && drivers.length === 0 ? (
+          <Card className="p-6 text-note text-fg-muted">Nobody on your roster has a penalty.</Card>
+        ) : null}
 
-      <div className="mt-6">
-        <Kicker>Cancellations</Kicker>
-        <div className="mt-3">
-          <DataTable
-            rows={cancels?.cancellations ?? null}
-            columns={cancelColumns}
-            rowKey={(r) => r.tripId}
-            minWidth="42rem"
-            empty={{ title: "No cancellations" }}
-          />
-        </div>
+        {drivers.map((driver) => {
+          const expanded = open === driver.driverId;
+          const events = [...driver.events].sort(
+            (a, b) => new Date(b.at ?? 0).getTime() - new Date(a.at ?? 0).getTime(),
+          );
+          return (
+            <Card key={driver.driverId} className="p-0">
+              <button
+                type="button"
+                onClick={() => setOpen(expanded ? null : driver.driverId)}
+                aria-expanded={expanded}
+                className="flex w-full flex-wrap items-center gap-3 px-5 py-4 text-left"
+              >
+                <span aria-hidden className={`text-fg-muted transition-transform ${expanded ? "rotate-90" : ""}`}>
+                  ›
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block font-bold text-fg">{driver.user?.name ?? "Chauffeur"}</span>
+                  <span className="block text-note text-fg-muted">
+                    {[driver.user?.email, driver.user?.phone].filter(Boolean).join(" · ")}
+                  </span>
+                </span>
+                <span className="text-note capitalize text-fg-muted">{driver.vehicleClass}</span>
+                <Badge>{driver.status}</Badge>
+                <span className="rounded-full bg-danger/15 px-2.5 py-1 text-label font-bold text-danger">
+                  {driver.penaltyCount} {driver.penaltyCount === 1 ? "penalty" : "penalties"}
+                </span>
+              </button>
+
+              {expanded ? (
+                <div className="border-t border-border px-5 py-3">
+                  {events.length === 0 ? (
+                    <p className="py-2 text-note text-fg-muted">
+                      No itemised events on record for these penalties.
+                    </p>
+                  ) : (
+                    <ul className="divide-y divide-border">
+                      {events.map((event, index) => (
+                        <li key={`${event.bookingId}-${index}`} className="flex flex-wrap items-center gap-x-4 gap-y-1 py-2.5 text-note">
+                          <span className="w-36 shrink-0 text-fg-muted">{formatDateTime(event.at)}</span>
+                          <span className="min-w-0 flex-1 text-fg">{readableReason(event.reason)}</span>
+                          <span className="text-fg-muted">Booking {event.bookingId.slice(-6).toUpperCase()}</span>
+                          <span className="font-bold text-fg">+{event.alertDelayMinutes} min alert delay</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ) : null}
+            </Card>
+          );
+        })}
       </div>
 
       <div className="mt-4">
@@ -104,4 +132,9 @@ export default function PenaltiesPage() {
       </div>
     </ConsolePage>
   );
+}
+
+function readableReason(reason: string) {
+  const text = reason.replace(/_/g, " ").trim();
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }

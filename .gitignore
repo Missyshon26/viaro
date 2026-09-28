@@ -3,3 +3,12 @@ node_modules
 .env*.local
 next-env.d.ts
 tsconfig.tsbuildinfo
+
+# Deployment env values (real credentials) — never commit.
+.env.live
+
+# Vercel CLI project link — local, not shared.
+.vercel
+
+.vercel
+.env*

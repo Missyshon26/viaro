@@ -340,8 +340,8 @@ export default function CompanyDashboard() {
                   ? `${Math.round((completedCount / totalHandled) * 100)}% completion rate`
                   : "No trips yet"
               }
-              icon={<IconPenalty size={18} />}
-              href="/penalties"
+              icon={<IconRoute size={18} />}
+              href="/cancellations"
             />
             <StatCard
               label="Penalties"

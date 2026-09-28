@@ -20,18 +20,29 @@ import { useDriverNames } from "@/lib/roster/useDriverNames";
 
 type ReportType = "trips-completed" | "earnings-payout" | "cancellations-penalties";
 
-const TABS: { value: ReportType; label: string }[] = [
+/**
+ * Cancellations and penalties are separate tabs — a penalty is a chauffeur's own
+ * conduct, a cancellation is what happened to a trip. They share one backend report
+ * (and export), so both tabs fetch and export `cancellations-penalties`.
+ */
+type Tab = "trips-completed" | "earnings-payout" | "cancellations" | "penalties";
+
+const TABS: { value: Tab; label: string }[] = [
   { value: "trips-completed", label: "Trips completed" },
   { value: "earnings-payout", label: "Earnings and payout" },
-  { value: "cancellations-penalties", label: "Cancellations and penalties" },
+  { value: "cancellations", label: "Cancellations" },
+  { value: "penalties", label: "Penalties" },
 ];
+
+const reportFor = (tab: Tab): ReportType =>
+  tab === "cancellations" || tab === "penalties" ? "cancellations-penalties" : tab;
 
 const inputClass =
   "rounded-field border border-border bg-surface-raised px-3 py-2 text-note text-fg outline-none";
 
 /** All three reports, one date range, plus the async CSV/PDF export. */
 export default function ReportsPage() {
-  const [tab, setTab] = useState<ReportType>("trips-completed");
+  const [tab, setTab] = useState<Tab>("trips-completed");
   const [range, setRange] = useState<ReportRange>({});
   const [trips, setTrips] = useState<TripsCompletedReport | null>(null);
   const [earnings, setEarnings] = useState<EarningsPayoutReport | null>(null);
@@ -45,7 +56,7 @@ export default function ReportsPage() {
     try {
       if (tab === "trips-completed") setTrips(await getTripsCompleted(range));
       if (tab === "earnings-payout") setEarnings(await getEarningsPayout(range));
-      if (tab === "cancellations-penalties") setCancels(await getCancellations(range));
+      if (reportFor(tab) === "cancellations-penalties") setCancels(await getCancellations(range));
     } catch (err) {
       setError(errorText(err, "Could not run that report"));
     }
@@ -71,8 +82,17 @@ export default function ReportsPage() {
     { key: "amount", header: "Amount", align: "right", cell: (r) => money(r.amount) },
   ];
 
+  const penaltyColumns: Column<CancellationsReport["penalties"][number]>[] = [
+    { key: "driver", header: "Chauffeur", cell: (r) => <span className="font-bold">{nameFor(r.driverId)}</span>, sortValue: (r) => nameFor(r.driverId) },
+    { key: "when", header: "When", cell: (r) => formatDateTime(r.at), sortValue: (r) => r.at },
+    { key: "reason", header: "Reason", cell: (r) => r.reason.replace(/_/g, " ") },
+    { key: "booking", header: "Booking", cell: (r) => r.bookingId.slice(-6).toUpperCase(), secondary: true },
+    { key: "delay", header: "Alert delay", align: "right", cell: (r) => `+${r.alertDelayMinutes} min` },
+  ];
+
   const cancelColumns: Column<CancellationsReport["cancellations"][number]>[] = [
     { key: "trip", header: "Trip", cell: (r) => r.tripId.slice(-6).toUpperCase() },
+    { key: "driver", header: "Chauffeur", cell: (r) => nameFor(r.driverId) },
     { key: "by", header: "Cancelled by", cell: (r) => r.cancelledBy ?? "—" },
     { key: "reason", header: "Reason", cell: (r) => r.reason ?? "—", secondary: true },
     { key: "refund", header: "Refund", align: "right", cell: (r) => `${r.refundPct}%` },
@@ -87,7 +107,7 @@ export default function ReportsPage() {
        * tab change, so a finished export still offered "Download the file" on the new tab
        * — pointing at the PREVIOUS tab's job. Remounting per type discards the stale job.
        */
-      action={<ExportButton key={tab} type={tab} range={range} />}
+      action={<ExportButton key={tab} type={reportFor(tab)} range={range} />}
     >
       {error ? <p className="mb-4 text-note font-bold text-danger">{error}</p> : null}
 
@@ -176,20 +196,30 @@ export default function ReportsPage() {
           </>
         ) : null}
 
-        {tab === "cancellations-penalties" ? (
+        {tab === "cancellations" ? (
           <>
-            <Summary
-              items={[
-                ["Cancellations", String(cancels?.counts.cancellations ?? 0)],
-                ["Penalties", String(cancels?.counts.penalties ?? 0)],
-              ]}
-            />
+            <Summary items={[["Cancellations", String(cancels?.counts.cancellations ?? 0)]]} />
             <DataTable
               rows={cancels?.cancellations ?? null}
               columns={cancelColumns}
               rowKey={(r) => r.tripId}
               minWidth="42rem"
               empty={{ title: "No cancellations in that range" }}
+            />
+          </>
+        ) : null}
+
+        {tab === "penalties" ? (
+          <>
+            <Summary items={[["Penalties", String(cancels?.counts.penalties ?? 0)]]} />
+            <DataTable
+              rows={cancels?.penalties ?? null}
+              columns={penaltyColumns}
+              rowKey={(r) => r.penaltyId}
+              minWidth="42rem"
+              searchable={(r) => [nameFor(r.driverId), r.reason, r.bookingId]}
+              searchPlaceholder="Search chauffeur or reason…"
+              empty={{ title: "No penalties in that range" }}
             />
           </>
         ) : null}

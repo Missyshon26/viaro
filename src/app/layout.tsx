@@ -1,12 +1,21 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth/AuthProvider";
 import { ThemeScript } from "@/components/theme/ThemeScript";
 import { RequireRole } from "@/components/auth/RequireRole";
 import { ConsoleShell, type NavItem } from "@/components/layout/ConsoleShell";
 
-const inter = Inter({ variable: "--font-inter", subsets: ["latin"], display: "swap" });
+/**
+ * Clash Display — the brand manual's typeface (ITF Free Font License, commercial use
+ * allowed; see ClashDisplay-LICENSE.txt). Replaced Inter, which is not in the brand.
+ */
+const brandFont = localFont({
+  src: "./ClashDisplay-Variable.woff2",
+  weight: "200 700",
+  display: "swap",
+  variable: "--font-brand",
+});
 
 export const metadata: Metadata = {
   title: "VIARO · Fleet console",
@@ -28,12 +37,13 @@ const NAV: NavItem[] = [
   { href: "/trips", label: "Trips", icon: "route" },
   { href: "/revenue", label: "Revenue", icon: "money" },
   { href: "/penalties", label: "Penalties", icon: "penalty" },
+  { href: "/cancellations", label: "Cancellations", icon: "route" },
   { href: "/reports", label: "Reports", icon: "report" },
 ];
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" suppressHydrationWarning className={inter.variable}>
+    <html lang="en" suppressHydrationWarning className={brandFont.variable}>
       <head>
         <ThemeScript />
       </head>
