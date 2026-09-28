@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { Badge, Card, Kicker, WarnBox } from "@/components/ui/Surfaces";
 import { Amendments } from "@/components/ops/Amendments";
+import { TripChat } from "@/components/ops/TripChat";
 import { Button, buttonClass } from "@/components/ui/Button";
 import {
   getTrip,
@@ -137,6 +138,14 @@ export function TripDetail({ id }: { id: string }) {
               <p className="mt-3 text-card font-bold text-fg">{trip.customer.name}</p>
               <p className="mt-1 text-note text-fg-muted">{trip.customer.phone}</p>
             </Card>
+          ) : null}
+
+          {trip ? (
+            <TripChat
+              tripId={trip._id}
+              passengerName={trip.customer?.name ?? null}
+              closed={trip.status === "completed" || trip.status === "cancelled"}
+            />
           ) : null}
 
           {booking?.flightDetails?.flightNumber ? (

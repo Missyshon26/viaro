@@ -102,7 +102,7 @@ export default function ApplyPage() {
                 </dd>
               </div>
               <div className="flex justify-between gap-4">
-                <dt className="text-fg-muted">Documents on file</dt>
+                <dt className="text-fg-muted">Files on record</dt>
                 <dd className="font-bold text-fg">{documents.length}</dd>
               </div>
             </dl>
@@ -161,12 +161,7 @@ function ApplyForm({
         setPending(true);
         onError(null);
         try {
-          const urls = String(form.get("documents") ?? "")
-            .split("\n")
-            .map((line) => line.trim())
-            .filter(Boolean);
-
-          await applyAsDriver(String(form.get("vehicleClass")), urls.length ? urls : undefined);
+          await applyAsDriver(String(form.get("vehicleClass")));
           setDone(true);
           onDone();
         } catch (err) {
@@ -194,23 +189,15 @@ function ApplyForm({
         </select>
       </label>
 
-      <label className="block">
-        <span className="text-label font-bold text-fg-muted">Document links</span>
-        <textarea
-          name="documents"
-          rows={4}
-          placeholder={"https://…/licence.jpg\nhttps://…/insurance.pdf"}
-          className={`${inputClass} mt-1`}
-        />
-        {/*
-          The endpoint takes URLs, not files — document storage is a placeholder on the
-          backend, so links to somewhere already hosted are what it accepts today.
-        */}
-        <span className="mt-1 block text-note leading-relaxed text-fg-muted">
-          One URL per line. The API stores links rather than files while document storage
-          is unconnected.
-        </span>
-      </label>
+      {/* Documents are uploaded file by file on their own page, against the checklist for
+          independent chauffeurs or companies — no longer pasted here as links. */}
+      <p className="text-note leading-relaxed text-fg-muted">
+        Upload your license, insurance and the rest on the{" "}
+        <Link href="/documents" className="font-bold text-accent hover:underline">
+          Documents
+        </Link>{" "}
+        page.
+      </p>
 
       <Button type="submit" variant="accent" disabled={pending}>
         {pending ? "Submitting…" : "Submit application"}

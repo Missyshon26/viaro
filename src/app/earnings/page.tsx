@@ -8,6 +8,8 @@ import {
   getTripsCompleted,
   getCancellations,
   getMyWallet,
+  getMyDriver,
+  getMonthlyReport,
   withdraw,
   todayRange,
   weekRange,
@@ -15,7 +17,11 @@ import {
   type TripsCompletedReport,
   type CancellationsReport,
   type WalletPage,
+  type MonthlyReport as MonthlyReportData,
+  type PayTier,
 } from "@/lib/api/driver";
+import { MonthlyReport } from "@/components/earnings/MonthlyReport";
+import { PayTierCard } from "@/components/earnings/PayTierCard";
 import { ApiError } from "@/lib/api/client";
 
 /** Figma desktop "18 · Earnings", palette B (frame 57:5517, 1280×842). */
@@ -30,6 +36,18 @@ const MOVEMENT: Record<string, string> = {
   withdrawal: "Bank withdrawal",
 };
 
+/** The API's reason codes, in words. Unknown codes are shown de-snake-cased. */
+const REASON: Record<string, string> = {
+  driver_earnings: "",
+  driver_withdrawal: "",
+  withdrawal_fee: "Withdrawal fee",
+  withdrawal_reversed: "Withdrawal returned",
+  withdrawal_fee_reversed: "Fee returned",
+  driver_payout_paid: "",
+};
+const reasonText = (reason?: string | null) =>
+  !reason ? "" : reason in REASON ? REASON[reason] : reason.replace(/_/g, " ");
+
 export default function EarningsPage() {
   const [week, setWeek] = useState<EarningsPayoutReport | null>(null);
   const [today, setToday] = useState<EarningsPayoutReport | null>(null);
@@ -38,6 +56,8 @@ export default function EarningsPage() {
   const [penalties, setPenalties] = useState<CancellationsReport | null>(null);
   const [wallet, setWallet] = useState<WalletPage | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [monthly, setMonthly] = useState<MonthlyReportData | null>(null);
+  const [pay, setPay] = useState<PayTier | null>(null);
 
   /**
    * Extracted from the effect so a successful withdrawal can re-run it.
@@ -48,13 +68,15 @@ export default function EarningsPage() {
    * on this app already take an `onDone` reload callback; the withdrawal form did not.
    */
   const load = useCallback(async (isCurrent: () => boolean = () => true) => {
-    const [w, t, a, tc, cp, wl] = await Promise.allSettled([
+    const [w, t, a, tc, cp, wl, mr, pr] = await Promise.allSettled([
       getEarningsPayout(weekRange()),
       getEarningsPayout(todayRange()),
       getEarningsPayout(),
       getTripsCompleted(weekRange()),
       getCancellations(),
       getMyWallet(1, 30),
+      getMonthlyReport(12),
+      getMyDriver(),
     ]);
     if (!isCurrent()) return;
 
@@ -64,6 +86,8 @@ export default function EarningsPage() {
     if (tc.status === "fulfilled") setTrips(tc.value);
     if (cp.status === "fulfilled") setPenalties(cp.value);
     if (wl.status === "fulfilled") setWallet(wl.value);
+    if (mr.status === "fulfilled") setMonthly(mr.value);
+    if (pr.status === "fulfilled") setPay(pr.value.pay ?? null);
     setError(a.status === "rejected" ? "Could not load your earnings." : null);
   }, []);
 
@@ -114,6 +138,10 @@ export default function EarningsPage() {
         </Card>
       </div>
 
+      <div className="mt-4">
+        <MonthlyReport key={monthly ? "loaded" : "loading"} report={monthly} />
+      </div>
+
       {/*
         * `grid-cols-[minmax(0,1fr)]` below lg is load-bearing, not cosmetic.
         *
@@ -148,8 +176,8 @@ export default function EarningsPage() {
                     <tr key={row.transactionId}>
                       <td className="px-6 py-3 text-fg">
                         {MOVEMENT[row.type] ?? row.type}
-                        {row.reason ? (
-                          <span className="ml-2 text-fg-muted">{row.reason}</span>
+                        {reasonText(row.reason) ? (
+                          <span className="ml-2 text-fg-muted">{reasonText(row.reason)}</span>
                         ) : null}
                       </td>
                       <td className="px-6 py-3 text-fg-muted">
@@ -175,6 +203,8 @@ export default function EarningsPage() {
         </Card>
 
         <div className="space-y-4">
+          {pay ? <PayTierCard pay={pay} /> : null}
+
           <Card className="p-5 text-center">
             <Kicker>Wallet balance</Kicker>
             <p className="mt-3 text-[2.25rem] font-bold leading-none tracking-tight text-fg">

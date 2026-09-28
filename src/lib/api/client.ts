@@ -121,7 +121,60 @@ export function refreshSession(): Promise<boolean> {
   return refreshInFlight;
 }
 
+/**
+ * Sends a file as the raw request body (its own Content-Type), for the document upload
+ * endpoint — no JSON, no base64. Same bearer token and one-refresh retry as request().
+ */
+async function uploadRaw<T>(
+  path: string,
+  file: Blob,
+  query: Record<string, string | undefined>,
+  retry = true,
+): Promise<T> {
+  const url = new URL(`${API_BASE_URL}${path}`);
+  for (const [key, value] of Object.entries(query)) {
+    if (value) url.searchParams.set(key, value);
+  }
+  const response = await fetch(url.toString(), {
+    method: "POST",
+    headers: {
+      "Content-Type": file.type || "application/octet-stream",
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
+    body: file,
+    cache: "no-store",
+  });
+  if (response.status === 401 && retry && (await refreshSession())) {
+    return uploadRaw<T>(path, file, query, false);
+  }
+  const payload = (await response.json().catch(() => null)) as ApiEnvelope<T> | ApiErrorBody | null;
+  if (!response.ok || !payload || payload.success === false) {
+    const err = payload as ApiErrorBody | null;
+    throw new ApiError(
+      response.status,
+      response.status === 413
+        ? "That file is too large — the limit is 10 MB."
+        : (err?.message ?? `Upload failed with ${response.status}`),
+      err?.details,
+    );
+  }
+  return payload.data;
+}
+
+/** Fetches a protected file (a stored document) as a Blob, with the bearer token. */
+async function fetchBlob(path: string, retry = true): Promise<Blob> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+    cache: "no-store",
+  });
+  if (response.status === 401 && retry && (await refreshSession())) return fetchBlob(path, false);
+  if (!response.ok) throw new ApiError(response.status, "Could not open that document");
+  return response.blob();
+}
+
 export const api = {
+  upload: uploadRaw,
+  blob: fetchBlob,
   get: <T>(path: string, options?: RequestOptions) =>
     request<T>(path, { ...options, method: "GET" }),
   post: <T>(path: string, body?: unknown, options?: RequestOptions) =>

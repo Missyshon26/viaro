@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth/AuthProvider";
 import { ThemeScript } from "@/components/theme/ThemeScript";
@@ -7,7 +7,16 @@ import { RequireDriver } from "@/components/auth/RequireDriver";
 import { PortalShell } from "@/components/layout/PortalShell";
 
 // Same Inter as the customer site — the design uses it on every text node.
-const inter = Inter({ variable: "--font-inter", subsets: ["latin"], display: "swap" });
+/**
+ * Clash Display — the brand manual's typeface (ITF Free Font License, commercial use
+ * allowed; see ClashDisplay-LICENSE.txt). Replaced Inter, which is not in the brand.
+ */
+const brandFont = localFont({
+  src: "./ClashDisplay-Variable.woff2",
+  weight: "200 700",
+  display: "swap",
+  variable: "--font-brand",
+});
 
 export const metadata: Metadata = {
   title: "VIARO · Driver portal",
@@ -25,7 +34,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" suppressHydrationWarning className={inter.variable}>
+    <html lang="en" suppressHydrationWarning className={brandFont.variable}>
       <head>
         <ThemeScript />
       </head>

@@ -9,9 +9,28 @@ import type { Booking, Driver, Paginated, Trip, TripStatus } from "./types";
  * Note the envelope: GET /drivers/me answers `{ driver, stats }`, not a bare Driver.
  * PATCH /drivers/me/status, by contrast, returns the driver document directly.
  */
+export interface PayTier {
+  mode: "percentage" | "flat";
+  /** The rate the owner set, before the rating adjustment. */
+  baseValue: number;
+  /** What is actually applied to the next trip. */
+  effectiveValue: number;
+  tier: "excellent" | "standard" | "below" | "poor" | "new";
+  label: string;
+  adjustmentPct: number;
+  rating: number;
+  ratingCount: number;
+  ratingsToQualify: number;
+  minRatings: number;
+  enabled: boolean;
+  tiers: { key: string; label: string; min: number; adjustmentPct: number }[];
+}
+
 export interface DriverProfile {
   driver: Driver;
   stats: { activeTrips: number; completedTrips: number };
+  /** Present from the API that ships rating-based pay. */
+  pay?: PayTier;
 }
 
 export function getMyDriver() {
@@ -185,15 +204,95 @@ export const cancelTrip = (id: string, reason?: string) =>
 
 /* -------------------------------- documents -------------------------------- */
 
-/**
- * The API records upload *metadata*; storage is a placeholder on the backend
- * (utils/s3.ts), so the bytes are not shipped anywhere yet.
- */
-export const uploadDocument = (input: {
+export type OperatorType = "independent" | "company";
+
+export interface DocumentRequirement {
+  type: string;
+  label: string;
+  description: string;
+  multiple?: boolean;
+  expires?: boolean;
+  imageOnly?: boolean;
+}
+
+export interface DriverDocumentFile {
+  _id: string;
+  type: string;
   fileName: string;
   mimeType: string;
-  sizeBytes?: number;
-}) => api.post<unknown>("/users/me/documents", input);
+  sizeBytes: number;
+  expiresAt?: string;
+  status: "submitted" | "approved" | "rejected";
+  uploadedAt: string;
+}
+
+export interface BusinessDetails {
+  legalName?: string;
+  entityType?: string;
+  registrationStatus?: string;
+  ubiNumber?: string;
+}
+
+/** GET /drivers/me/documents — see viaro-backend src/modules/driver/driver.documents.ts. */
+export interface MyDocuments {
+  operatorType: OperatorType | null;
+  complete: boolean;
+  missing: string[];
+  insuranceNamedParty: string;
+  business: BusinessDetails;
+  requirements: Record<OperatorType, DocumentRequirement[]>;
+  files: DriverDocumentFile[];
+}
+
+export const getMyDocuments = () => api.get<MyDocuments>("/drivers/me/documents");
+
+export const setDocumentProfile = (operatorType: OperatorType, business?: BusinessDetails) =>
+  api.patch<MyDocuments>("/drivers/me/documents/profile", {
+    operatorType,
+    ...(business ? { business } : {}),
+  });
+
+/** Sends the file itself; the backend stores it (GridFS) against the requirement. */
+export const uploadDocument = (type: string, file: File, expiresAt?: string) =>
+  api.upload<MyDocuments>("/drivers/me/documents", file, {
+    type,
+    fileName: file.name,
+    expiresAt,
+  });
+
+export const deleteDocument = (id: string) => api.delete<MyDocuments>(`/drivers/me/documents/${id}`);
+
+export const openDocument = (id: string) => api.blob(`/drivers/documents/${id}/file`);
+
+/* ------------------------------- monthly report ------------------------------ */
+
+export interface MonthlyReport {
+  timezone: string;
+  totals: { completed: number; earnings: number; withdrawn: number };
+  months: {
+    month: string;
+    label: string;
+    completed: number;
+    cancelled: number;
+    earnings: number;
+    withdrawn: number;
+    withdrawalFees: number;
+    ratingsReceived: number;
+    averageRating: number | null;
+    rides: {
+      tripId: string;
+      completedAt: string | null;
+      pickup: string | null;
+      drop: string | null;
+      vehicleClass: string | null;
+      earned: number;
+      rating: number | null;
+    }[];
+  }[];
+}
+
+export const getMonthlyReport = (months = 12) =>
+  api.get<MonthlyReport>("/reports/monthly", { query: { months } });
 
 /* --------------------------------- wallet ---------------------------------- */
 
@@ -279,3 +378,21 @@ export interface VehicleClassInfo {
 }
 
 export const listVehicleClasses = () => api.get<VehicleClassInfo[]>("/vehicle-classes");
+
+/* ---------------------------------- chat ----------------------------------- */
+
+export interface ChatMessage {
+  _id: string;
+  tripId: string;
+  senderId: string | { _id: string; name: string; role?: string };
+  senderRole: string;
+  message: string;
+  createdAt: string;
+}
+
+export const getChatHistory = (tripId: string) =>
+  api.get<ChatMessage[]>(`/trips/${tripId}/chat/history`);
+
+/** Customer and the assigned chauffeur may post; the passenger's screen updates live. */
+export const sendChatMessage = (tripId: string, message: string) =>
+  api.post<ChatMessage>(`/trips/${tripId}/chat/messages`, { message });

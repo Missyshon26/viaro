@@ -30,7 +30,8 @@ export type ChangeTopic =
   | "user"
   | "vehicle"
   | "wallet"
-  | "notification";
+  | "notification"
+  | "chat";
 
 export interface ChangeEvent {
   topic: ChangeTopic;
