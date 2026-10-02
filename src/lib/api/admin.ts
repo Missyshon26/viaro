@@ -261,7 +261,9 @@ export const getExportStatus = (jobId: string) =>
 
 export interface Ticket {
   _id: string;
-  userId: string | { _id: string; name: string; role: string };
+  userId: string | { _id: string; name: string; role: string; email?: string; phone?: string };
+  /** Who opened the case: "customer" (a passenger) or "driver" (a chauffeur). */
+  requesterRole?: string;
   category: string;
   subject: string;
   status: string;
@@ -269,8 +271,16 @@ export interface Ticket {
   createdAt: string;
 }
 
-export const listTickets = () =>
-  api.get<Paginated<Ticket> | Ticket[]>("/support/tickets", { query: { limit: 50 } });
+export type TicketSource = "customer" | "driver";
+
+/** The admin queue: one page plus how many cases each source has under the same status. */
+export type TicketQueue = Paginated<Ticket> & {
+  counts?: { all: number; customer: number; driver: number };
+};
+
+/** Both filters run on the server so they cover the whole queue, not just the page loaded. */
+export const listTickets = (filters: { source?: TicketSource; status?: string } = {}) =>
+  api.get<TicketQueue>("/support/tickets", { query: { limit: 100, ...filters } });
 export const getTicket = (id: string) => api.get<Ticket>(`/support/tickets/${id}`);
 export const replyToTicket = (id: string, message: string) =>
   api.post<Ticket>(`/support/tickets/${id}/messages`, { message });

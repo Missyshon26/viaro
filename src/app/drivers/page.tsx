@@ -37,20 +37,28 @@ export default function DriversPage() {
   const [query, setQuery] = useState("");
 
   const load = useCallback(async () => {
-    try {
-      const [list, pen, conf] = await Promise.all([
-        listDrivers(),
-        listPenalties(),
-        getPlatformSettings(),
-      ]);
-      setDrivers(Array.isArray(list) ? list : (list.items ?? []));
-      setPenalties(pen);
-      setSettings(conf);
-      setError(null);
-    } catch (err) {
-      setError(errorText(err, "Could not load drivers"));
+    /*
+     * Settled independently: the roster is the point of this page, so a failing penalties
+     * or settings call must not blank it. It used to — one 404 from /admin/settings showed
+     * "No chauffeurs yet" over a full roster.
+     */
+    const [list, pen, conf] = await Promise.allSettled([
+      listDrivers(),
+      listPenalties(),
+      getPlatformSettings(),
+    ]);
+    const problems: string[] = [];
+    if (list.status === "fulfilled") {
+      setDrivers(Array.isArray(list.value) ? list.value : (list.value.items ?? []));
+    } else {
+      problems.push(errorText(list.reason, "Could not load drivers"));
       setDrivers([]);
     }
+    if (pen.status === "fulfilled") setPenalties(pen.value);
+    else problems.push(errorText(pen.reason, "Could not load penalties"));
+    if (conf.status === "fulfilled") setSettings(conf.value);
+    else problems.push(errorText(conf.reason, "Could not load the payout settings"));
+    setError(problems.length ? problems.join(" · ") : null);
   }, []);
 
   useEffect(() => {
