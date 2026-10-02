@@ -4,7 +4,7 @@ import { ResetPasswordForm } from "@/components/app/auth-forms";
 
 export const metadata: Metadata = { title: "Choose a new password | Viaro" };
 
-/** The emailed link lands here as /reset-password/confirm?token=… via APP_WEB_URL. */
+/** The emailed link (/reset-password/confirm?token=…) is forwarded here by ./confirm. */
 export default async function ResetPasswordPage({
   searchParams,
 }: {

@@ -126,16 +126,19 @@ export async function logoutAction() {
 export async function forgotPasswordAction(
   _prev: FormState | undefined,
   formData: FormData,
-): Promise<FormState & { sent?: boolean }> {
+): Promise<FormState & { sent?: boolean; email?: string }> {
+  const email = String(formData.get("email") ?? "").trim();
   try {
+    // The API answers 404 "No account exists…" for an unknown address; it shows as-is.
     await apiFetch("/auth/password/forgot", {
       method: "POST",
-      body: { email: String(formData.get("email") ?? "").trim() },
+      body: { email },
       anonymous: true,
     });
-    return { sent: true };
+    return { sent: true, email };
   } catch (err) {
-    return toFormState(err);
+    // Keep what they typed so a typo can be corrected rather than re-entered.
+    return { ...toFormState(err), email };
   }
 }
 

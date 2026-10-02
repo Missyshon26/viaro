@@ -161,16 +161,17 @@ export function RegisterForm() {
 
 export function ForgotPasswordForm() {
   const [state, action, pending] = useActionState<
-    (FormState & { sent?: boolean }) | undefined,
+    (FormState & { sent?: boolean; email?: string }) | undefined,
     FormData
   >(forgotPasswordAction, undefined);
+  const noAccount = Boolean(state?.error && /no account/i.test(state.error));
 
   if (state?.sent) {
     return (
       <div className="space-y-5 text-center">
         <p className="text-sm leading-relaxed text-muted-foreground">
-          If that address has an account, a reset link is on its way. The link expires
-          in 30 minutes.
+          We sent a reset link to <strong className="text-foreground">{state.email}</strong>.
+          It expires in 30 minutes — check your spam folder if it hasn&apos;t arrived.
         </p>
         <Button asChild variant="outline" className="w-full">
           <Link href="/login">Back to sign in</Link>
@@ -181,9 +182,21 @@ export function ForgotPasswordForm() {
 
   return (
     <form action={action} className="space-y-5">
-      {state?.error ? <ErrorNote>{state.error}</ErrorNote> : null}
+      {state?.error ? (
+        <ErrorNote>
+          {state.error}
+          {noAccount ? (
+            <>
+              {" "}
+              <Link href="/register" className="underline">
+                Create an account
+              </Link>
+            </>
+          ) : null}
+        </ErrorNote>
+      ) : null}
       <Field label="Email" htmlFor="email" error={state?.fieldErrors?.email}>
-        <Input id="email" name="email" type="email" autoComplete="email" required />
+        <Input id="email" name="email" type="email" autoComplete="email" required defaultValue={state?.email} />
       </Field>
       <Button type="submit" size="lg" className="w-full" disabled={pending}>
         {pending ? "Sending…" : "Send reset link"}
