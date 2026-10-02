@@ -80,10 +80,10 @@ export default function ContactPage() {
 
       {/* ── MAIN GRID ── */}
       <section className="pb-24 px-5 sm:px-8 lg:px-16 max-w-7xl mx-auto">
-        <div className="grid gap-12 lg:grid-cols-2 lg:items-start">
+        <div className="grid gap-12 lg:grid-cols-2 lg:items-start [&>*]:min-w-0">
 
           {/* ── FORM ── */}
-          <div className="border border-white/10 rounded-2xl bg-neutral-900/40 p-8">
+          <div className="border border-white/10 rounded-2xl bg-neutral-900/40 p-5 sm:p-8">
             {sent ? (
               <div className="flex flex-col items-center justify-center py-16 text-center gap-4">
                 <div className="h-14 w-14 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center">
@@ -103,7 +103,7 @@ export default function ContactPage() {
                 <h2 className="font-serif font-bold text-xl mb-6">{t.form.title}</h2>
 
                 <div>
-                  <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
+                  <label className="block text-xs uppercase tracking-widest text-neutral-400 mb-1">
                     {t.form.name} <span className="text-primary">*</span>
                   </label>
                   <input
@@ -115,7 +115,7 @@ export default function ContactPage() {
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
+                    <label className="block text-xs uppercase tracking-widest text-neutral-400 mb-1">
                       {t.form.email} <span className="text-primary">*</span>
                     </label>
                     <input
@@ -125,7 +125,7 @@ export default function ContactPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">{t.form.phone}</label>
+                    <label className="block text-xs uppercase tracking-widest text-neutral-400 mb-1">{t.form.phone}</label>
                     <input
                       name="phone" type="tel" value={form.phone} onChange={handleChange}
                       placeholder={t.form.phonePlaceholder}
@@ -135,7 +135,7 @@ export default function ContactPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">{t.form.service}</label>
+                  <label className="block text-xs uppercase tracking-widest text-neutral-400 mb-1">{t.form.service}</label>
                   <select
                     name="service" value={form.service} onChange={handleChange}
                     className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-primary transition"
@@ -148,7 +148,7 @@ export default function ContactPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs uppercase tracking-widest text-neutral-500 mb-1">
+                  <label className="block text-xs uppercase tracking-widest text-neutral-400 mb-1">
                     {t.form.message} <span className="text-primary">*</span>
                   </label>
                   <textarea
@@ -176,25 +176,25 @@ export default function ContactPage() {
           {/* ── INFO ── */}
           <div className="space-y-6">
             {infoCards.map((card) => (
-              <div key={card.label} className="flex gap-4 border border-white/5 rounded-2xl bg-neutral-900/30 p-6 hover:border-primary/30 transition group">
+              <div key={card.label} className="flex gap-4 border border-white/5 rounded-2xl bg-neutral-900/30 p-5 sm:p-6 hover:border-primary/30 transition group">
                 <div className="flex-shrink-0 h-10 w-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center group-hover:bg-primary/20 transition">
                   <card.icon className="h-[18px] w-[18px] text-brand" />
                 </div>
-                <div>
-                  <p className="text-xs uppercase tracking-widest text-neutral-500 mb-1">{card.label}</p>
+                <div className="min-w-0 [overflow-wrap:anywhere]">
+                  <p className="text-xs uppercase tracking-widest text-neutral-400 mb-1">{card.label}</p>
                   {card.href ? (
                     <a href={card.href} className="text-white font-semibold hover:text-primary transition">{card.value}</a>
                   ) : (
                     <p className="text-white font-semibold">{card.value}</p>
                   )}
-                  <p className="text-xs text-neutral-500 mt-0.5">{card.note}</p>
+                  <p className="text-xs text-neutral-400 mt-0.5">{card.note}</p>
                 </div>
               </div>
             ))}
 
             {/* Social */}
             <div className="border border-white/5 rounded-2xl bg-neutral-900/30 p-6">
-              <p className="text-xs uppercase tracking-widest text-neutral-500 mb-4">{t.social.label}</p>
+              <p className="text-xs uppercase tracking-widest text-neutral-400 mb-4">{t.social.label}</p>
               <div className="flex gap-3 flex-wrap">
                 {t.social.links.map((s: any) => (
                   <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer"

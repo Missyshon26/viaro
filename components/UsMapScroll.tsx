@@ -70,7 +70,7 @@ const UsMapScroll = ({ onSelectRegion }: UsMapScrollProps) => {
                   />
 
                   <div className="absolute bottom-10 left-1/2 -translate-x-1/2 opacity-0 group-hover/region:opacity-100 group-hover/region:-translate-y-2 transition-all duration-300">
-                    <span className="bg-white/10 backdrop-blur-md border border-white/20 text-white text-[10px] px-3 py-1 rounded-full uppercase tracking-tighter whitespace-nowrap">
+                    <span className="bg-white/10 backdrop-blur-md border border-white/20 text-white text-xs px-3 py-1 rounded-full uppercase tracking-tighter whitespace-nowrap">
                       {t.select || "Select"} {region.label}
                     </span>
                   </div>

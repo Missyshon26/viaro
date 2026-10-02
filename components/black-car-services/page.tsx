@@ -135,8 +135,7 @@ export default function ServicesPage() {
     <main className="bg-black text-white">
       <section
         id="inicio"
-        className="relative w-full overflow-hidden"
-        style={{ height: "100dvh" }}
+        className="relative flex min-h-[100dvh] w-full flex-col justify-end overflow-hidden"
       >
         <Image
           src="/images/ImagenServices1.png"
@@ -148,7 +147,7 @@ export default function ServicesPage() {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-black/20" />
 
-        <div className="absolute inset-0 z-10 flex flex-col justify-end mx-auto w-full max-w-7xl px-5 sm:px-8 lg:px-16 pt-20 pb-10 sm:pb-20">
+        <div className="relative z-10 mx-auto w-full max-w-7xl px-5 sm:px-8 lg:px-16 pt-28 pb-24 sm:pb-20">
           <div>
             <p className="mb-3 text-xs sm:text-sm font-semibold uppercase tracking-[0.08em] text-brand [text-shadow:0_1px_3px_rgba(0,0,0,0.9),_0_4px_12px_rgba(0,0,0,0.6)] whitespace-pre-line">
               {t.hero.eyebrow ?? t.hero.subtitle}
@@ -159,7 +158,7 @@ export default function ServicesPage() {
             </h1>
 
             {t.hero.tagline && (
-              <p className="mt-2 sm:mt-3 text-xs sm:text-base text-white/60 leading-relaxed font-light max-w-[260px] sm:max-w-xl">
+              <p className="mt-3 max-w-xl text-[0.95rem] leading-relaxed text-white/85 sm:text-lg [text-shadow:0_1px_3px_rgba(0,0,0,0.85)]">
                 {t.hero.tagline}
               </p>
             )}
@@ -191,7 +190,7 @@ export default function ServicesPage() {
             </div>
 
             {t.hero.body && (
-              <p className="mt-4 text-sm italic text-white/30 text-center sm:text-base">
+              <p className="mt-5 max-w-2xl text-[0.95rem] leading-relaxed text-white/85 sm:text-lg [text-shadow:0_1px_3px_rgba(0,0,0,0.85)]">
                 "{t.hero.body}"
               </p>
             )}
@@ -214,7 +213,7 @@ export default function ServicesPage() {
             fontSize: 11,
             textTransform: "uppercase",
             letterSpacing: "0.15em",
-            color: "rgba(255,255,255,0.4)",
+            color: "rgba(255,255,255,0.7)",
             marginBottom: 24,
             fontWeight: 500,
           }}
@@ -272,8 +271,8 @@ export default function ServicesPage() {
 
               <span
                 style={{
-                  fontSize: "clamp(8px, 1.8vw, 11px)",
-                  color: "rgba(255,255,255,0.4)",
+                  fontSize: "clamp(11px, 1.8vw, 13px)",
+                  color: "rgba(255,255,255,0.7)",
                   textTransform: "uppercase",
                   letterSpacing: "0.05em",
                   lineHeight: 1.3,
@@ -356,7 +355,7 @@ export default function ServicesPage() {
                 key={s.category}
                 className="relative flex flex-col border border-primary/40 rounded-2xl p-6 sm:p-8 hover:border-primary transition-all duration-300"
               >
-                <span className="absolute -top-3 left-6 bg-primary text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full">
+                <span className="absolute -top-3 left-6 bg-primary text-white text-[11px] font-bold uppercase tracking-widest px-3 py-1 rounded-full">
                   {s.category}
                 </span>
                 <h3 className="font-serif font-bold text-xl sm:text-2xl mt-2">
@@ -414,7 +413,7 @@ export default function ServicesPage() {
             <a href={`/faq`}>
               <Button
                 variant="outline"
-                className="rounded-full px-6 sm:px-8 uppercase tracking-widest text-xs font-semibold h-11 sm:h-12 border-white text-white hover:bg-white hover:text-black"
+                className="rounded-full px-6 sm:px-8 uppercase tracking-widest text-xs font-semibold min-h-11 sm:min-h-12 py-2.5 border-white text-white hover:bg-white hover:text-black"
               >
                 <Phone className="mr-2 h-4 w-4" />
                 {"Have More Questions? Contact Us"}

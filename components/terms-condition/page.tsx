@@ -35,7 +35,7 @@ export default function TermsContent() {
           <h1 className="font-serif font-bold leading-tight text-3xl sm:text-4xl lg:text-5xl xl:text-6xl max-w-3xl">
             {t.hero.title}
           </h1>
-          <p className="mt-4 text-sm sm:text-base text-white/50 max-w-xl leading-relaxed">
+          <p className="mt-4 text-sm sm:text-base text-white/75 max-w-xl leading-relaxed">
             {t.hero.subtitle}
           </p>
         </div>
@@ -89,10 +89,10 @@ export default function TermsContent() {
         <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-16 text-center">
           <p className="text-xs font-bold uppercase tracking-widest text-primary mb-4">{t.cta.eyebrow}</p>
           <h2 className="font-serif font-bold text-3xl sm:text-4xl mb-4">{t.cta.title}</h2>
-          <p className="text-sm sm:text-base text-white/50 max-w-xl mx-auto mb-8">{t.cta.subtitle}</p>
+          <p className="text-sm sm:text-base text-white/75 max-w-xl mx-auto mb-8">{t.cta.subtitle}</p>
           <div className="flex flex-wrap gap-4 justify-center">
             <a href="/book">
-              <Button className={`px-8 h-11 sm:h-12 ${btnPrimary}`}>
+              <Button className={`px-8 min-h-11 sm:min-h-12 py-2.5 ${btnPrimary}`}>
                 {t.cta.book}
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
@@ -100,7 +100,7 @@ export default function TermsContent() {
             <a href="tel:2066728281">
               <Button
                 variant="outline"
-                className="rounded-full px-6 sm:px-8 uppercase tracking-widest text-xs font-semibold h-11 sm:h-12 border-white text-white hover:bg-white hover:text-black"
+                className="rounded-full px-6 sm:px-8 uppercase tracking-widest text-xs font-semibold min-h-11 sm:min-h-12 py-2.5 border-white text-white hover:bg-white hover:text-black"
               >
                 <Phone className="mr-2 h-4 w-4" />
                 (206) 672-8281

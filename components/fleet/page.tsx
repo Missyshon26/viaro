@@ -112,8 +112,7 @@ export default function FleetContent() {
   return (
     <main className="bg-black text-white">
       <section
-        className="relative w-full overflow-hidden"
-        style={{ height: "100dvh" }}
+        className="relative flex min-h-[100dvh] w-full flex-col justify-end overflow-hidden"
       >
         <Image
           src="/images/FleetHero.png"
@@ -123,23 +122,23 @@ export default function FleetContent() {
           className="object-cover object-center"
           sizes="100vw"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-black/20" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-black/30" />
 
-        <div className="absolute inset-0 z-10 flex flex-col justify-end mx-auto w-full max-w-7xl px-5 sm:px-8 lg:px-16 pb-10 sm:pb-20">
+        <div className="relative z-10 mx-auto w-full max-w-7xl px-5 sm:px-8 lg:px-16 pt-28 pb-24 sm:pb-20">
           <div>
-            <p className="mb-3 text-[10px] sm:text-xs font-semibold uppercase tracking-[0.08em] text-brand">
+            <p className="mb-3 text-xs sm:text-sm font-semibold uppercase tracking-[0.08em] text-brand">
               {t.hero.eyebrow}
             </p>
             <h1 className="font-serif font-bold leading-[1.1] text-[1.6rem] xs:text-3xl sm:text-4xl lg:text-5xl xl:text-6xl max-w-[280px] xs:max-w-sm sm:max-w-2xl lg:max-w-3xl">
               {t.hero.title}
             </h1>
-            <h2 className="mt-2 sm:mt-3 text-xs sm:text-base text-white/60 leading-relaxed font-light max-w-[260px] xs:max-w-xs sm:max-w-xl lg:max-w-2xl">
+            <h2 className="mt-3 max-w-xl text-[0.95rem] leading-relaxed text-white/85 sm:text-lg [text-shadow:0_1px_3px_rgba(0,0,0,0.85)]">
               {t.hero.subtitle}
             </h2>
 
             <div className="mt-5 sm:mt-8 flex flex-wrap gap-3">
               <a href="/book">
-                <Button className={`px-6 sm:px-8 h-11 sm:h-12 ${btnPrimary}`}>
+                <Button className={`px-6 sm:px-8 h-auto min-h-11 sm:min-h-12 py-2.5 max-w-full whitespace-normal text-center leading-snug ${btnPrimary}`}>
                   {t.hero.ctaBook}
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
@@ -147,7 +146,7 @@ export default function FleetContent() {
               <a href="tel:2066728281">
                 <Button
                   variant="outline"
-                  className="rounded-full px-6 sm:px-8 uppercase tracking-widest text-xs font-semibold h-11 sm:h-12 border-white text-white hover:bg-white hover:text-black"
+                  className="rounded-full px-6 sm:px-8 uppercase tracking-widest text-xs font-semibold h-auto min-h-11 sm:min-h-12 py-2.5 max-w-full whitespace-normal text-center leading-snug border-white text-white hover:bg-white hover:text-black"
                 >
                   <Phone className="mr-2 h-4 w-4" />
                   (206) 672-8281
@@ -156,7 +155,7 @@ export default function FleetContent() {
             </div>
 
             {t.hero.description && (
-              <p className="mt-4 text-sm italic text-white/30 sm:text-base">
+              <p className="mt-5 max-w-2xl text-[0.95rem] leading-relaxed text-white/85 sm:text-lg [text-shadow:0_1px_3px_rgba(0,0,0,0.85)]">
                 "{t.hero.description}"
               </p>
             )}
@@ -178,10 +177,10 @@ export default function FleetContent() {
     .trust-icon svg { width: 28px; height: 28px; }
     .trust-heading { font-size: 11px; }
     @media (max-width: 480px) {
-      .trust-label { font-size: 9px; }
+      .trust-label { font-size: 11px; }
       .trust-value { font-size: 16px; }
       .trust-icon svg { width: 20px; height: 20px; }
-      .trust-heading { font-size: 9px; }
+      .trust-heading { font-size: 11px; }
     }
   `}</style>
 
@@ -191,7 +190,7 @@ export default function FleetContent() {
       textAlign: "center",
       textTransform: "uppercase",
       letterSpacing: "0.15em",
-      color: "rgba(255,255,255,0.4)",
+      color: "rgba(255,255,255,0.7)",
       marginBottom: 32,
       fontWeight: 500,
     }}
@@ -235,7 +234,7 @@ export default function FleetContent() {
         <span
           className="trust-label"
           style={{
-            color: "rgba(255,255,255,0.4)",
+            color: "rgba(255,255,255,0.7)",
             textTransform: "uppercase",
             letterSpacing: "0.08em",
           }}
@@ -301,7 +300,7 @@ export default function FleetContent() {
                   <ul className="text-sm text-neutral-400 space-y-1">
                     <li>{v.passengers}</li>
                     <li>{v.luggage}</li>
-                    <li className="text-white/50 text-xs italic">{v.models}</li>
+                    <li className="text-white/70 text-sm italic">{v.models}</li>
                   </ul>
                   <p className="text-sm text-neutral-400 leading-relaxed mt-1">
                     {v.description}
@@ -311,7 +310,7 @@ export default function FleetContent() {
             ))}
           </div>
 
-          <p className="mt-8 text-sm text-white/40 italic">
+          <p className="mt-8 text-sm text-white/70 italic">
             {t.fleet.disclaimer}
           </p>
           <p
@@ -321,7 +320,7 @@ export default function FleetContent() {
 
           <div className="mt-10 flex justify-center">
             <a href="/book">
-              <Button className={`px-8 h-11 sm:h-12 ${btnPrimary}`}>
+              <Button className={`px-8 min-h-11 sm:min-h-12 py-2.5 ${btnPrimary}`}>
                 {t.fleet.cta}
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
@@ -347,7 +346,7 @@ export default function FleetContent() {
                 {t.safety.intro}
               </p>
               <a href="/book">
-                <Button className={`px-6 sm:px-8 h-11 sm:h-12 ${btnPrimary}`}>
+                <Button className={`px-6 sm:px-8 h-auto min-h-11 sm:min-h-12 py-2.5 max-w-full whitespace-normal text-center leading-snug ${btnPrimary}`}>
                   {t.safety.cta}
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
@@ -425,7 +424,7 @@ export default function FleetContent() {
             <a href={`/faq`}>
               <Button
                 variant="outline"
-                className="rounded-full px-6 sm:px-8 uppercase tracking-widest text-xs font-semibold h-11 sm:h-12 border-white text-white hover:bg-white hover:text-black"
+                className="rounded-full px-6 sm:px-8 uppercase tracking-widest text-xs font-semibold h-auto min-h-11 sm:min-h-12 py-2.5 max-w-full whitespace-normal text-center leading-snug border-white text-white hover:bg-white hover:text-black"
               >
                 <Phone className="mr-2 h-4 w-4" />
                 {"Have More Questions? Contact Us"}

@@ -389,8 +389,7 @@ export default function ServicePage() {
   return (
     <div className="bg-black text-white">
       <section
-        className="relative min-h-screen flex items-center pt-0"
-        style={{ height: "100dvh" }}
+        className="relative flex min-h-[100dvh] items-end"
       >
         <Image
           src={cityData.hero.image.src}
@@ -400,18 +399,18 @@ export default function ServicePage() {
           className="object-cover object-center"
           sizes="100vw"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-black/50" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-black/50" />
 
-        <div className="absolute bottom-0 left-0 right-0 z-10 max-w-7xl mx-auto px-5 sm:px-8 lg:px-16 pb-24 sm:pb-20">
+        <div className="relative z-10 w-full max-w-7xl mx-auto px-5 sm:px-8 lg:px-16 pt-28 pb-24 sm:pb-20">
           <h1 className="font-serif font-bold leading-tight text-3xl sm:text-4xl lg:text-5xl xl:text-6xl max-w-3xl">
             {cityData.hero.h1}
           </h1>
-          <h2 className="mt-3 text-sm sm:text-base text-white/70 font-light tracking-wide max-w-xl">
+          <h2 className="mt-3 max-w-xl text-[0.95rem] leading-relaxed text-white/85 sm:text-lg [text-shadow:0_1px_3px_rgba(0,0,0,0.85)]">
             {cityData.hero.h2}
           </h2>
           <div className="mt-5 flex flex-wrap gap-3">
             <a href="/book">
-              <Button className={`px-6 sm:px-8 h-11 sm:h-12 ${btnPrimary}`}>
+              <Button className={`px-6 sm:px-8 h-auto min-h-11 sm:min-h-12 py-2.5 max-w-full whitespace-normal text-center leading-snug ${btnPrimary}`}>
                 {cityData.hero.cta.book}
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
@@ -419,7 +418,7 @@ export default function ServicePage() {
             <a href={`tel:${cityData.hero.cta.phone.replace(/\D/g, "")}`}>
               <Button
                 variant="outline"
-                className="rounded-full px-6 sm:px-8 uppercase tracking-widest text-xs font-semibold h-11 sm:h-12 border-white text-white hover:bg-white hover:text-black"
+                className="rounded-full px-6 sm:px-8 uppercase tracking-widest text-xs font-semibold h-auto min-h-11 sm:min-h-12 py-2.5 max-w-full whitespace-normal text-center leading-snug border-white text-white hover:bg-white hover:text-black"
               >
                 <Phone className="mr-2 h-4 w-4" />
                 {cityData.hero.cta.phone}
@@ -427,7 +426,7 @@ export default function ServicePage() {
             </a>
           </div>
           {cityData.hero.description && (
-            <p className="mt-4 text-sm italic text-white/30 sm:text-base">
+            <p className="mt-5 max-w-2xl text-[0.95rem] leading-relaxed text-white/85 sm:text-lg [text-shadow:0_1px_3px_rgba(0,0,0,0.85)]">
               "{cityData.hero.description}"
             </p>
           )}
@@ -454,11 +453,11 @@ export default function ServicePage() {
         margin: 0 auto;
       }
       .trust-bar-icon svg { width: 26px; height: 26px; }
-      .trust-bar-label { font-size: clamp(8px, 1.8vw, 11px); }
+      .trust-bar-label { font-size: clamp(11px, 1.8vw, 13px); line-height: 1.25 !important; }
       @media (max-width: 540px) {
         .trust-bar-grid { gap: 10px 4px; }
         .trust-bar-icon svg { width: 18px; height: 18px; }
-        .trust-bar-label { font-size: 8px; }
+        .trust-bar-label { font-size: 11px; }
         .trust-bar-value { font-size: 11px !important; }
       }
     `}</style>
@@ -469,7 +468,7 @@ export default function ServicePage() {
               fontSize: 11,
               textTransform: "uppercase",
               letterSpacing: "0.15em",
-              color: "rgba(255,255,255,0.4)",
+              color: "rgba(255,255,255,0.7)",
               marginBottom: 24,
               fontWeight: 500,
             }}
@@ -706,7 +705,7 @@ export default function ServicePage() {
                           <p className="text-neutral-400 text-sm leading-relaxed">
                             {p.terminals}
                           </p>
-                          <span className="inline-block mt-4 text-[10px] font-semibold uppercase tracking-widest text-primary bg-primary/10 border border-primary/20 rounded-full px-2 py-0.5">
+                          <span className="inline-block mt-4 text-xs font-semibold uppercase tracking-widest text-primary bg-primary/10 border border-primary/20 rounded-full px-2 py-0.5">
                             {p.note}
                           </span>
                         </div>
@@ -751,17 +750,17 @@ export default function ServicePage() {
                 <h3 className="font-serif font-bold text-xl sm:text-2xl mb-2">
                   {p.type}
                 </h3>
-                <p className="text-xs font-semibold uppercase tracking-widest text-neutral-500 mb-0.5">
+                <p className="text-xs font-semibold uppercase tracking-widest text-neutral-400 mb-0.5">
                   {"Starting at"}
                 </p>
                 <p className="text-4xl font-bold text-primary mb-1">
                   ${p.price}
                 </p>
-                <p className="text-xs text-neutral-500 mb-6">
+                <p className="text-sm text-neutral-400 mb-6">
                   {p.passengers} {"passengers"}
                 </p>
                 <div className="mb-5">
-                  <p className="text-[10px] uppercase tracking-widest text-neutral-500 mb-2">
+                  <p className="text-xs uppercase tracking-widest text-neutral-400 mb-2">
                     {"Models"}
                   </p>
                   <ul className="space-y-1">
@@ -773,7 +772,7 @@ export default function ServicePage() {
                   </ul>
                 </div>
                 <div className="flex-grow">
-                  <p className="text-[10px] uppercase tracking-widest text-neutral-500 mb-2">
+                  <p className="text-xs uppercase tracking-widest text-neutral-400 mb-2">
                     {"Included"}
                   </p>
                   <ul className="space-y-1">
@@ -833,7 +832,7 @@ export default function ServicePage() {
             <a href={`/faq`}>
               <Button
                 variant="outline"
-                className="rounded-full px-6 sm:px-8 uppercase tracking-widest text-xs font-semibold h-11 sm:h-12 border-white text-white hover:bg-white hover:text-black"
+                className="rounded-full px-6 sm:px-8 uppercase tracking-widest text-xs font-semibold h-auto min-h-11 sm:min-h-12 py-2.5 max-w-full whitespace-normal text-center leading-snug border-white text-white hover:bg-white hover:text-black"
               >
                 <Phone className="mr-2 h-4 w-4" />
                 {"Have More Questions? Contact Us"}

@@ -27,7 +27,7 @@ export const PREFILL_QUOTE_EVENT = "viaro:prefill-quote";
 
 const inputCls =
   "w-full bg-black/60 border border-white/20 rounded-xl px-4 py-3 text-base sm:text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-primary transition-colors";
-const labelCls = "block text-[10px] uppercase tracking-widest text-white/50 mb-1.5";
+const labelCls = "block text-xs uppercase tracking-widest text-white/70 mb-1.5";
 
 function FieldError({ message }: { message?: string }) {
   return message ? <p className="mt-1.5 text-xs text-red-400">{message}</p> : null;
@@ -343,7 +343,7 @@ export function HeroBookingForm({ t }: { t: any }) {
           <ArrowRight className="ml-2 h-4 w-4" />
         </button>
         {!bookable ? (
-          <p className="text-center text-xs leading-relaxed text-white/45">
+          <p className="text-center text-xs leading-relaxed text-white/70">
             Packages and multi-city trips are priced by our team — usually the same day.
           </p>
         ) : null}

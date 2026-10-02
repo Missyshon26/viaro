@@ -86,7 +86,7 @@ export default function AboutContent() {
     <main className="bg-black text-white">
 
       {/* ── HERO ── */}
-      <section className="relative w-full overflow-hidden" style={{ height: "100dvh" }}>
+      <section className="relative flex min-h-[100dvh] w-full flex-col justify-end overflow-hidden">
         <Image
           src="/images/ImagenAboutUs.png"
           alt="Viaro luxury black car"
@@ -98,9 +98,9 @@ export default function AboutContent() {
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-black/20" />
 
         {/* Todo abajo siempre — se eliminó justify-between y el eyebrow flotante de móvil */}
-        <div className="absolute inset-0 z-10 flex flex-col justify-end mx-auto w-full max-w-7xl px-5 sm:px-8 lg:px-16 pb-10 sm:pb-20">
+        <div className="relative z-10 mx-auto w-full max-w-7xl px-5 sm:px-8 lg:px-16 pt-28 pb-24 sm:pb-20">
           <div>
-            <p className="mb-3 text-[10px] sm:text-xs font-semibold uppercase tracking-[0.08em] text-brand whitespace-pre-line">
+            <p className="mb-3 text-xs sm:text-sm font-semibold uppercase tracking-[0.08em] text-brand whitespace-pre-line">
               {t.hero.eyebrow}
             </p>
 
@@ -109,14 +109,14 @@ export default function AboutContent() {
             </h1>
 
             {t.hero.subtitle && (
-              <p className="mt-2 sm:mt-3 text-xs sm:text-base text-white/60 leading-relaxed font-light max-w-[260px] xs:max-w-xs sm:max-w-xl">
+              <p className="mt-3 max-w-xl text-[0.95rem] leading-relaxed text-white/85 sm:text-lg [text-shadow:0_1px_3px_rgba(0,0,0,0.85)]">
                 {t.hero.subtitle}
               </p>
             )}
 
             <div className="mt-5 sm:mt-8 flex flex-wrap gap-3">
               <a href="/book">
-                <Button className={`px-6 sm:px-8 h-11 sm:h-12 ${btnPrimary}`}>
+                <Button className={`px-6 sm:px-8 h-auto min-h-11 sm:min-h-12 py-2.5 max-w-full whitespace-normal text-center leading-snug ${btnPrimary}`}>
                   {t.hero.cta_book}
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
@@ -124,7 +124,7 @@ export default function AboutContent() {
               <a href="tel:2066728281">
                 <Button
                   variant="outline"
-                  className="rounded-full px-6 sm:px-8 uppercase tracking-widest text-xs font-semibold h-11 sm:h-12 border-white text-white hover:bg-white hover:text-black"
+                  className="rounded-full px-6 sm:px-8 uppercase tracking-widest text-xs font-semibold h-auto min-h-11 sm:min-h-12 py-2.5 max-w-full whitespace-normal text-center leading-snug border-white text-white hover:bg-white hover:text-black"
                 >
                   <Phone className="mr-2 h-4 w-4" />
                   {t.hero.cta_call}
@@ -133,7 +133,7 @@ export default function AboutContent() {
             </div>
 
             {t.hero.quote && (
-              <p className="mt-4 text-sm italic text-white/30 sm:text-base">
+              <p className="mt-5 max-w-2xl text-[0.95rem] leading-relaxed text-white/85 sm:text-lg [text-shadow:0_1px_3px_rgba(0,0,0,0.85)]">
                 "{t.hero.quote}"
               </p>
             )}
@@ -156,7 +156,7 @@ export default function AboutContent() {
             fontSize: 11,
             textTransform: "uppercase",
             letterSpacing: "0.15em",
-            color: "rgba(255,255,255,0.4)",
+            color: "rgba(255,255,255,0.7)",
             marginBottom: 24,
             fontWeight: 500,
           }}
@@ -214,8 +214,8 @@ export default function AboutContent() {
 
               <span
                 style={{
-                  fontSize: "clamp(8px, 1.8vw, 11px)",
-                  color: "rgba(255,255,255,0.4)",
+                  fontSize: "clamp(11px, 1.8vw, 13px)",
+                  color: "rgba(255,255,255,0.7)",
                   textTransform: "uppercase",
                   letterSpacing: "0.05em",
                   lineHeight: 1.3,
@@ -257,7 +257,7 @@ export default function AboutContent() {
                   {t.story.cta}
                 </a>
               </div>
-              <Button className={`self-start sm:self-center px-6 sm:px-8 h-11 sm:h-12 ${btnPrimary}`}>
+              <Button className={`self-start sm:self-center px-6 sm:px-8 min-h-11 sm:min-h-12 py-2.5 ${btnPrimary}`}>
                 {t.story.city}
               </Button>
             </div>
@@ -301,7 +301,7 @@ export default function AboutContent() {
           {t.team.cta && (
             <div className="mt-10 flex justify-center">
               <a href="/favorites">
-                <Button className={`px-6 sm:px-8 h-11 sm:h-12 ${btnPrimary}`}>
+                <Button className={`px-6 sm:px-8 h-auto min-h-11 sm:min-h-12 py-2.5 max-w-full whitespace-normal text-center leading-snug ${btnPrimary}`}>
                   {t.team.cta}
                 </Button>
               </a>
@@ -392,7 +392,7 @@ export default function AboutContent() {
             <a href={`/faq`}>
               <Button
                 variant="outline"
-                className="rounded-full px-6 sm:px-8 uppercase tracking-widest text-xs font-semibold h-11 sm:h-12 border-white text-white hover:bg-white hover:text-black"
+                className="rounded-full px-6 sm:px-8 uppercase tracking-widest text-xs font-semibold h-auto min-h-11 sm:min-h-12 py-2.5 max-w-full whitespace-normal text-center leading-snug border-white text-white hover:bg-white hover:text-black"
               >
                 <Phone className="mr-2 h-4 w-4" />
                 {"Have More Questions? Contact Us"}

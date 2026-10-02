@@ -489,7 +489,7 @@ export default function LocationsContent() {
           />
           <div className="absolute inset-0 bg-background/75" />
         </div>
-        <div className="relative z-20 max-w-7xl pl-6 lg:pl-16 pt-20">
+        <div className="relative z-20 mx-auto w-full max-w-7xl px-5 sm:px-8 lg:px-16 pt-28 pb-16">
           <div className="max-w-3xl">
             <p className="mb-3 text-xs sm:text-sm font-semibold uppercase tracking-[0.08em] text-brand [text-shadow:0_1px_3px_rgba(0,0,0,0.9),_0_4px_12px_rgba(0,0,0,0.6)]">
               {t.hero.subtitle}
@@ -497,15 +497,15 @@ export default function LocationsContent() {
             <p className="mb-3 text-xs sm:text-sm font-semibold uppercase tracking-[0.08em] text-brand [text-shadow:0_1px_3px_rgba(0,0,0,0.9),_0_4px_12px_rgba(0,0,0,0.6)]">
               {t.subtitle}
             </p>
-            <h1 className="font-serif text-5xl font-bold leading-tight tracking-tight text-foreground sm:text-6xl lg:text-7xl text-balance">
+            <h1 className="font-serif text-[2rem] font-bold leading-tight tracking-tight text-foreground sm:text-6xl lg:text-7xl text-balance [overflow-wrap:anywhere]">
               {t.hero.title}
             </h1>
-            <p className="mt-4 mb-6 text-sm font-semibold uppercase tracking-[0.08em]">
+            <p className="mt-4 mb-6 text-sm sm:text-base font-semibold uppercase tracking-[0.08em] text-white/90 [text-shadow:0_1px_3px_rgba(0,0,0,0.85)]">
               {t.hero.description}
             </p>
             <div className="flex flex-wrap gap-3">
               <a href="/book">
-                <Button className={`px-6 sm:px-8 h-11 sm:h-12 ${btnPrimary}`}>
+                <Button className={`px-6 sm:px-8 h-auto min-h-11 sm:min-h-12 py-2.5 max-w-full whitespace-normal text-center leading-snug ${btnPrimary}`}>
                   {t.buttons.bookNow}
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
@@ -513,7 +513,7 @@ export default function LocationsContent() {
               <a href="tel:2066728281">
                 <Button
                   variant="outline"
-                  className="rounded-full px-6 sm:px-8 uppercase tracking-widest text-xs font-semibold h-11 sm:h-12 border-white text-white hover:bg-white hover:text-black"
+                  className="rounded-full px-6 sm:px-8 uppercase tracking-widest text-xs font-semibold h-auto min-h-11 sm:min-h-12 py-2.5 max-w-full whitespace-normal text-center leading-snug border-white text-white hover:bg-white hover:text-black"
                 >
                   <Phone className="mr-2 h-4 w-4" />
                   {t.buttons.callUs ?? "Call Us"}
@@ -538,9 +538,9 @@ export default function LocationsContent() {
     .tm-icon svg { width: 28px; height: 28px; }
     .tm-grid { grid-template-columns: repeat(4, 1fr); }
     @media (max-width: 480px) {
-      .tm-heading { font-size: 9px; letter-spacing: 0.1em; margin-bottom: 20px !important; }
+      .tm-heading { font-size: 11px; letter-spacing: 0.1em; margin-bottom: 20px !important; }
       .tm-value { font-size: 14px; }
-      .tm-label { font-size: 9px; }
+      .tm-label { font-size: 11px; }
       .tm-icon svg { width: 20px; height: 20px; }
       .tm-grid { gap: 8px !important; }
       .tm-item { gap: 6px !important; }
@@ -553,7 +553,7 @@ export default function LocationsContent() {
             textAlign: "center",
             textTransform: "uppercase",
             letterSpacing: "0.15em",
-            color: "rgba(255,255,255,0.4)",
+            color: "rgba(255,255,255,0.7)",
             marginBottom: 32,
             fontWeight: 500,
           }}
@@ -598,7 +598,7 @@ export default function LocationsContent() {
                 className="tm-label"
                 style={{
                   fontSize: 11,
-                  color: "rgba(255,255,255,0.4)",
+                  color: "rgba(255,255,255,0.7)",
                   textTransform: "uppercase",
                   letterSpacing: "0.08em",
                 }}
@@ -629,7 +629,7 @@ export default function LocationsContent() {
           </p>
           <div className="mt-8 flex justify-center">
             <a href="/book">
-              <Button className={`px-6 sm:px-8 h-11 sm:h-12 ${btnPrimary}`}>
+              <Button className={`px-6 sm:px-8 h-auto min-h-11 sm:min-h-12 py-2.5 max-w-full whitespace-normal text-center leading-snug ${btnPrimary}`}>
                 {t.buttons.bookNow}
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
@@ -655,7 +655,7 @@ export default function LocationsContent() {
                   className="w-full h-80 object-cover transition duration-500 group-hover:brightness-50"
                 />
                 <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition duration-500">
-                  <span className="text-white text-5xl font-bold tracking-widest">
+                  <span className="text-white text-3xl sm:text-5xl font-bold tracking-widest">
                     {section.airport}
                   </span>
                 </div>
@@ -725,7 +725,7 @@ export default function LocationsContent() {
                           {city.desc}
                         </p>
                         {city.slug && (
-                          <span className="inline-flex items-center gap-1 mt-2 text-[10px] font-semibold uppercase tracking-widest text-primary bg-primary/10 border border-primary/20 rounded-full px-3 py-1">
+                          <span className="inline-flex items-center gap-1 mt-2 text-xs font-semibold uppercase tracking-widest text-primary bg-primary/10 border border-primary/20 rounded-full px-3 py-1">
                             {"View details"}{" "}
                             <ArrowRight className="w-3 h-3" />
                           </span>
@@ -785,7 +785,7 @@ export default function LocationsContent() {
             <a href={`/faq`}>
               <Button
                 variant="outline"
-                className="rounded-full px-6 sm:px-8 uppercase tracking-widest text-xs font-semibold h-11 sm:h-12 border-white text-white hover:bg-white hover:text-black"
+                className="rounded-full px-6 sm:px-8 uppercase tracking-widest text-xs font-semibold h-auto min-h-11 sm:min-h-12 py-2.5 max-w-full whitespace-normal text-center leading-snug border-white text-white hover:bg-white hover:text-black"
               >
                 <Phone className="mr-2 h-4 w-4" />
                 {"Have More Questions? Contact Us"}

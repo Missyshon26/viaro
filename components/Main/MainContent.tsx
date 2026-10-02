@@ -17,7 +17,7 @@ const inputCls =
 const selectCls =
   "w-full bg-black/60 border border-white/20 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-primary transition-colors";
 const labelCls =
-  "block text-[10px] uppercase tracking-widest text-white/40 mb-1.5";
+  "block text-xs uppercase tracking-widest text-white/70 mb-1.5";
 
 const btnPrimary =
   "bg-primary text-white hover:bg-brand2 rounded-full uppercase tracking-widest text-xs font-semibold transition-colors";
@@ -134,30 +134,33 @@ export default function MainContent({ dict}: { dict: any;}) {
                 <p className="mt-4 text-xs sm:text-sm font-normal uppercase tracking-[0.08em] text-white/85">
                   {t.subtitle}
                 </p>
-                <div className="mt-6 sm:mt-8 flex flex-wrap gap-3">
-                  <a href="#hero-booking" className="lg:hidden">
+                {/* One row on mobile: both buttons share the width instead of stacking. */}
+                <div className="mt-6 sm:mt-8 flex flex-nowrap gap-2 sm:gap-3">
+                  <a href="#hero-booking" className="flex-auto sm:flex-none lg:hidden">
                     <Button
-                      className={`px-6 sm:px-8 h-11 sm:h-12 ${btnPrimary}`}
+                      className={`w-full px-3 max-[359px]:px-2.5 max-[359px]:text-[11px] sm:px-8 min-h-11 sm:min-h-12 py-2.5 ${btnPrimary} whitespace-nowrap tracking-normal sm:tracking-widest`}
                     >
                       {t.book_now}
-                      <ArrowRight className="ml-2 h-4 w-4" />
+                      <ArrowRight className="ml-1 sm:ml-2 h-4 w-4" />
                     </Button>
                   </a>
                   <a href="/book" className="hidden lg:inline-block">
                     <Button
-                      className={`px-6 sm:px-8 h-11 sm:h-12 ${btnPrimary}`}
+                      className={`px-6 sm:px-8 min-h-11 sm:min-h-12 py-2.5 ${btnPrimary}`}
                     >
                       {t.book_now}
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                   </a>
-                  <a href="tel:+12066728281">
+                  <a href="tel:+12066728281" className="flex-auto sm:flex-none">
                     <Button
                       variant="outline"
-                      className="rounded-full px-6 sm:px-8 uppercase tracking-widest text-xs font-semibold h-11 sm:h-12 border-white text-white hover:bg-white hover:text-black"
+                      className="w-full whitespace-nowrap rounded-full px-3 max-[359px]:px-2.5 sm:px-8 uppercase tracking-normal sm:tracking-widest text-xs max-[359px]:text-[11px] font-semibold min-h-11 sm:min-h-12 py-2.5 border-white text-white hover:bg-white hover:text-black"
                     >
-                      <Phone className="mr-2 h-4 w-4" />
-                      {t.call_cta}
+                      <Phone className="mr-1 sm:mr-2 h-4 w-4" />
+                      {/* The icon already says "call" — phones get just the number so both buttons fit one row. */}
+                      <span className="sm:hidden">{t.call_cta.replace(/^[^(+\d]+/, "")}</span>
+                      <span className="hidden sm:inline">{t.call_cta}</span>
                     </Button>
                   </a>
                 </div>
@@ -172,7 +175,7 @@ export default function MainContent({ dict}: { dict: any;}) {
         {/* Trust bar. Four across from sm up; two by two on a phone, where four columns
             squeezed the labels down to 7px. */}
         <section className="border-y border-white/10 bg-neutral-900 px-5 py-8 sm:py-10">
-          <p className="mb-6 text-center text-[11px] font-medium uppercase tracking-[0.08em] text-white/45">
+          <p className="mb-6 text-center text-xs font-medium uppercase tracking-[0.08em] text-white/70">
             Trusted by thousands across North America
           </p>
           <div className="mx-auto grid max-w-[900px] grid-cols-2 gap-x-4 gap-y-7 text-center sm:grid-cols-4 sm:gap-2">
@@ -182,7 +185,7 @@ export default function MainContent({ dict}: { dict: any;}) {
                 <span className="text-xl font-bold leading-none text-white sm:text-[22px]">
                   {m.value.en}
                 </span>
-                <span className="text-[11px] uppercase leading-tight tracking-wider text-white/45">
+                <span className="text-xs uppercase leading-tight tracking-wider text-white/70">
                   {m.label.en}
                 </span>
               </div>
@@ -266,7 +269,7 @@ export default function MainContent({ dict}: { dict: any;}) {
                 {t.locations_cta && (
                   <div className="mt-8 flex justify-center lg:justify-start">
                     <a href="/book">
-                      <Button className={`px-8 h-11 sm:h-12 ${btnPrimary}`}>
+                      <Button className={`px-8 min-h-11 sm:min-h-12 py-2.5 ${btnPrimary}`}>
                         {t.locations_cta}
                       </Button>
                     </a>
@@ -366,7 +369,7 @@ export default function MainContent({ dict}: { dict: any;}) {
 
                     <div className="grid grid-cols-3 gap-4 mb-6 border-y border-white/10 py-4">
                       <div className="flex flex-col">
-                        <span className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">
+                        <span className="text-xs uppercase tracking-widest text-muted-foreground mb-1">
                           {t.fleet_passengers ?? "Pasajeros"}
                         </span>
                         <span className="text-sm font-semibold text-white">
@@ -374,7 +377,7 @@ export default function MainContent({ dict}: { dict: any;}) {
                         </span>
                       </div>
                       <div className="flex flex-col border-l border-white/10 pl-4">
-                        <span className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">
+                        <span className="text-xs uppercase tracking-widest text-muted-foreground mb-1">
                           {t.fleet_luggage ?? "Equipaje"}
                         </span>
                         <span className="text-sm font-semibold text-white">
@@ -382,7 +385,7 @@ export default function MainContent({ dict}: { dict: any;}) {
                         </span>
                       </div>
                       <div className="flex flex-col border-l border-white/10 pl-4">
-                        <span className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">
+                        <span className="text-xs uppercase tracking-widest text-muted-foreground mb-1">
                           {t.pricing_from ?? "From"}
                         </span>
                         <span className=" font-semibold text-2xl text-primary">
@@ -393,7 +396,7 @@ export default function MainContent({ dict}: { dict: any;}) {
 
                     <div className="flex-grow space-y-4">
                       <div>
-                        <span className="text-[10px] uppercase tracking-widest text-primary font-bold block mb-1">
+                        <span className="text-xs uppercase tracking-widest text-primary font-bold block mb-1">
                           {t.fleet_best_for ?? "Ideal Para"}
                         </span>
                         <p className="text-sm text-gray-300 italic">
@@ -401,7 +404,7 @@ export default function MainContent({ dict}: { dict: any;}) {
                         </p>
                       </div>
                       <div>
-                        <span className="text-[10px] uppercase tracking-widest text-muted-foreground block mb-1">
+                        <span className="text-xs uppercase tracking-widest text-muted-foreground block mb-1">
                           {t.fleet_features ?? "Características"}
                         </span>
                         <p className="text-xs sm:text-sm leading-relaxed text-muted-foreground">
@@ -414,7 +417,7 @@ export default function MainContent({ dict}: { dict: any;}) {
                       <a
                         href="/book"
                       >
-                        <Button className={`w-full h-11 sm:h-12 ${btnPrimary}`}>
+                        <Button className={`w-full min-h-11 sm:min-h-12 py-2.5 ${btnPrimary}`}>
                           {v.cta || t.book_now}
                         </Button>
                       </a>
@@ -517,14 +520,14 @@ export default function MainContent({ dict}: { dict: any;}) {
               )}
               <div className="flex flex-wrap gap-3 justify-center">
                 <a href="/book">
-                  <Button className={`px-6 sm:px-8 h-11 sm:h-12 ${btnPrimary}`}>
+                  <Button className={`px-6 sm:px-8 min-h-11 sm:min-h-12 py-2.5 ${btnPrimary}`}>
                     {t.about_cta}
                   </Button>
                 </a>
                 <a href="tel:+12066728281">
                   <Button
                     variant="outline"
-                    className="rounded-full px-6 sm:px-8 uppercase tracking-widest text-xs font-semibold h-11 sm:h-12 border-white text-white hover:bg-white hover:text-black"
+                    className="rounded-full px-6 sm:px-8 uppercase tracking-widest text-xs font-semibold min-h-11 sm:min-h-12 py-2.5 border-white text-white hover:bg-white hover:text-black"
                   >
                     <Phone className="mr-2 h-4 w-4" />
                     {t.call_cta}
@@ -561,7 +564,7 @@ export default function MainContent({ dict}: { dict: any;}) {
               <a href={`/faq`}>
                 <Button
                   variant="outline"
-                  className="rounded-full px-6 sm:px-8 uppercase tracking-widest text-xs font-semibold h-11 sm:h-12 border-white text-white hover:bg-white hover:text-black"
+                  className="rounded-full px-6 sm:px-8 uppercase tracking-widest text-xs font-semibold min-h-11 sm:min-h-12 py-2.5 border-white text-white hover:bg-white hover:text-black"
                 >
                   <Phone className="mr-2 h-4 w-4" />
                   {"Have More Questions? Contact Us"}
