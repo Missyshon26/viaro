@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useCallback, useEffect, useState, type ReactNode } from "react";
+import { formatPhone } from "@/lib/format";
 import Link from "next/link";
 import { ConsolePage, formatDateTime, money } from "@/components/ui/DataTable";
 import {
@@ -333,7 +334,7 @@ export default function BookingDetailPage({
               </div>
             </div>
             <dl className="mt-4 grid gap-x-6 gap-y-3 sm:grid-cols-2">
-              <Field label="Phone" value={customer?.phone ?? "—"} />
+              <Field label="Phone" value={formatPhone(customer?.phone) || "—"} />
               <Field
                 label="Favourite chauffeur"
                 value={booking.favoriteDriverId ? "Requested" : "None"}
@@ -360,7 +361,7 @@ export default function BookingDetailPage({
                     </p>
                     <p className="truncate text-note text-fg-muted">
                       {vehicleLabel(trip.driver?.vehicleClass)}
-                      {trip.driver?.phone ? ` · ${trip.driver.phone}` : ""}
+                      {trip.driver?.phone ? ` · ${formatPhone(trip.driver.phone)}` : ""}
                     </p>
                   </div>
                   {trip.driver?.rating ? (
