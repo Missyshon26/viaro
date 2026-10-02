@@ -78,7 +78,7 @@
      * runs small text together ("My trips" read as "Mytrips"). Running text gets a
      * little air between letters and words; headings keep their own tracking classes.
      */
-    letter-spacing: 0.02em;
+    letter-spacing: 0.035em;
     word-spacing: 0.1em;
     /*
      * The brand manual sets running text in Clash Display LIGHT, with the phrases that

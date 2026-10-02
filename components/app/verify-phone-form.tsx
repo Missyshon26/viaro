@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
+import { formatPhone } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field, ErrorNote } from "@/components/app/shell";
@@ -21,7 +22,7 @@ export function VerifyPhoneForm({ phone }: { phone: string }) {
       <div className="space-y-3">
         {sendError ? <ErrorNote>{sendError}</ErrorNote> : null}
         <p className="text-sm leading-relaxed text-muted-foreground">
-          We&apos;ll text a six-digit code to <span className="text-foreground">{phone}</span>.
+          We&apos;ll text a six-digit code to <span className="text-foreground">{formatPhone(phone)}</span>.
           It expires in 10 minutes.
         </p>
         <Button
@@ -55,7 +56,10 @@ export function VerifyPhoneForm({ phone }: { phone: string }) {
             pattern="\d{6}"
             maxLength={6}
             placeholder="000000"
+            autoComplete="one-time-code"
             required
+            // Wide spacing so a six-digit code reads digit by digit.
+            className="h-12 max-w-[14rem] text-lg tracking-[0.5em]"
           />
         </Field>
         <Button type="submit" disabled={pending}>

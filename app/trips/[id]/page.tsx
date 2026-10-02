@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { formatPhone } from "@/lib/utils";
 import Link from "next/link";
 import Image from "next/image";
 import { notFound, redirect } from "next/navigation";
@@ -345,7 +346,7 @@ export default async function TripDetailPage({
                       href={`tel:${trip.driver.phone.replace(/[^\d+]/g, "")}`}
                       className="text-foreground hover:text-brand"
                     >
-                      {trip.driver.phone}
+                      {formatPhone(trip.driver.phone)}
                     </a>
                     .
                   </>
