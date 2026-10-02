@@ -1,8 +1,13 @@
 import type { Request, Response } from 'express';
 import * as supportService from './support.service';
 import { body, params, query } from '../../utils/validate';
-import type { PaginationQuery } from '../../utils/pagination';
-import type { CreateTicketInput, IdParam, ReplyInput, UpdateTicketInput } from './support.validation';
+import type {
+  CreateTicketInput,
+  IdParam,
+  ListTicketsQuery,
+  ReplyInput,
+  UpdateTicketInput,
+} from './support.validation';
 
 export async function create(req: Request, res: Response): Promise<void> {
   const data = await supportService.createTicket(req.user!, body<CreateTicketInput>(req));
@@ -10,7 +15,7 @@ export async function create(req: Request, res: Response): Promise<void> {
 }
 
 export async function list(req: Request, res: Response): Promise<void> {
-  const data = await supportService.listTickets(req.user!, query<PaginationQuery>(req));
+  const data = await supportService.listTickets(req.user!, query<ListTicketsQuery>(req));
   res.json({ success: true, data });
 }
 

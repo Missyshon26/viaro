@@ -25,4 +25,11 @@ export type UpdateTicketInput = z.infer<typeof updateTicketSchema>;
 export const idParamSchema = z.object({ id: objectId });
 export type IdParam = z.infer<typeof idParamSchema>;
 
-export const listQuerySchema = paginationSchema;
+/** The admin queue filters by who opened the case and by state; both are optional. */
+export const TICKET_SOURCES = ['customer', 'driver'] as const;
+
+export const listQuerySchema = paginationSchema.extend({
+  source: z.enum(TICKET_SOURCES).optional(),
+  status: z.enum(TICKET_STATUSES).optional(),
+});
+export type ListTicketsQuery = z.infer<typeof listQuerySchema>;

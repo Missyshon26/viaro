@@ -28,6 +28,12 @@ export interface ITicketMessage {
 
 export interface ISupportTicket {
   userId: Types.ObjectId;
+  /**
+   * Who opened the case — a passenger ('customer') or a chauffeur ('driver') — so the
+   * admin queue can be split by source. Tickets from before this field existed carry it
+   * only on their first message; the list falls back to that (support.service).
+   */
+  requesterRole?: UserRole;
   category: TicketCategory;
   subject: string;
   status: TicketStatus;
@@ -53,6 +59,7 @@ const ticketMessageSchema = new Schema<ITicketMessage>(
 const supportTicketSchema = new Schema<ISupportTicket>(
   {
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    requesterRole: { type: String, enum: ROLES, index: true },
     category: { type: String, enum: TICKET_CATEGORIES, required: true, index: true },
     subject: { type: String, required: true, trim: true, maxlength: 200 },
     status: { type: String, enum: TICKET_STATUSES, default: 'open', index: true },

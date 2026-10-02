@@ -1,16 +1,24 @@
-import { Types } from 'mongoose';
+import { Types, type QueryFilter } from 'mongoose';
 import { getSettingsValues } from '../admin/settings.service';
-import { SupportTicket } from '../../models/SupportTicket';
+import { SupportTicket, type ISupportTicket } from '../../models/SupportTicket';
 import { ApiError } from '../../utils/ApiError';
 import { now, toDate } from '../../config/timezone';
 import type { AuthUser } from '../../middlewares/authGuard';
-import { paginated, toSkipLimit, type PaginationQuery } from '../../utils/pagination';
+import { paginated, toSkipLimit } from '../../utils/pagination';
 import * as notify from '../notifications/notifications.service';
 import { User } from '../../models/User';
 import { env } from '../../config/env';
 import { logger } from '../../utils/logger';
 import { sendEmail } from '../../integrations/email';
-import type { CreateTicketInput, ReplyInput, UpdateTicketInput } from './support.validation';
+import type {
+  CreateTicketInput,
+  ListTicketsQuery,
+  ReplyInput,
+  TICKET_SOURCES,
+  UpdateTicketInput,
+} from './support.validation';
+
+type TicketSource = (typeof TICKET_SOURCES)[number];
 
 /**
  * Access rule: a user sees only their own tickets; admins see every ticket.
@@ -81,6 +89,7 @@ async function alertSupportInbox(
 export async function createTicket(user: AuthUser, input: CreateTicketInput) {
   const ticket = await SupportTicket.create({
     userId: user.userId,
+    requesterRole: user.role,
     category: input.category,
     subject: input.subject,
     tripId: input.tripId,
@@ -91,16 +100,53 @@ export async function createTicket(user: AuthUser, input: CreateTicketInput) {
   return ticket;
 }
 
-export async function listTickets(user: AuthUser, q: PaginationQuery) {
-  const filter = user.role === 'admin' ? {} : { userId: user.userId };
+/**
+ * Tickets opened by a passenger or by a chauffeur. `requesterRole` is set on every ticket
+ * created since it was added; older ones are matched on the role of their first message,
+ * which has always been the opener's, so no migration is needed.
+ */
+function sourceFilter(source: TicketSource): QueryFilter<ISupportTicket> {
+  return {
+    $or: [
+      { requesterRole: source },
+      { requesterRole: { $exists: false }, 'messages.0.senderRole': source },
+    ],
+  };
+}
+
+export async function listTickets(user: AuthUser, q: ListTicketsQuery) {
+  const isAdmin = user.role === 'admin';
+  // Everyone but an admin sees only their own cases, so `source` means nothing to them.
+  const base: QueryFilter<ISupportTicket> = isAdmin ? {} : { userId: user.userId };
+  if (q.status) base.status = q.status;
+  const filter = isAdmin && q.source ? { ...base, ...sourceFilter(q.source) } : base;
   const { skip, limit } = toSkipLimit(q);
 
-  const [items, total] = await Promise.all([
-    SupportTicket.find(filter).sort({ updatedAt: -1 }).skip(skip).limit(limit).lean(),
+  const [items, total, counts] = await Promise.all([
+    SupportTicket.find(filter)
+      .sort({ updatedAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      // The admin queue names who opened each case; a user already knows it is them.
+      .populate(isAdmin ? { path: 'userId', select: 'name email phone role' } : [])
+      .lean(),
     SupportTicket.countDocuments(filter),
+    // Tab totals for the admin queue, under the same status filter.
+    isAdmin
+      ? Promise.all([
+          SupportTicket.countDocuments(base),
+          SupportTicket.countDocuments({ ...base, ...sourceFilter('customer') }),
+          SupportTicket.countDocuments({ ...base, ...sourceFilter('driver') }),
+        ]).then(([all, customer, driver]) => ({ all, customer, driver }))
+      : undefined,
   ]);
 
-  return paginated(items, total, q);
+  const withSource = items.map((ticket) => ({
+    ...ticket,
+    requesterRole: ticket.requesterRole ?? ticket.messages[0]?.senderRole,
+  }));
+
+  return counts ? { ...paginated(withSource, total, q), counts } : paginated(withSource, total, q);
 }
 
 export async function getTicket(ticketId: string, user: AuthUser) {
