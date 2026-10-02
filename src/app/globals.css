@@ -201,7 +201,7 @@ body {
  */
 body {
   /* Clash Display sets tight; small UI text needs a little air between letters. */
-  letter-spacing: 0.02em;
+  letter-spacing: 0.035em;
   word-spacing: 0.1em;
   font-weight: 300;
 }

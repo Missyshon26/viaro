@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Badge, Card, Kicker, WarnBox } from "@/components/ui/Surfaces";
-import { ConsolePage, formatDateTime } from "@/components/ui/DataTable";
+import { ConsolePage, SearchInput, formatDateTime, matchesQuery } from "@/components/ui/DataTable";
 import { listPenalties, type PenaltiesReport } from "@/lib/api/admin";
 import { ApiError } from "@/lib/api/client";
+import { formatPhone } from "@/lib/format";
 
 /**
  * Penalties, by chauffeur.
@@ -20,6 +21,7 @@ export default function PenaltiesPage() {
   const [report, setReport] = useState<PenaltiesReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -39,6 +41,18 @@ export default function PenaltiesPage() {
   }, []);
 
   const drivers = [...(report?.drivers ?? [])].sort((a, b) => b.penaltyCount - a.penaltyCount);
+  // A chauffeur matches on who they are or on any of their penalties (booking, reason).
+  const shown = drivers.filter((driver) =>
+    matchesQuery(query, [
+      driver.user?.name,
+      driver.user?.email,
+      driver.user?.phone,
+      formatPhone(driver.user?.phone),
+      driver.vehicleClass,
+      driver.status,
+      ...driver.events.flatMap((event) => [event.bookingId, event.bookingId.slice(-6), readableReason(event.reason)]),
+    ]),
+  );
 
   return (
     <ConsolePage
@@ -64,12 +78,29 @@ export default function PenaltiesPage() {
       </div>
 
       <div className="mt-6 space-y-3">
-        <Kicker>By chauffeur</Kicker>
+        <div className="flex flex-wrap items-center gap-3">
+          <Kicker>By chauffeur</Kicker>
+          {drivers.length > 0 ? (
+            <div className="flex min-w-0 flex-1 items-center justify-end gap-3">
+              <SearchInput
+                value={query}
+                onChange={setQuery}
+                placeholder="Search chauffeur, booking or reason…"
+              />
+              <p className="shrink-0 text-label text-fg-muted">
+                {shown.length} {shown.length === 1 ? "result" : "results"}
+              </p>
+            </div>
+          ) : null}
+        </div>
         {report && drivers.length === 0 ? (
           <Card className="p-6 text-note text-fg-muted">Nobody on your roster has a penalty.</Card>
         ) : null}
+        {drivers.length > 0 && shown.length === 0 ? (
+          <Card className="p-6 text-note text-fg-muted">No chauffeur or penalty matches “{query}”.</Card>
+        ) : null}
 
-        {drivers.map((driver) => {
+        {shown.map((driver) => {
           const expanded = open === driver.driverId;
           const events = [...driver.events].sort(
             (a, b) => new Date(b.at ?? 0).getTime() - new Date(a.at ?? 0).getTime(),
@@ -88,7 +119,7 @@ export default function PenaltiesPage() {
                 <span className="min-w-0 flex-1">
                   <span className="block font-bold text-fg">{driver.user?.name ?? "Chauffeur"}</span>
                   <span className="block text-note text-fg-muted">
-                    {[driver.user?.email, driver.user?.phone].filter(Boolean).join(" · ")}
+                    {[driver.user?.email, formatPhone(driver.user?.phone)].filter(Boolean).join(" · ")}
                   </span>
                 </span>
                 <span className="text-note capitalize text-fg-muted">{driver.vehicleClass}</span>
