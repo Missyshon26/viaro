@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { Badge, Card, Kicker, WarnBox } from "@/components/ui/Surfaces";
 import { Button } from "@/components/ui/Button";
-import { ConsolePage } from "@/components/ui/DataTable";
+import { ConsolePage, SearchInput, matchesQuery } from "@/components/ui/DataTable";
 import {
+  fetchAllPages,
   listDrivers,
   createDriver,
   updateDriver,
@@ -12,12 +13,18 @@ import {
 } from "@/lib/api/admin";
 import { errorText } from "@/lib/api/client";
 import { listVehicleClasses, type VehicleClass } from "@/lib/api/vehicles";
+import { formatPhone } from "@/lib/format";
 
 const inputClass =
   "w-full rounded-field border border-border bg-surface-raised px-3 py-2 text-note text-fg outline-none";
 
 const nameOf = (driver: RosterDriver) =>
   driver.userId && typeof driver.userId === "object" ? driver.userId.name : "Chauffeur";
+
+const searchFields = (driver: RosterDriver) => {
+  const user = typeof driver.userId === "object" ? driver.userId : null;
+  return [nameOf(driver), user?.email, user?.phone, formatPhone(user?.phone), driver.vehicleClass, driver.status];
+};
 
 /**
  * The roster.
@@ -28,11 +35,13 @@ const nameOf = (driver: RosterDriver) =>
 export default function CompanyDriversPage() {
   const [drivers, setDrivers] = useState<RosterDriver[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
 
   const load = useCallback(async () => {
     try {
-      const list = await listDrivers();
-      setDrivers(Array.isArray(list) ? list : (list.items ?? []));
+      // Every page, so the search covers the whole roster and not just the first 100.
+      const { items } = await fetchAllPages<RosterDriver>((page, limit) => listDrivers(page, limit));
+      setDrivers(items);
       setError(null);
     } catch (err) {
       setError(errorText(err, "Could not load your roster"));
@@ -44,6 +53,8 @@ export default function CompanyDriversPage() {
     void load();
   }, [load]);
 
+  const shown = (drivers ?? []).filter((driver) => matchesQuery(query, searchFields(driver)));
+
   return (
     <ConsolePage
       title="Drivers"
@@ -54,8 +65,20 @@ export default function CompanyDriversPage() {
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] lg:items-start">
         <div className="space-y-4">
           <Card className="p-0">
-            <div className="px-6 pt-6">
+            <div className="flex flex-wrap items-center gap-3 px-6 pt-6">
               <Kicker>Roster</Kicker>
+              {drivers && drivers.length > 0 ? (
+                <div className="flex min-w-0 flex-1 items-center justify-end gap-3">
+                  <SearchInput
+                    value={query}
+                    onChange={setQuery}
+                    placeholder="Search name, email, phone or class…"
+                  />
+                  <p className="shrink-0 text-label text-fg-muted">
+                    {shown.length} {shown.length === 1 ? "result" : "results"}
+                  </p>
+                </div>
+              ) : null}
             </div>
 
             {drivers === null ? (
@@ -64,9 +87,11 @@ export default function CompanyDriversPage() {
               <p className="p-6 text-note text-fg-muted">
                 No chauffeurs yet. Add your first one to start receiving bookings.
               </p>
+            ) : shown.length === 0 ? (
+              <p className="p-6 text-note text-fg-muted">No chauffeur matches “{query}”.</p>
             ) : (
               <ul className="mt-4 divide-y divide-border-subtle">
-                {drivers.map((driver) => (
+                {shown.map((driver) => (
                   <li key={driver._id} className="px-6 py-5">
                     <div className="flex flex-wrap items-center gap-3">
                       <div>

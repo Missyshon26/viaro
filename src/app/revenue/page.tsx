@@ -60,6 +60,8 @@ export default function CompanyRevenuePage() {
           columns={columns}
           rowKey={(r) => r.transactionId}
           minWidth="40rem"
+          searchable={(r) => [r.reason, r.reason?.replace(/_/g, " "), r.type, r.at, money(r.amount), r.transactionId]}
+          searchPlaceholder="Search movement, type, date or amount…"
           empty={{ title: "Nothing recorded", description: "The split is written when a trip settles." }}
         />
       </div>

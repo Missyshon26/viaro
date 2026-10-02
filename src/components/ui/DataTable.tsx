@@ -76,10 +76,7 @@ export function DataTable<T>({
   const filtered = useMemo(() => {
     if (!rows) return null;
     if (!searchable || !query.trim()) return rows;
-    const needle = query.trim().toLowerCase();
-    return rows.filter((row) =>
-      searchable(row).some((field) => String(field ?? "").toLowerCase().includes(needle)),
-    );
+    return rows.filter((row) => matchesQuery(query, searchable(row)));
   }, [rows, searchable, query]);
 
   const sorted = useMemo(() => {
@@ -121,25 +118,14 @@ export function DataTable<T>({
       {hasToolbar ? (
         <div className="flex flex-wrap items-center gap-3 border-b border-border-subtle px-4 py-3">
           {searchable ? (
-            <div className="relative min-w-0 flex-1 sm:max-w-xs">
-              <span
-                aria-hidden
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-fg-muted"
-              >
-                <IconSearch size={15} />
-              </span>
-              <input
-                type="search"
-                value={query}
-                onChange={(e) => {
-                  setQuery(e.target.value);
-                  setPage(1);
-                }}
-                placeholder={searchPlaceholder}
-                aria-label={searchPlaceholder}
-                className="h-9 w-full rounded-field border border-border bg-surface pl-9 pr-3 text-meta text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none"
-              />
-            </div>
+            <SearchInput
+              value={query}
+              onChange={(value) => {
+                setQuery(value);
+                setPage(1);
+              }}
+              placeholder={searchPlaceholder}
+            />
           ) : null}
           {toolbar ? <div className="flex flex-wrap items-center gap-2">{toolbar}</div> : null}
           {rows && searchable ? (
@@ -277,6 +263,46 @@ export function DataTable<T>({
       )}
     </div>
   );
+}
+
+/**
+ * The table's search box, exported for lists that are not a DataTable (the roster and
+ * penalties are cards) so every screen searches with the same control.
+ */
+export function SearchInput({
+  value,
+  onChange,
+  placeholder = "Search…",
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <div className="relative min-w-0 flex-1 sm:max-w-xs">
+      <span
+        aria-hidden
+        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-fg-muted"
+      >
+        <IconSearch size={15} />
+      </span>
+      <input
+        type="search"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        aria-label={placeholder}
+        className="h-9 w-full rounded-field border border-border bg-surface pl-9 pr-3 text-meta text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none"
+      />
+    </div>
+  );
+}
+
+/** Case-insensitive "does any field contain the query" — the rule DataTable uses. */
+export function matchesQuery(query: string, fields: (string | number | null | undefined)[]) {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return true;
+  return fields.some((field) => String(field ?? "").toLowerCase().includes(needle));
 }
 
 function PageButton({

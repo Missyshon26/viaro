@@ -49,6 +49,16 @@ export default function CompanyTripsPage() {
         columns={columns}
         rowKey={(r) => r.tripId}
         minWidth="46rem"
+        searchable={(r) => [
+          r.tripId,
+          r.tripId.slice(-6),
+          r.bookingId,
+          r.bookingId.slice(-6),
+          nameFor(r.driverId),
+          formatDateTime(r.completedAt),
+          money(r.fareAmount),
+        ]}
+        searchPlaceholder="Search trip, booking, driver or date…"
         empty={{ title: "No completed trips", description: "Trips appear once your chauffeurs finish them." }}
       />
     </ConsolePage>
