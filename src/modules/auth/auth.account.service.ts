@@ -2,12 +2,13 @@ import crypto from 'node:crypto';
 import bcrypt from 'bcrypt';
 import { User } from '../../models/User';
 import { redis } from '../../config/redis';
-import { env } from '../../config/env';
+import { appWebUrl } from '../../config/env';
 import { revokeUserSessions } from './revocation';
 import { ApiError } from '../../utils/ApiError';
 import { logger } from '../../utils/logger';
 import { sendSmsOrPush } from '../../integrations/smsPush';
 import { sendEmail } from '../../integrations/email';
+import { passwordResetEmail } from '../../integrations/emailTemplates';
 
 /**
  * Phone verification and password reset.
@@ -77,29 +78,43 @@ export async function verifyPhoneCode(userId: string, code: string) {
 /* -------------------------------- password reset -------------------------- */
 
 /**
- * Always reports success, even for an unknown address — otherwise this endpoint
- * becomes a way to discover which emails have accounts.
+ * Emails a reset link to an existing account.
+ *
+ * This used to answer "sent" for every address so the form could not be used to learn
+ * which emails have accounts. The product now prefers telling a customer plainly that
+ * no account exists (they usually mistyped, or signed up with another address); the
+ * auth rate limiter on this route keeps bulk probing slow.
+ *
+ * A failed delivery is also reported instead of being swallowed — otherwise the customer
+ * waits for an email that is never coming.
  */
 export async function requestPasswordReset(email: string) {
-  const user = await User.findOne({ email: email.toLowerCase() }).lean();
+  const user = await User.findOne({ email: email.toLowerCase(), deletedAt: null }).lean();
+  if (!user) throw ApiError.notFound('No account exists with this email address');
 
-  if (user) {
-    const token = crypto.randomBytes(32).toString('hex');
-    // Only the hash is stored: a leaked Redis dump then yields nothing usable.
-    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+  const token = crypto.randomBytes(32).toString('hex');
+  // Only the hash is stored: a leaked Redis dump then yields nothing usable.
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
 
-    await redis.set(`${RESET_PREFIX}${tokenHash}`, String(user._id), 'EX', RESET_TTL_SECONDS);
+  const key = `${RESET_PREFIX}${tokenHash}`;
+  await redis.set(key, String(user._id), 'EX', RESET_TTL_SECONDS);
 
-    const link = `${env.APP_WEB_URL}/reset-password/confirm?token=${token}`;
-    await sendEmail({
-      to: user.email,
-      subject: 'Reset your Viaro password',
-      text: `Open this link to choose a new password. It expires in 30 minutes.\n\n${link}\n\nIf you did not ask for this, ignore this message.`,
-    });
+  // Straight to the form; /reset-password/confirm still forwards for links already sent.
+  const link = `${appWebUrl}/reset-password?token=${token}`;
+  const message = passwordResetEmail({
+    name: user.name,
+    link,
+    expiresInMinutes: RESET_TTL_SECONDS / 60,
+  });
+  const result = await sendEmail({ to: user.email, ...message });
 
-    logger.info(`Password reset issued for ${user.email}`);
+  if (!result.sent) {
+    // An undelivered token is useless to the customer and should not stay redeemable.
+    await redis.del(key);
+    throw new ApiError(503, "We couldn't send the reset email right now. Please try again in a few minutes.");
   }
 
+  logger.info(`Password reset issued for ${user.email}`);
   return { sent: true };
 }
 

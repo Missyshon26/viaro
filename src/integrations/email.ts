@@ -17,6 +17,8 @@ export interface EmailMessage {
   text: string;
   /** Replies go here rather than to the no-reply sender, e.g. the customer on a case alert. */
   replyTo?: string;
+  /** Optional HTML body (see emailTemplates.ts); `text` stays as the plain-text part. */
+  html?: string;
 }
 
 function isConfigured(provider: string): boolean {
@@ -60,6 +62,7 @@ export async function sendEmail(message: EmailMessage): Promise<{ sent: boolean;
           replyTo: message.replyTo,
           subject: message.subject,
           text: message.text,
+          html: message.html,
         });
       return { sent: true, provider };
     }
@@ -77,6 +80,7 @@ export async function sendEmail(message: EmailMessage): Promise<{ sent: boolean;
         to: [message.to],
         subject: message.subject,
         text: message.text,
+        ...(message.html ? { html: message.html } : {}),
         ...(message.replyTo ? { reply_to: message.replyTo } : {}),
       }),
     });

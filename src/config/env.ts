@@ -58,8 +58,8 @@ const envSchema = z.object({
   SMTP_SECURE: z.enum(['true', 'false']).optional(),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
-  /** Where the password-reset link points (the frontend). */
-  APP_WEB_URL: z.string().default('http://localhost:3000'),
+  /** Where the password-reset link points (the frontend). See appWebUrl below. */
+  APP_WEB_URL: z.string().optional(),
 
   // PLACEHOLDER — driver document storage
   S3_BUCKET: z.string().optional(),
@@ -98,6 +98,17 @@ if (!parsed.success) {
 export const env: Env = parsed.data;
 
 export const isProduction = env.NODE_ENV === 'production';
+
+/**
+ * Base URL of the passenger site, for links in emails.
+ *
+ * It used to default to http://localhost:3000 everywhere, so a production server without
+ * APP_WEB_URL emailed reset links to localhost — which opens nothing on a customer's
+ * phone. Production now falls back to the hosted site instead; set APP_WEB_URL to move it.
+ */
+export const appWebUrl = (
+  env.APP_WEB_URL || (isProduction ? 'https://viaro-frontend.vercel.app' : 'http://localhost:3000')
+).replace(/\/+$/, '');
 
 /**
  * CORS policy, derived once and shared by the HTTP app and the socket server.
