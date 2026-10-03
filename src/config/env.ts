@@ -48,10 +48,7 @@ const envSchema = z.object({
   FCM_PROJECT_ID: z.string().optional(),
   FCM_ACCESS_TOKEN: z.string().optional(),
 
-  // Transactional email (password resets, support alerts): 'resend' or 'smtp'.
-  // Empty = log only.
-  EMAIL_PROVIDER: z.string().optional(),
-  EMAIL_API_KEY: z.string().optional(),
+  // Transactional email (password resets, support alerts) over SMTP. Empty = log only.
   EMAIL_FROM: z.string().optional(),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().positive().optional(),
