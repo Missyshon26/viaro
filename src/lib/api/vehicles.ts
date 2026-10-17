@@ -27,6 +27,12 @@ export interface VehicleClass {
   usage?: VehicleUsage;
   /** Hourly-charter multiplier when it differs from `multiplier`; null = same. */
   hourlyMultiplier?: number | null;
+  /** Fixed transfer price, $. When set it replaces the multiplier for transfers. */
+  flatRate?: number | null;
+  /** Fixed hourly-charter price, $/hr. When set it replaces the multiplier for hourly. */
+  hourlyRate?: number | null;
+  /** Floor on the fare before surcharges, $. */
+  minimumFare?: number | null;
   images: VehicleImage[];
   active: boolean;
   sortOrder: number;
@@ -57,6 +63,9 @@ export interface VehicleClassInput {
   multiplier: number;
   usage?: VehicleUsage;
   hourlyMultiplier?: number | null;
+  flatRate?: number | null;
+  hourlyRate?: number | null;
+  minimumFare?: number | null;
   active?: boolean;
   sortOrder?: number;
   images?: VehicleImage[];

@@ -114,12 +114,24 @@ export default function VehiclesPage() {
     },
     {
       key: "example",
-      header: "Example fare",
-      secondary: true,
-      cell: (r) => (
-        <span className="text-fg-muted">{money(BASE_FARE_EXAMPLE * r.multiplier)}</span>
-      ),
-      sortValue: (r) => r.multiplier,
+      header: "Price",
+      cell: (r) => {
+        const fixed = [
+          r.flatRate ? `${money(r.flatRate)} flat` : null,
+          r.hourlyRate ? `${money(r.hourlyRate)}/hr` : null,
+        ].filter(Boolean);
+        return fixed.length ? (
+          <span className="font-bold text-fg">
+            {fixed.join(" · ")}
+            {r.minimumFare ? (
+              <span className="ml-1.5 text-note font-normal text-fg-muted">· min {money(r.minimumFare)}</span>
+            ) : null}
+          </span>
+        ) : (
+          <span className="text-fg-muted">≈ {money(BASE_FARE_EXAMPLE * r.multiplier)}</span>
+        );
+      },
+      sortValue: (r) => r.flatRate ?? r.hourlyRate ?? BASE_FARE_EXAMPLE * r.multiplier,
     },
     {
       key: "active",
@@ -202,8 +214,10 @@ export default function VehiclesPage() {
       ) : null}
 
       <p className="mb-4 rounded-field border border-border bg-surface px-4 py-3 text-note leading-relaxed text-fg-muted">
-        The fare is the city base fare × the peak multiplier × this class multiplier.
-        Example fares above assume a {money(BASE_FARE_EXAMPLE)} base and no peak window.
+        A class with a fixed price is charged exactly that, and peak windows don&apos;t apply.
+        Any other class is priced at the city base fare × the peak multiplier × its class
+        multiplier (≈ prices assume a {money(BASE_FARE_EXAMPLE)} base and no peak window). Pickups
+        between 10pm and 7am add a $20 primetime surcharge to every class.
       </p>
 
       <DataTable
@@ -255,6 +269,9 @@ function VehicleDialog({
     multiplier: vehicle?.multiplier ?? 1,
     usage: vehicle?.usage ?? "all",
     hourlyMultiplier: vehicle?.hourlyMultiplier ?? null,
+    flatRate: vehicle?.flatRate ?? null,
+    hourlyRate: vehicle?.hourlyRate ?? null,
+    minimumFare: vehicle?.minimumFare ?? null,
     sortOrder: vehicle?.sortOrder ?? 0,
     active: vehicle?.active ?? true,
   });
@@ -281,6 +298,10 @@ function VehicleDialog({
     const payload = {
       ...form,
       hourlyMultiplier: (form.usage ?? "all") === "all" ? (form.hourlyMultiplier ?? null) : null,
+      // A rate for a trip type the class doesn't serve would never be charged — clear it.
+      flatRate: form.usage === "hourly" ? null : (form.flatRate ?? null),
+      hourlyRate: form.usage === "transfer" ? null : (form.hourlyRate ?? null),
+      minimumFare: form.minimumFare ?? null,
     };
     try {
       if (isNew) {
@@ -505,6 +526,35 @@ function VehicleDialog({
             </Field>
           ) : null}
 
+          {/*
+            Fixed prices. Set, they replace the multiplier for that kind of trip — the
+            rate card is the price. Blank keeps the multiplier formula above.
+          */}
+          {form.usage !== "hourly" ? (
+            <Field
+              label="Flat transfer price ($)"
+              hint="Point-to-point and airport. Leave blank to price by the multiplier."
+            >
+              <RateInput value={form.flatRate} onChange={(v) => set("flatRate", v)} />
+            </Field>
+          ) : null}
+
+          {form.usage !== "transfer" ? (
+            <Field
+              label="Hourly price ($ per hour)"
+              hint="Hourly charters. Leave blank to price by the multiplier."
+            >
+              <RateInput value={form.hourlyRate} onChange={(v) => set("hourlyRate", v)} />
+            </Field>
+          ) : null}
+
+          <Field
+            label="Minimum fare ($)"
+            hint="The least a booking in this class costs, before the primetime surcharge."
+          >
+            <RateInput value={form.minimumFare} onChange={(v) => set("minimumFare", v)} />
+          </Field>
+
           <label className="flex items-center gap-2.5 rounded-field border border-border bg-surface px-3.5 py-3">
             <input
               type="checkbox"
@@ -575,6 +625,28 @@ function VehicleDialog({
         </div>
       </div>
     </div>
+  );
+}
+
+/** Optional dollar amount: an empty field is null (no fixed price), never $0. */
+function RateInput({
+  value,
+  onChange,
+}: {
+  value: number | null | undefined;
+  onChange: (value: number | null) => void;
+}) {
+  return (
+    <input
+      type="number"
+      step={1}
+      min={1}
+      max={100000}
+      value={value ?? ""}
+      placeholder="—"
+      onChange={(e) => onChange(e.target.value === "" ? null : Number(e.target.value))}
+      className="h-10 w-28 rounded-field border border-border bg-surface px-3 text-meta font-bold text-fg focus:border-accent focus:outline-none"
+    />
   );
 }
 

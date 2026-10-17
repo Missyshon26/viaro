@@ -19,11 +19,14 @@ export interface VehicleClassInfo {
 
 export const VEHICLE_CLASSES: VehicleClassInfo[] = [
   { value: "sedan", label: "Business Sedan", seats: 3, bags: 2, multiplier: 1 },
+  { value: "mpv", label: "MPV", seats: 6, bags: 5, multiplier: 1.23 },
   { value: "sedan-first", label: "First Class Sedan", seats: 3, bags: 2, multiplier: 1.45 },
+  { value: "suv-first", label: "First Class SUV", seats: 6, bags: 6, multiplier: 1.54 },
   { value: "suv", label: "Business SUV", seats: 5, bags: 5, multiplier: 1.4 },
   { value: "suv-luxury", label: "Luxury SUV", seats: 6, bags: 6, multiplier: 1.75 },
   { value: "minibus", label: "Sprinter Van", seats: 13, bags: 13, multiplier: 2.2 },
   { value: "limo", label: "Stretch Limousine", seats: 8, bags: 4, multiplier: 2.6 },
+  { value: "nemt", label: "NEMT", seats: 2, bags: 2, multiplier: 1 },
 ];
 
 const BY_VALUE = new Map(VEHICLE_CLASSES.map((v) => [v.value, v]));
