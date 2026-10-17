@@ -16,8 +16,13 @@ export const APP_TIMEZONE = 'America/Los_Angeles';
 /** Access token lifetime. Short: it cannot be revoked before it expires on its own. */
 export const ACCESS_TOKEN_TTL = '15m';
 
-/** Refresh token lifetime — how long a device stays signed in without a password. */
-export const REFRESH_TOKEN_TTL = '30d';
+/**
+ * Refresh token lifetime — how long a device stays signed in without being used. Each
+ * refresh issues a new token (auth.service refresh()), so this is an INACTIVITY limit:
+ * someone who opens the app weekly stays signed in; a device left for 7 days is signed
+ * out (pre-deployment checklist §4).
+ */
+export const REFRESH_TOKEN_TTL = '7d';
 
 /** Printed at the foot of every booking email so a customer knows who to call. */
 export const CONTACT_PHONE = '(206) 672-8281';

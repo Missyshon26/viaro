@@ -34,6 +34,14 @@ export const fareEstimateQuerySchema = z.object({
   hours: z.coerce.number().min(1).max(24).optional(), // hourly trips only
   /** Optional: priced at the base rate when absent, so old clients keep working. */
   vehicleClass: z.string().min(1).max(60).optional(),
+  /** Both addresses, so a fixed route price can apply (config/services.ts). */
+  pickup: z.string().max(300).optional(),
+  drop: z.string().max(300).optional(),
+  /** 'true' adds the Meet and Greet fee. z.coerce.boolean would read 'false' as true. */
+  meetAndGreet: z
+    .enum(['true', 'false'])
+    .transform((v) => v === 'true')
+    .optional(),
 });
 
 export type FareEstimateQuery = z.infer<typeof fareEstimateQuerySchema>;

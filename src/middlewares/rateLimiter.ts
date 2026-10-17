@@ -213,3 +213,16 @@ export const authRateLimiter = createRateLimiter({
   // The one limiter that is a security control: it must not vanish when Redis hiccups.
   fallbackWhenUnavailable: true,
 });
+
+/**
+ * Booking creation — the checkout (pre-deployment checklist §5: 20 per minute). Per
+ * signed-in customer, so a script cannot flood dispatch with bookings, and kept in-process
+ * when Redis blips for the same reason as the login limiter.
+ */
+export const bookingRateLimiter = createRateLimiter({
+  windowMs: 60_000,
+  max: 20,
+  keyPrefix: 'ratelimit:booking',
+  message: 'Too many booking attempts — please wait a minute and try again',
+  fallbackWhenUnavailable: true,
+});

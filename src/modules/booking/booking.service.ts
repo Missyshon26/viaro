@@ -18,6 +18,7 @@ import { applyAmendment, assertChangeable } from './booking.amendments';
 import { companyOwnsDriver } from '../../utils/roster';
 import { recordBookingCancellation } from './booking.cancellation';
 import * as events from '../events/events.bus';
+import { buildServiceNotes } from '../../config/services';
 
 export async function createBooking(customerId: string, input: CreateBookingInput) {
   /*
@@ -41,7 +42,17 @@ export async function createBooking(customerId: string, input: CreateBookingInpu
     // The class the customer picked is priced here too, so the estimate they were
     // shown and the estimatedFare stored on the booking cannot diverge.
     vehicleClass,
+    pickupAddress: input.pickup.address,
+    dropAddress: input.drop.address,
+    meetAndGreet: input.meetAndGreet,
   });
+
+  const extras = {
+    meetAndGreet: Boolean(input.meetAndGreet),
+    carSeats: input.carSeats ?? 0,
+    ...(input.cruisePort ? { cruisePort: input.cruisePort } : {}),
+    ...(input.cruisePort && input.cruiseShip ? { cruiseShip: input.cruiseShip } : {}),
+  };
 
   const booking = await Booking.create({
     customerId,
@@ -65,6 +76,9 @@ export async function createBooking(customerId: string, input: CreateBookingInpu
         }
       : undefined,
     favoriteDriverId: input.favoriteDriverId,
+    ...(input.tripType === 'hourly' && input.hours ? { hours: input.hours } : {}),
+    ...extras,
+    serviceNotes: buildServiceNotes({ vehicleClass, ...extras }),
     // Recorded, not spent — the debit happens when a Trip exists to spend it against.
     walletCreditRequested: input.walletCreditRequested,
     estimatedFare: fare.fare,
@@ -186,7 +200,10 @@ export async function updateBooking(bookingId: string, customerId: string, input
    */
   // `city` is optional on the model and pricing is city-based, so a booking without one
   // cannot be re-quoted; it keeps its original estimate rather than being priced wrongly.
-  const repriced = Boolean((input.vehicleClass || input.scheduledAt) && booking.city);
+  // Addresses count too: a route price (Tacoma ↔ Sea-Tac) depends on where it goes.
+  const repriced = Boolean(
+    (input.vehicleClass || input.scheduledAt || input.pickup || input.drop) && booking.city,
+  );
   let previousFare: number | undefined;
 
   if (changed && repriced) {
@@ -197,8 +214,25 @@ export async function updateBooking(bookingId: string, customerId: string, input
       requestedAt: booking.scheduledAt,
       customerId: String(booking.customerId),
       ...(booking.vehicleClass ? { vehicleClass: booking.vehicleClass } : {}),
+      // Re-priced as booked: the real duration (it used to fall back to 1 hour) and
+      // the same add-ons.
+      ...(booking.hours ? { hours: booking.hours } : {}),
+      pickupAddress: booking.pickup.address,
+      dropAddress: booking.drop.address,
+      meetAndGreet: booking.meetAndGreet,
     });
     booking.estimatedFare = fare.fare;
+  }
+
+  // A different vehicle can change the cruise meeting point (vans use Islands 3–4).
+  if (changed) {
+    booking.serviceNotes = buildServiceNotes({
+      vehicleClass: booking.vehicleClass,
+      meetAndGreet: booking.meetAndGreet,
+      carSeats: booking.carSeats,
+      cruisePort: booking.cruisePort,
+      cruiseShip: booking.cruiseShip,
+    });
   }
 
   if (changed) {

@@ -91,3 +91,62 @@ describe('classes without a fixed rate', () => {
     expect(fare.fare).toBe(180.6);
   });
 });
+
+describe('route prices', () => {
+  const SEA = 'Seattle-Tacoma International Airport (SEA), 17801 International Blvd, SeaTac, WA';
+  const transfer = (vehicleClass: string, pickupAddress: string, dropAddress: string) =>
+    calculateFare({
+      city: 'Seattle',
+      tripType: 'point2point',
+      vehicleClass,
+      requestedAt: '2026-11-03T14:00:00',
+      pickupAddress,
+      dropAddress,
+    });
+
+  it('Tacoma → Sea-Tac is $159 Sedan / $199 MPV', async () => {
+    const sedan = await transfer('sedan', '1119 Pacific Ave, Tacoma, WA 98402', SEA);
+    expect(sedan.pricingModel).toBe('route');
+    expect(sedan.fare).toBe(159);
+    expect((await transfer('mpv', '1119 Pacific Ave, Tacoma, WA 98402', SEA)).fare).toBe(199);
+  });
+
+  it('works in the other direction', async () => {
+    expect((await transfer('sedan', SEA, 'Tacoma Dome, Tacoma, WA')).fare).toBe(159);
+  });
+
+  it('is not triggered by "Tacoma" in the airport name alone', async () => {
+    const fare = await transfer('sedan', '400 Broad St, Seattle, WA 98109', SEA);
+    expect(fare.pricingModel).toBe('flat');
+    expect(fare.fare).toBe(140);
+  });
+
+  it('leaves classes the route does not price at their normal rate', async () => {
+    expect((await transfer('sedan-first', 'Tacoma, WA', SEA)).fare).toBe(183);
+  });
+});
+
+describe('Meet and Greet', () => {
+  it('adds exactly $25', async () => {
+    const fare = await calculateFare({
+      city: 'Seattle',
+      tripType: 'point2point',
+      vehicleClass: 'sedan',
+      requestedAt: '2026-11-03T14:00:00',
+      meetAndGreet: true,
+    });
+    expect(fare.meetAndGreetFee).toBe(25);
+    expect(fare.fare).toBe(165);
+  });
+
+  it('stacks with primetime: 11pm Sedan + Meet and Greet = $185', async () => {
+    const fare = await calculateFare({
+      city: 'Seattle',
+      tripType: 'point2point',
+      vehicleClass: 'sedan',
+      requestedAt: '2026-11-03T23:00:00',
+      meetAndGreet: true,
+    });
+    expect(fare.fare).toBe(185);
+  });
+});

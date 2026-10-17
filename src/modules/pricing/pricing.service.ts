@@ -6,6 +6,7 @@ import { ApiError } from '../../utils/ApiError';
 import { round2 } from '../../utils/money';
 import * as vehicleService from '../vehicle/vehicle.service';
 import { collectPayment } from '../../integrations/paymentGateway';
+import { MEET_AND_GREET_FEE, routeFareFor } from '../../config/services';
 import type {
   CreatePricingRuleInput,
   CreateSubscriptionInput,
@@ -67,8 +68,11 @@ export interface FareBreakdown {
    *   flat        — the class's fixed transfer price
    *   hourly      — the class's fixed price per hour × hours
    *   multiplier  — city base fare × peak × hours × class multiplier
+   *   route       — a fixed price for this journey (config/services.ts ROUTE_FARES)
    */
-  pricingModel: 'flat' | 'hourly' | 'multiplier';
+  pricingModel: 'flat' | 'hourly' | 'multiplier' | 'route';
+  /** The route the price came from, when pricingModel is 'route'. */
+  route?: string;
   /** Whether the peak multiplier was actually charged (never on a fixed rate). */
   peakApplied: boolean;
   /** The fare before surcharges, after any minimum fare. */
@@ -77,7 +81,9 @@ export interface FareBreakdown {
   minimumFare?: number;
   primetime: boolean;
   primetimeSurcharge: number;
-  /** What is charged: classFare + primetimeSurcharge. */
+  /** The Meet and Greet add-on; 0 when not requested. */
+  meetAndGreetFee: number;
+  /** What is charged: classFare + primetimeSurcharge + meetAndGreetFee. */
   fare: number;
 }
 
@@ -96,6 +102,10 @@ export async function calculateFare(opts: {
   customerId?: string;
   /** Optional: an absent or unrecognised class bills at the base rate. */
   vehicleClass?: string;
+  /** Both addresses, so a fixed route price (e.g. Tacoma ↔ Sea-Tac) can apply. */
+  pickupAddress?: string;
+  dropAddress?: string;
+  meetAndGreet?: boolean;
 }): Promise<FareBreakdown> {
   const rule = await PricingRule.findOne({ city: opts.city.toLowerCase() }).lean();
   if (!rule) throw ApiError.notFound(`No pricing rule configured for city '${opts.city}'`);
@@ -121,10 +131,23 @@ export async function calculateFare(opts: {
    * fare nor the peak window touches it. The city rule is still required above — it is
    * what makes a city bookable at all.
    */
-  const pricingModel: FareBreakdown['pricingModel'] =
-    rates.fixedRate !== null ? (opts.tripType === 'hourly' ? 'hourly' : 'flat') : 'multiplier';
-  const computed =
-    pricingModel === 'multiplier'
+  // A route price is the most specific of all, so it wins over the class's flat rate.
+  // Transfers only: an hourly charter is priced by the hour wherever it goes.
+  const route =
+    opts.tripType === 'hourly'
+      ? null
+      : routeFareFor(opts.pickupAddress, opts.dropAddress, opts.vehicleClass);
+
+  const pricingModel: FareBreakdown['pricingModel'] = route
+    ? 'route'
+    : rates.fixedRate !== null
+      ? opts.tripType === 'hourly'
+        ? 'hourly'
+        : 'flat'
+      : 'multiplier';
+  const computed = route
+    ? route.price
+    : pricingModel === 'multiplier'
       ? rule.baseFare * multiplier * (hours ?? 1) * rates.multiplier
       : (rates.fixedRate as number) * (hours ?? 1);
 
@@ -133,7 +156,8 @@ export async function calculateFare(opts: {
 
   const primetime = isPrimetime(when);
   const primetimeSurcharge = primetime ? PRIMETIME.surcharge : 0;
-  const fare = round2(classFare + primetimeSurcharge);
+  const meetAndGreetFee = opts.meetAndGreet ? MEET_AND_GREET_FEE : 0;
+  const fare = round2(classFare + primetimeSurcharge + meetAndGreetFee);
 
   return {
     city: rule.city,
@@ -146,11 +170,13 @@ export async function calculateFare(opts: {
     ...(opts.vehicleClass ? { vehicleClass: opts.vehicleClass } : {}),
     vehicleMultiplier: rates.multiplier,
     pricingModel,
+    ...(route ? { route: route.label } : {}),
     peakApplied: pricingModel === 'multiplier' && multiplier !== 1,
     classFare,
     ...(floored ? { minimumFare: rates.minimumFare as number } : {}),
     primetime,
     primetimeSurcharge,
+    meetAndGreetFee,
     fare,
   };
 }

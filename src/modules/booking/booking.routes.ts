@@ -12,6 +12,7 @@ import { validate } from '../../utils/validate';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { authGuard } from '../../middlewares/authGuard';
 import { roleGuard } from '../../middlewares/roleGuard';
+import { bookingRateLimiter } from '../../middlewares/rateLimiter';
 
 /** Mounted at /bookings */
 export const bookingRouter = Router();
@@ -20,6 +21,8 @@ bookingRouter.use(authGuard);
 bookingRouter.post(
   '/',
   roleGuard('customer'),
+  // After authGuard, so the counter is per customer rather than per shared IP.
+  bookingRateLimiter,
   validate({ body: createBookingSchema }),
   asyncHandler(controller.create),
 );

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { TRIP_TYPES } from '../../models/Booking';
 import { paginationSchema } from '../../utils/pagination';
 import { isParsableDate, now, toAppTime } from '../../config/timezone';
+import { CRUISE_PORT_KEYS, MAX_CAR_SEATS, type CruisePort } from '../../config/services';
 
 /**
  * A pickup time that is real, and in the future.
@@ -86,8 +87,22 @@ export const createBookingSchema = z
       })
       .optional(),
     favoriteDriverId: z.string().regex(/^[a-fA-F0-9]{24}$/).optional(),
+    /** Extras (config/services.ts). Meet and Greet is charged; car seats are free. */
+    meetAndGreet: z.boolean().optional(),
+    carSeats: z.coerce.number().int().min(0).max(MAX_CAR_SEATS).optional(),
+    /** A cruise terminal pickup. The ship name helps the chauffeur find the right gate. */
+    cruisePort: z.enum(CRUISE_PORT_KEYS as [CruisePort, ...CruisePort[]]).optional(),
+    cruiseShip: z.string().trim().min(1).max(80).optional(),
   })
   .superRefine((data, ctx) => {
+    // A cruise pickup is a transfer from the terminal; an hourly charter has no port leg.
+    if (data.cruisePort && data.tripType === 'hourly') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['cruisePort'],
+        message: 'A cruise port pickup cannot be an hourly charter',
+      });
+    }
     // Spec §4.3: airport bookings must carry the flight the ride is meeting.
     if (data.tripType === 'airport' && !data.flightDetails) {
       ctx.addIssue({

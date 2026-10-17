@@ -13,6 +13,7 @@ import * as vehicleService from '../vehicle/vehicle.service';
 import { isPrimetime, PRIMETIME } from '../pricing/pricing.service';
 import { REFUND_PCT_WHEN_ELIGIBLE, REFUND_THRESHOLD_HOURS } from '../cancellation/cancellation.service';
 import { getSettingsValues } from '../admin/settings.service';
+import { CRUISE_PORTS, MEET_AND_GREET_FEE } from '../../config/services';
 
 /**
  * Email for the notification types a customer (or chauffeur) should have in their inbox,
@@ -40,8 +41,12 @@ const TRIP_TYPE_LABEL: Record<string, string> = {
 const money = (n?: number | null) => (typeof n === 'number' ? `$${n.toFixed(2)}` : undefined);
 const str = (v: unknown) => (typeof v === 'string' && v ? v : undefined);
 
-/** Short, human-quotable booking reference — the last 8 hex characters of the id. */
-export const bookingRef = (id: Types.ObjectId | string) => String(id).slice(-8).toUpperCase();
+/**
+ * Short, human-quotable booking reference. The same `VRO-` + last 6 of the id that the
+ * passenger site, the driver app and the admin console print, so a customer quoting the
+ * email is quoting what operations sees.
+ */
+export const bookingRef = (id: Types.ObjectId | string) => `VRO-${String(id).slice(-6).toUpperCase()}`;
 
 function contact(): Contact {
   return { phone: CONTACT_PHONE, email: CONTACT_EMAIL };
@@ -89,6 +94,15 @@ async function loadContext(payload: Payload): Promise<Context> {
   };
 }
 
+/** "Meet and Greet · 2 car seats", or nothing when no extras were asked for. */
+function extrasLine(b: IBooking): string | undefined {
+  const parts = [
+    b.meetAndGreet ? `Meet and Greet (+$${MEET_AND_GREET_FEE})` : null,
+    b.carSeats ? `${b.carSeats} child car seat${b.carSeats > 1 ? 's' : ''} (free)` : null,
+  ].filter(Boolean);
+  return parts.length ? parts.join(' · ') : undefined;
+}
+
 function journeyRows(ctx: Context): DetailRow[] {
   const b = ctx.booking;
   if (!b) return [];
@@ -98,15 +112,29 @@ function journeyRows(ctx: Context): DetailRow[] {
     ['Service', TRIP_TYPE_LABEL[b.tripType] ?? b.tripType],
     ['Vehicle', ctx.vehicleLabel],
     ['Passengers', b.passengers ? String(b.passengers) : undefined],
+    ['Hours', b.tripType === 'hourly' && b.hours ? String(b.hours) : undefined],
+    ['Cruise terminal', b.cruisePort ? CRUISE_PORTS[b.cruisePort].label : undefined],
+    ['Ship', b.cruiseShip],
     ['Pickup', b.pickup?.address],
     ['Drop-off', b.drop?.address],
     ['Flight', b.flightDetails?.flightNumber],
+    ['Extras', extrasLine(b)],
   ];
+}
+
+/**
+ * The service notes, for the customer: where to meet the chauffeur at a cruise terminal.
+ * (Meet and Greet and car seats are already in the Extras row.)
+ */
+function meetingNotes(b: IBooking | null): string[] {
+  return (b?.serviceNotes ?? [])
+    .filter((n) => n.startsWith('Cruise pickup'))
+    .map((n) => n.replace(/^Cruise pickup( \([^)]*\))?\. /, 'Where to meet your chauffeur — '));
 }
 
 function fareTotal(b: IBooking | null): [string, string] | undefined {
   const amount = money(b?.estimatedFare);
-  return amount ? ['Fare (before tax)', amount] : undefined;
+  return amount ? ['Total', amount] : undefined;
 }
 
 function primetimeNote(b: IBooking | null): string[] {
@@ -144,7 +172,7 @@ function build(type: string, to: Recipient, ctx: Context, payload: Payload): Ren
         rows: journeyRows(ctx),
         total: fareTotal(b),
         cta: tripLink(b),
-        notes: [...primetimeNote(b), policyNote(b.tripType)],
+        notes: [...meetingNotes(b), ...primetimeNote(b), policyNote(b.tripType)],
         contact: contact(),
       });
 
@@ -164,7 +192,7 @@ function build(type: string, to: Recipient, ctx: Context, payload: Payload): Ren
         rows: journeyRows(ctx),
         total: fareTotal(b),
         cta: tripLink(b),
-        notes: [...primetimeNote(b), "Didn't make this change? Contact us straight away."],
+        notes: [...meetingNotes(b), ...primetimeNote(b), "Didn't make this change? Contact us straight away."],
         contact: contact(),
       });
 
@@ -228,6 +256,7 @@ function build(type: string, to: Recipient, ctx: Context, payload: Payload): Ren
         name: to.name,
         intro: ['Open the Viaro driver app for directions, the passenger chat and live updates.'],
         rows: journeyRows(ctx),
+        notes: b.serviceNotes ?? [],
       });
 
     case 'trip.completed':
@@ -282,7 +311,7 @@ function build(type: string, to: Recipient, ctx: Context, payload: Payload): Ren
         ],
         rows: journeyRows(ctx),
         cta: tripLink(b),
-        notes: [policyNote(b.tripType)],
+        notes: [...meetingNotes(b), policyNote(b.tripType)],
         contact: contact(),
       });
 
@@ -320,6 +349,7 @@ async function alertOperations(type: string, ctx: Context): Promise<void> {
       ['Reason', b.cancellation?.reason],
     ],
     total: fareTotal(b),
+    notes: b.serviceNotes ?? [],
   });
 
   await sendEmail({ to: inbox, replyTo: customer?.email, ...message });

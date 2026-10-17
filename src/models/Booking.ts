@@ -1,4 +1,5 @@
 import { Schema, model, Types, type HydratedDocument } from 'mongoose';
+import { CRUISE_PORT_KEYS, MAX_CAR_SEATS, type CruisePort } from '../config/services';
 
 export const TRIP_TYPES = ['point2point', 'airport', 'hourly'] as const;
 export type TripType = (typeof TRIP_TYPES)[number];
@@ -67,6 +68,20 @@ export interface IBooking {
   passengers?: number;
   tripType: TripType;
   flightDetails?: { flightNumber: string; scheduledArrival?: Date };
+  /** Hours booked, hourly charters only — kept so a re-price uses the real duration. */
+  hours?: number;
+  /** Meet and Greet add-on (config/services.ts MEET_AND_GREET_FEE). */
+  meetAndGreet?: boolean;
+  /** Child car seats requested. Free. */
+  carSeats?: number;
+  /** Set when the pickup is a cruise terminal. */
+  cruisePort?: CruisePort;
+  cruiseShip?: string;
+  /**
+   * What the chauffeur and dispatcher need to know — Meet and Greet, car seats, cruise
+   * meeting point. Derived by buildServiceNotes() and refreshed on every change.
+   */
+  serviceNotes?: string[];
   favoriteDriverId?: Types.ObjectId;
   status: BookingStatus;
   /** Every change made after the booking was created, oldest first. */
@@ -161,6 +176,12 @@ const bookingSchema = new Schema<IBooking>(
       ),
       required: false,
     },
+    hours: { type: Number, min: 1, max: 24 },
+    meetAndGreet: { type: Boolean, default: false },
+    carSeats: { type: Number, min: 0, max: MAX_CAR_SEATS, default: 0 },
+    cruisePort: { type: String, enum: CRUISE_PORT_KEYS },
+    cruiseShip: { type: String, trim: true, maxlength: 80 },
+    serviceNotes: { type: [String], default: [] },
     favoriteDriverId: { type: Schema.Types.ObjectId, ref: 'Driver' },
     status: { type: String, enum: BOOKING_STATUSES, default: 'pending', index: true },
     scheduledAt: { type: Date, required: true, index: true },

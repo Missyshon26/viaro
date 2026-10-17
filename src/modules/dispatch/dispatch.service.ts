@@ -303,6 +303,9 @@ export async function publishToPublicPool(bookingId: string): Promise<void> {
     vehicleClass: booking.vehicleClass,
     scheduledAt: format(booking.scheduledAt),
     estimatedFare: booking.estimatedFare ?? null,
+    // Meet and Greet, car seats, cruise meeting point — worth knowing before accepting.
+    serviceNotes: booking.serviceNotes ?? [],
+    flightNumber: booking.flightDetails?.flightNumber ?? null,
   };
 
   const io = getIo();
