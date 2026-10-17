@@ -72,6 +72,52 @@ export async function multiplierFor(value?: string | null, tripType?: TripType):
   return DEFAULT_CLASSES.find((v) => v.value === value)?.multiplier ?? 1;
 }
 
+export interface ClassRates {
+  /** The multiplier for this trip type — see multiplierFor(). */
+  multiplier: number;
+  /** Fixed price for this trip type: per trip for transfers, per hour for hourly. */
+  fixedRate: number | null;
+  minimumFare: number | null;
+  label?: string;
+}
+
+/**
+ * Everything the fare calculator needs to price a class for one trip type.
+ *
+ * A fixed rate, when the class has one for this kind of trip, wins over the multiplier:
+ * a transfer reads `flatRate`, an hourly charter reads `hourlyRate`. Same lookup order
+ * as multiplierFor — collection, then shipped defaults, then nothing.
+ */
+export async function ratesFor(value?: string | null, tripType?: TripType): Promise<ClassRates> {
+  if (!value) return { multiplier: 1, fixedRate: null, minimumFare: null };
+
+  const hourly = tripType === 'hourly';
+  const stored = await repo.findByValue(value);
+  if (stored) {
+    return {
+      multiplier: hourly && stored.hourlyMultiplier ? stored.hourlyMultiplier : stored.multiplier,
+      fixedRate: (hourly ? stored.hourlyRate : stored.flatRate) ?? null,
+      minimumFare: stored.minimumFare ?? null,
+      label: stored.label,
+    };
+  }
+
+  const fallback = DEFAULT_CLASSES.find((v) => v.value === value);
+  return {
+    multiplier: fallback?.multiplier ?? 1,
+    fixedRate: (hourly ? fallback?.hourlyRate : fallback?.flatRate) ?? null,
+    minimumFare: fallback?.minimumFare ?? null,
+    label: fallback?.label,
+  };
+}
+
+/** Display name for a stored class key, for emails and receipts. */
+export async function labelFor(value?: string | null): Promise<string> {
+  if (!value) return '—';
+  const stored = await repo.findByValue(value);
+  return stored?.label ?? DEFAULT_CLASSES.find((v) => v.value === value)?.label ?? value;
+}
+
 /**
  * Populate an empty catalogue from the shipped defaults.
  *
@@ -148,6 +194,10 @@ export async function seedDefaults(): Promise<number> {
       seats: vehicle.seats,
       bags: vehicle.bags,
       multiplier: vehicle.multiplier,
+      usage: vehicle.usage ?? 'all',
+      flatRate: vehicle.flatRate ?? null,
+      hourlyRate: vehicle.hourlyRate ?? null,
+      minimumFare: vehicle.minimumFare ?? null,
       images: [],
       active: true,
       sortOrder: index,
@@ -155,6 +205,21 @@ export async function seedDefaults(): Promise<number> {
     if (created) inserted += 1;
   }
 
+  /*
+   * Classes created before fixed rates existed have no rate fields at all. Fill those in
+   * from the rate card — but only where the field is absent, so a rate operations has
+   * set, or deliberately cleared to null, is never overwritten on boot.
+   */
+  let backfilled = 0;
+  for (const vehicle of DEFAULT_CLASSES) {
+    for (const field of ['flatRate', 'hourlyRate', 'minimumFare'] as const) {
+      const rate = vehicle[field];
+      if (rate === undefined) continue;
+      if (await repo.setIfAbsent(vehicle.value, field, rate)) backfilled += 1;
+    }
+  }
+
   if (inserted > 0) logger.info(`Vehicle catalogue: seeded ${inserted} default class(es)`);
+  if (backfilled > 0) logger.info(`Vehicle catalogue: filled ${backfilled} missing rate(s) from the rate card`);
   return inserted;
 }

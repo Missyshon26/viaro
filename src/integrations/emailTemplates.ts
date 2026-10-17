@@ -135,3 +135,118 @@ ${button(link, 'Reset password')}
 
   return { subject: 'Reset your Viaro password', text, html };
 }
+
+/* --------------------------- booking & trip emails ------------------------- */
+
+/** A label/value row in a details card. Rows with an empty value are dropped. */
+export type DetailRow = [label: string, value: string | null | undefined];
+
+export interface Contact {
+  phone?: string;
+  email?: string;
+}
+
+interface DetailsEmailInput {
+  subject: string;
+  preheader: string;
+  eyebrow: string;
+  heading: string;
+  name?: string | null;
+  /** Paragraphs above the details card. */
+  intro: string[];
+  rows?: DetailRow[];
+  /** Emphasised last row, e.g. ['Total', '$160.00']. */
+  total?: [string, string];
+  cta?: { href: string; label: string };
+  /** Small print under the card — cancellation policy, what happens next. */
+  notes?: string[];
+  contact?: Contact;
+}
+
+function contactLines(contact?: Contact): string[] {
+  if (!contact?.phone && !contact?.email) return [];
+  return [
+    'Questions about your booking? Contact us:',
+    ...(contact.phone ? [`Phone: ${contact.phone}`] : []),
+    ...(contact.email ? [`Email: ${contact.email}`] : []),
+  ];
+}
+
+/**
+ * The shared shape of every booking/trip email: heading, a short intro, a details card,
+ * an optional button and small print. Plain text is built from the same input, so the
+ * two parts can never say different things.
+ */
+export function detailsEmail(input: DetailsEmailInput): RenderedEmail {
+  const greeting = input.name ? `Hi ${input.name.split(' ')[0]},` : 'Hi,';
+  const rows = (input.rows ?? []).filter((r): r is [string, string] => Boolean(r[1]));
+  const contact = contactLines(input.contact);
+
+  const text = [
+    greeting,
+    '',
+    ...input.intro.flatMap((p) => [p, '']),
+    ...rows.map(([label, value]) => `${label}: ${value}`),
+    ...(input.total ? [`${input.total[0]}: ${input.total[1]}`] : []),
+    ...(rows.length || input.total ? [''] : []),
+    ...(input.cta ? [`${input.cta.label}: ${input.cta.href}`, ''] : []),
+    ...(input.notes ?? []).flatMap((n) => [n, '']),
+    ...(contact.length ? [...contact, ''] : []),
+    '— Viaro',
+  ].join('\n');
+
+  const rowHtml = rows
+    .map(
+      ([label, value]) => `<tr>
+  <td style="padding:8px 0;font-size:13px;line-height:20px;color:${BRAND.muted};vertical-align:top;width:40%;">${escapeHtml(label)}</td>
+  <td style="padding:8px 0;font-size:14px;line-height:20px;color:${BRAND.text};vertical-align:top;">${escapeHtml(value)}</td>
+</tr>`,
+    )
+    .join('');
+  const totalHtml = input.total
+    ? `<tr>
+  <td style="padding:14px 0 0;border-top:1px solid ${BRAND.border};font-size:14px;font-weight:700;color:${BRAND.text};">${escapeHtml(input.total[0])}</td>
+  <td style="padding:14px 0 0;border-top:1px solid ${BRAND.border};font-size:20px;font-weight:700;color:${BRAND.text};">${escapeHtml(input.total[1])}</td>
+</tr>`
+    : '';
+  const card =
+    rowHtml || totalHtml
+      ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0 0;padding:4px 16px 16px;background:${BRAND.black};border:1px solid ${BRAND.border};border-radius:12px;">${rowHtml}${totalHtml}</table>`
+      : '';
+  const notesHtml = (input.notes ?? [])
+    .map((n) => `<p style="margin:16px 0 0;font-size:13px;line-height:20px;color:${BRAND.muted};">${escapeHtml(n)}</p>`)
+    .join('');
+  const contactHtml = contact.length
+    ? `<p style="margin:20px 0 0;padding-top:20px;border-top:1px solid ${BRAND.border};font-size:13px;line-height:20px;color:${BRAND.muted};">${contact.map(escapeHtml).join('<br>')}</p>`
+    : '';
+
+  const html = layout({
+    preheader: input.preheader,
+    body: `
+<p style="margin:0 0 6px;font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${BRAND.azure};">${escapeHtml(input.eyebrow)}</p>
+<h1 style="margin:0 0 20px;font-size:24px;line-height:30px;font-weight:700;color:${BRAND.text};">${escapeHtml(input.heading)}</h1>
+<p style="margin:0 0 12px;font-size:15px;line-height:24px;color:${BRAND.text};">${escapeHtml(greeting)}</p>
+${input.intro.map((p) => `<p style="margin:0 0 12px;font-size:15px;line-height:24px;color:${BRAND.text};">${escapeHtml(p)}</p>`).join('')}
+${card}
+${input.cta ? button(input.cta.href, input.cta.label) : ''}
+${notesHtml}
+${contactHtml}`,
+  });
+
+  return { subject: input.subject, text, html };
+}
+
+export function welcomeEmail({ name, link }: { name?: string | null; link: string }): RenderedEmail {
+  return detailsEmail({
+    subject: 'Welcome to Viaro',
+    preheader: 'Your Viaro account is ready.',
+    eyebrow: 'Welcome',
+    heading: 'Your account is ready',
+    name,
+    intro: [
+      'Thanks for creating a Viaro account. You can now book a chauffeur, track your ride and manage your trips in one place.',
+    ],
+    cta: { href: link, label: 'Book a ride' },
+    notes: ["Didn't create this account? Contact our support team and we'll close it."],
+  });
+}

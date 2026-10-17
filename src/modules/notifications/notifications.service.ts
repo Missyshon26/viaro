@@ -7,6 +7,7 @@ import { format } from '../../config/timezone';
 import { logger } from '../../utils/logger';
 import { ApiError } from '../../utils/ApiError';
 import { paginated, toSkipLimit, type PaginationQuery } from '../../utils/pagination';
+import { emailForNotification } from './notification.emails';
 
 /**
  * Single fanout point for every user-facing event (spec §4.8).
@@ -19,6 +20,10 @@ export const NOTIFICATION_TYPES = {
   BOOKING_CREATED: 'booking.created',
   /** An amendment changed what the ride will cost — the customer is told the new figure. */
   BOOKING_REPRICED: 'booking.repriced',
+  /** Pickup, drop-off, vehicle or time changed — the customer gets the new details. */
+  BOOKING_UPDATED: 'booking.updated',
+  /** Cancelled before a chauffeur was assigned (after that it is TRIP_CANCELLED). */
+  BOOKING_CANCELLED: 'booking.cancelled',
   DRIVER_ASSIGNED: 'trip.driver_assigned',
   RIDE_OFFER: 'dispatch.ride_offer',
   TRIP_STARTED: 'trip.started',
@@ -50,6 +55,9 @@ export async function send(
   const notification = await Notification.create({ userId, type, payload, read: false });
 
   emitTo(ns.notify(String(userId)), 'notification:new', notification.toJSON());
+
+  // Email runs alongside and is not awaited — see notification.emails.ts.
+  void emailForNotification(userId, type, payload);
 
   // PLACEHOLDER delivery channel — logs what would have been sent (spec §4.8).
   try {

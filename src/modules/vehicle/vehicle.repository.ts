@@ -55,3 +55,16 @@ export async function createIfAbsent(input: Partial<IVehicleClass>): Promise<boo
   );
   return result.upsertedCount > 0;
 }
+
+/** Used by the seed: set one field on an existing class only if it was never set. */
+export async function setIfAbsent(
+  value: string,
+  field: 'flatRate' | 'hourlyRate' | 'minimumFare',
+  rate: number,
+): Promise<boolean> {
+  const result = await VehicleClass.updateOne(
+    { value, [field]: { $exists: false } },
+    { $set: { [field]: rate } },
+  );
+  return result.modifiedCount > 0;
+}

@@ -13,6 +13,7 @@ import type { UserRole } from '../../utils/roles';
 import { getOrCreateWallet } from '../wallet/wallet.service';
 import type { LoginInput, RegisterInput } from './auth.validation';
 import { revokeUserSessions } from './revocation';
+import { sendWelcomeEmail } from '../notifications/notification.emails';
 
 const BCRYPT_ROUNDS = 12;
 const BLACKLIST_PREFIX = 'auth:blacklist:refresh:';
@@ -150,6 +151,9 @@ export async function register(input: InternalRegisterInput) {
     user.walletId = wallet._id;
     await user.save();
   }
+
+  // Not awaited: a slow mail server must not hold up sign-up.
+  if (input.role === 'customer') void sendWelcomeEmail({ name: user.name, email: user.email });
 
   const tokens = issueTokens(String(user._id), user.role);
   return { user: sanitise(user), role: user.role, ...tokens };

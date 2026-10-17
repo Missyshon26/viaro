@@ -44,6 +44,16 @@ export interface IVehicleClass {
    * then prices point-to-point and airport). Unset = hourly uses `multiplier` too.
    */
   hourlyMultiplier?: number | null;
+  /**
+   * Fixed price for a point-to-point or airport transfer, in dollars. When set it
+   * replaces the multiplier formula for transfers — the city base fare and the peak
+   * window no longer apply, only the primetime surcharge does.
+   */
+  flatRate?: number | null;
+  /** Fixed price per hour for hourly charters. Same precedence as `flatRate`. */
+  hourlyRate?: number | null;
+  /** The least a booking in this class can cost, before surcharges (e.g. NEMT $297). */
+  minimumFare?: number | null;
   images: IVehicleImage[];
   /**
    * Retiring a class rather than deleting it. An inactive class disappears from the
@@ -78,6 +88,9 @@ const vehicleClassSchema = new Schema<IVehicleClass>(
     multiplier: { type: Number, required: true, min: 0.1, max: 20 },
     usage: { type: String, enum: VEHICLE_USAGES, default: 'all' },
     hourlyMultiplier: { type: Number, min: 0.1, max: 20, default: null },
+    flatRate: { type: Number, min: 0, max: 100_000, default: null },
+    hourlyRate: { type: Number, min: 0, max: 100_000, default: null },
+    minimumFare: { type: Number, min: 0, max: 100_000, default: null },
     images: { type: [imageSchema], default: [] },
     active: { type: Boolean, default: true, index: true },
     sortOrder: { type: Number, default: 0 },

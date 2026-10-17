@@ -204,7 +204,8 @@ export async function updateBooking(bookingId: string, customerId: string, input
   if (changed) {
     await booking.save();
 
-    if (previousFare !== undefined && previousFare !== booking.estimatedFare) {
+    const fareMoved = previousFare !== undefined && previousFare !== booking.estimatedFare;
+    if (fareMoved) {
       // The customer must learn the price moved from the same change that moved it.
       await notify.send(booking.customerId, NOTIFICATION_TYPES.BOOKING_REPRICED, {
         message: `Your fare estimate changed to ${booking.estimatedFare}`,
@@ -213,6 +214,15 @@ export async function updateBooking(bookingId: string, customerId: string, input
         estimatedFare: booking.estimatedFare,
       });
     }
+
+    // The updated-booking email: the new details, and the fare change when there was one.
+    await notify.send(booking.customerId, NOTIFICATION_TYPES.BOOKING_UPDATED, {
+      message: `Your booking for ${format(booking.scheduledAt)} was updated`,
+      bookingId: String(booking._id),
+      scheduledAt: format(booking.scheduledAt),
+      ...(fareMoved ? { previousFare } : {}),
+      estimatedFare: booking.estimatedFare,
+    });
 
     // The amendment banner on every console reads from this, and a chauffeur already
     // driving to the old address is the reason it cannot wait for a poll.
@@ -244,6 +254,14 @@ export async function cancelBookingByCustomer(
   // all — the console could only say that it had ended, not who ended it.
   await recordBookingCancellation(booking, { by: 'customer', byUserId: customerId, reason });
   await booking.save();
+
+  // No chauffeur and no charge yet, so there is nothing to refund — only to confirm.
+  await notify.send(booking.customerId, NOTIFICATION_TYPES.BOOKING_CANCELLED, {
+    message: 'Your booking was cancelled. No chauffeur had been assigned, so nothing was charged.',
+    bookingId: String(booking._id),
+    scheduledAt: format(booking.scheduledAt),
+    ...(reason ? { reason } : {}),
+  });
 
   events.publish({
     topic: 'booking',

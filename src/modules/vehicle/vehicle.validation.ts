@@ -25,6 +25,12 @@ export const createVehicleClassSchema = z.object({
   usage: z.enum(['all', 'hourly', 'transfer']).optional(),
   /** Hourly-trip multiplier when it differs; null clears it back to `multiplier`. */
   hourlyMultiplier: z.coerce.number().min(0.1).max(20).nullable().optional(),
+  /** Fixed transfer price in dollars; null clears it back to the multiplier formula. */
+  flatRate: z.coerce.number().positive().max(100_000).nullable().optional(),
+  /** Fixed price per hour for hourly charters; null clears it. */
+  hourlyRate: z.coerce.number().positive().max(100_000).nullable().optional(),
+  /** Floor on the fare before surcharges; null clears it. */
+  minimumFare: z.coerce.number().positive().max(100_000).nullable().optional(),
   images: z.array(imageSchema).max(10).optional(),
   active: z.boolean().optional(),
   sortOrder: z.coerce.number().int().min(0).max(999).optional(),

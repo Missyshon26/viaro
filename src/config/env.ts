@@ -57,6 +57,11 @@ const envSchema = z.object({
   SMTP_PASS: z.string().optional(),
   /** Where the password-reset link points (the frontend). See appWebUrl below. */
   APP_WEB_URL: z.string().optional(),
+  /**
+   * Operations inbox for new-booking and cancellation alerts. Blank = the support inbox
+   * set in the admin console; neither set = no alert.
+   */
+  BOOKINGS_INBOX_EMAIL: z.string().optional(),
 
   // PLACEHOLDER — driver document storage
   S3_BUCKET: z.string().optional(),

@@ -27,6 +27,22 @@ export function isPeakHour(when: DateInput = now()): boolean {
   return PEAK_WINDOWS.some((w) => hour >= w.startHour && hour < w.endHour);
 }
 
+/**
+ * Primetime: a flat surcharge on pickups late at night or early in the morning, in
+ * America/Los_Angeles local time (pre-deployment checklist §2: +$20, 10pm–7am).
+ *
+ * Unlike the peak multiplier this applies to every pricing model, fixed rates included,
+ * and a subscription does not waive it — it pays for an unsocial-hours chauffeur, not
+ * for demand.
+ */
+export const PRIMETIME = { startHour: 22, endHour: 7, surcharge: 20 } as const;
+
+export function isPrimetime(when: DateInput = now()): boolean {
+  const hour = hourOfDay(when);
+  // The window wraps midnight: 22:00–23:59 and 00:00–06:59.
+  return hour >= PRIMETIME.startHour || hour < PRIMETIME.endHour;
+}
+
 export async function hasActiveSubscription(userId: string): Promise<boolean> {
   const sub = await Subscription.findOne({ userId, status: 'active' }).lean();
   if (!sub) return false;
@@ -46,6 +62,22 @@ export interface FareBreakdown {
   vehicleClass?: string;
   /** The class uplift applied, from config/vehicles.ts. 1 when the class is unknown. */
   vehicleMultiplier: number;
+  /**
+   * How the class part of the fare was worked out:
+   *   flat        — the class's fixed transfer price
+   *   hourly      — the class's fixed price per hour × hours
+   *   multiplier  — city base fare × peak × hours × class multiplier
+   */
+  pricingModel: 'flat' | 'hourly' | 'multiplier';
+  /** Whether the peak multiplier was actually charged (never on a fixed rate). */
+  peakApplied: boolean;
+  /** The fare before surcharges, after any minimum fare. */
+  classFare: number;
+  /** Set when the class's minimum fare lifted the price. */
+  minimumFare?: number;
+  primetime: boolean;
+  primetimeSurcharge: number;
+  /** What is charged: classFare + primetimeSurcharge. */
   fare: number;
 }
 
@@ -82,8 +114,26 @@ export async function calculateFare(opts: {
   // without a deploy. config/vehicles.ts is only the seed and the last-resort fallback.
   // A class restricted to hourly (or to transfers) cannot be quoted for the other kind.
   await vehicleService.assertClassOffered(opts.vehicleClass, opts.tripType);
-  const vehicle = await vehicleService.multiplierFor(opts.vehicleClass, opts.tripType);
-  const fare = round2(rule.baseFare * multiplier * (hours ?? 1) * vehicle);
+  const rates = await vehicleService.ratesFor(opts.vehicleClass, opts.tripType);
+
+  /*
+   * A fixed rate on the class wins: the rate card is the price, so neither the city base
+   * fare nor the peak window touches it. The city rule is still required above — it is
+   * what makes a city bookable at all.
+   */
+  const pricingModel: FareBreakdown['pricingModel'] =
+    rates.fixedRate !== null ? (opts.tripType === 'hourly' ? 'hourly' : 'flat') : 'multiplier';
+  const computed =
+    pricingModel === 'multiplier'
+      ? rule.baseFare * multiplier * (hours ?? 1) * rates.multiplier
+      : (rates.fixedRate as number) * (hours ?? 1);
+
+  const floored = rates.minimumFare !== null && computed < rates.minimumFare;
+  const classFare = round2(floored ? (rates.minimumFare as number) : computed);
+
+  const primetime = isPrimetime(when);
+  const primetimeSurcharge = primetime ? PRIMETIME.surcharge : 0;
+  const fare = round2(classFare + primetimeSurcharge);
 
   return {
     city: rule.city,
@@ -94,7 +144,13 @@ export async function calculateFare(opts: {
     subscriber,
     ...(hours !== undefined ? { hours } : {}),
     ...(opts.vehicleClass ? { vehicleClass: opts.vehicleClass } : {}),
-    vehicleMultiplier: vehicle,
+    vehicleMultiplier: rates.multiplier,
+    pricingModel,
+    peakApplied: pricingModel === 'multiplier' && multiplier !== 1,
+    classFare,
+    ...(floored ? { minimumFare: rates.minimumFare as number } : {}),
+    primetime,
+    primetimeSurcharge,
     fare,
   };
 }

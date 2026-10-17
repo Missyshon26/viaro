@@ -18,3 +18,7 @@ export const ACCESS_TOKEN_TTL = '15m';
 
 /** Refresh token lifetime — how long a device stays signed in without a password. */
 export const REFRESH_TOKEN_TTL = '30d';
+
+/** Printed at the foot of every booking email so a customer knows who to call. */
+export const CONTACT_PHONE = '(206) 672-8281';
+export const CONTACT_EMAIL = 'reservations@allblacklimoseattle.com';
