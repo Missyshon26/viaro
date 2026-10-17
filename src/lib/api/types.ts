@@ -115,6 +115,14 @@ export interface Booking {
   estimatedFare?: number;
   flightDetails?: { flightNumber: string; scheduledArrival?: string };
   favoriteDriverId?: string;
+  /** Hourly charters only. */
+  hours?: number;
+  meetAndGreet?: boolean;
+  carSeats?: number;
+  cruisePort?: "pier66" | "pier91";
+  cruiseShip?: string;
+  /** Meet and Greet, car seats, cruise meeting point — what the chauffeur is told. */
+  serviceNotes?: string[];
   /** Mongoose `timestamps: true` puts both of these on every booking. */
   createdAt: string;
   updatedAt: string;

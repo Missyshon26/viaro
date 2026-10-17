@@ -1,6 +1,22 @@
 import type { NextConfig } from "next";
 
+/**
+ * Security headers on every response (pre-deployment checklist §5). Clickjacking:
+ * SAMEORIGIN keeps the console out of anyone else's frame. nosniff stops a browser
+ * guessing a file is script. The X-Powered-By banner is dropped so the response does
+ * not advertise the framework.
+ */
+const SECURITY_HEADERS = [
+  { key: "X-Frame-Options", value: "SAMEORIGIN" },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+];
+
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
+  async headers() {
+    return [{ source: "/:path*", headers: SECURITY_HEADERS }];
+  },
   /**
    * Next's dev-mode build-activity badge defaults to the bottom-left corner, which is
    * exactly where the collapsed sidebar rail puts its own expand/collapse button. The

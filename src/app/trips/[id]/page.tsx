@@ -283,6 +283,18 @@ export default function BookingDetailPage({
             </p>
           </Section>
 
+          {booking.serviceNotes?.length ? (
+            <Section icon={<IconCheck size={14} />} title="Service notes">
+              <ul className="space-y-2 text-meta text-fg">
+                {booking.serviceNotes.map((note) => (
+                  <li key={note} className="rounded-field border border-border bg-surface px-3 py-2">
+                    {note}
+                  </li>
+                ))}
+              </ul>
+            </Section>
+          ) : null}
+
           {booking.flightDetails ? (
             <Section icon={<IconPlane size={14} />} title="Flight">
               <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
