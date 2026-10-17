@@ -2,16 +2,17 @@ import type { NextResponse } from "next/server";
 
 export const REFRESH_COOKIE = "viaro_refresh";
 
-/** Mirrors the backend's JWT_REFRESH_EXPIRES_IN (30d). */
-const THIRTY_DAYS_SECONDS = 60 * 60 * 24 * 30;
+/** Mirrors the backend's REFRESH_TOKEN_TTL (7d, renewed on every refresh). */
+const SEVEN_DAYS_SECONDS = 60 * 60 * 24 * 7;
 
 export function refreshCookieOptions() {
   return {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "lax" as const,
+    // Strict: the cookie is never sent on a request started by another site (checklist §4).
+    sameSite: "strict" as const,
     path: "/",
-    maxAge: THIRTY_DAYS_SECONDS,
+    maxAge: SEVEN_DAYS_SECONDS,
   };
 }
 

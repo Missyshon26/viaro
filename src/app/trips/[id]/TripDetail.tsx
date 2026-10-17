@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Badge, Card, Kicker, WarnBox } from "@/components/ui/Surfaces";
 import { Amendments } from "@/components/ops/Amendments";
 import { TripChat } from "@/components/ops/TripChat";
+import { formatPhone } from "@/lib/format";
 import { Button, buttonClass } from "@/components/ui/Button";
 import {
   getTrip,
@@ -126,6 +127,24 @@ export function TripDetail({ id }: { id: string }) {
                     </dd>
                   </div>
                 ) : null}
+                {booking.tripType === "hourly" && booking.hours ? (
+                  <div>
+                    <dt className="text-fg-muted">Hours booked</dt>
+                    <dd className="mt-1 font-bold text-fg">{booking.hours}</dd>
+                  </div>
+                ) : null}
+                {booking.serviceNotes?.length ? (
+                  <div>
+                    <dt className="text-fg-muted">Service notes</dt>
+                    <dd className="mt-1 space-y-1.5">
+                      {booking.serviceNotes.map((note) => (
+                        <p key={note} className="font-bold text-fg">
+                          {note}
+                        </p>
+                      ))}
+                    </dd>
+                  </div>
+                ) : null}
               </dl>
             ) : (
               <p className="mt-4 text-note text-fg-muted">Loading…</p>
@@ -136,7 +155,7 @@ export function TripDetail({ id }: { id: string }) {
             <Card className="p-5">
               <Kicker>Passenger</Kicker>
               <p className="mt-3 text-card font-bold text-fg">{trip.customer.name}</p>
-              <p className="mt-1 text-note text-fg-muted">{trip.customer.phone}</p>
+              <p className="mt-1 text-note text-fg-muted">{formatPhone(trip.customer.phone)}</p>
             </Card>
           ) : null}
 

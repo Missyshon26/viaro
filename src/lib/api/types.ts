@@ -113,6 +113,11 @@ export interface Booking {
   estimatedFare?: number;
   flightDetails?: { flightNumber: string; scheduledArrival?: string };
   favoriteDriverId?: string;
+  hours?: number;
+  meetAndGreet?: boolean;
+  carSeats?: number;
+  /** Meet and Greet, car seats, cruise meeting point. */
+  serviceNotes?: string[];
 }
 
 export interface FareBreakdown {

@@ -328,6 +328,15 @@ export default function RequestsPage() {
                       {entry.flightDetails?.flightNumber ? (
                         <Chip>✈ {entry.flightDetails.flightNumber}</Chip>
                       ) : null}
+                      {entry.meetAndGreet ? <Chip>Meet and Greet</Chip> : null}
+                      {entry.carSeats ? (
+                        <Chip>
+                          {entry.carSeats} car seat{entry.carSeats > 1 ? "s" : ""}
+                        </Chip>
+                      ) : null}
+                      {entry.serviceNotes?.some((n) => n.startsWith("Cruise pickup")) ? (
+                        <Chip>Cruise pickup</Chip>
+                      ) : null}
                     </div>
                   </div>
 
