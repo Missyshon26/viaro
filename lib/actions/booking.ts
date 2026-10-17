@@ -10,9 +10,9 @@ import {
   listVehicleClasses,
 } from "@/lib/api/bookings";
 import { cancelAssignedTrip } from "@/lib/api/trips";
-import type { FareBreakdown, TripType } from "@/lib/api/types";
+import type { CruisePort, FareBreakdown, TripType } from "@/lib/api/types";
 import type { FormState } from "@/lib/actions/auth";
-import { cityCoords, VEHICLE_CLASSES } from "@/lib/constants";
+import { CRUISE_PORTS, MAX_CAR_SEATS, cityCoords, VEHICLE_CLASSES } from "@/lib/constants";
 
 function toFormState(err: unknown): FormState {
   if (err instanceof ApiError) return { error: err.message, fieldErrors: err.fieldErrors };
@@ -33,8 +33,30 @@ export interface QuoteState extends FormState {
     flightNumber?: string;
     /** UML "Request / Assign Favorite Driver" — dispatch honours it only if free. */
     favoriteDriverId?: string;
+    meetAndGreet: boolean;
+    carSeats: number;
+    cruisePort?: CruisePort;
+    cruiseShip?: string;
   };
 }
+
+/** The extras on a submitted form, normalised the same way for quote and confirm. */
+function readExtras(formData: FormData) {
+  const meetAndGreet = ["on", "true", "1"].includes(String(formData.get("meetAndGreet") ?? ""));
+  const seats = Number.parseInt(String(formData.get("carSeats") ?? "0"), 10);
+  const carSeats = Number.isFinite(seats) ? Math.min(Math.max(seats, 0), MAX_CAR_SEATS) : 0;
+  const port = String(formData.get("cruisePort") ?? "");
+  const cruisePort = CRUISE_PORTS.some((p) => p.value === port) ? (port as CruisePort) : undefined;
+  const cruiseShip = String(formData.get("cruiseShip") ?? "").trim().slice(0, 80) || undefined;
+  return { meetAndGreet, carSeats, cruisePort, cruiseShip: cruisePort ? cruiseShip : undefined };
+}
+
+/**
+ * An hourly charter often has no fixed end ("as directed"), but the API stores a drop-off
+ * for every booking — so a blank one is the pickup, which is where most charters end.
+ */
+const dropFor = (tripType: TripType, pickup: string, drop: string) =>
+  tripType === "hourly" && drop.length < 3 ? pickup : drop;
 
 /**
  * Prices every vehicle class for one journey, so the vehicle step can show a real
@@ -53,6 +75,10 @@ export async function quoteVehiclesAction(input: {
   tripType: TripType;
   scheduledAt: string;
   hours?: number;
+  /** For route prices (Tacoma ↔ Sea-Tac) and the Meet and Greet fee. */
+  pickup?: string;
+  drop?: string;
+  meetAndGreet?: boolean;
 }): Promise<Record<string, number>> {
   // Price whatever the catalogue currently holds, not a list compiled into this build —
   // a class added in the admin console must be quotable without a redeploy.
@@ -71,6 +97,9 @@ export async function quoteVehiclesAction(input: {
         requestedAt: input.scheduledAt,
         ...(input.tripType === "hourly" && input.hours ? { hours: input.hours } : {}),
         vehicleClass: vehicle.value,
+        ...(input.pickup ? { pickup: input.pickup } : {}),
+        ...(input.drop ? { drop: input.drop } : {}),
+        meetAndGreet: input.meetAndGreet ? "true" : "false",
       });
       return [vehicle.value, fare.fare] as const;
     }),
@@ -92,7 +121,8 @@ export async function quoteAction(
   const tripType = String(formData.get("tripType") ?? "point2point") as TripType;
   const vehicleClass = String(formData.get("vehicleClass") ?? "sedan");
   const pickup = String(formData.get("pickup") ?? "").trim();
-  const drop = String(formData.get("drop") ?? "").trim();
+  const drop = dropFor(tripType, pickup, String(formData.get("drop") ?? "").trim());
+  const extras = readExtras(formData);
   const date = String(formData.get("date") ?? "");
   const time = String(formData.get("time") ?? "");
   const hours = Number(formData.get("hours") ?? 4);
@@ -122,11 +152,15 @@ export async function quoteAction(
       // Without this the review would quote the base rate and the booking would be
       // created at the class rate — the two must be priced identically.
       vehicleClass,
+      pickup,
+      drop,
+      meetAndGreet: extras.meetAndGreet ? "true" : "false",
     });
     return {
       fare,
       input: {
         city, tripType, vehicleClass, pickup, drop, scheduledAt,
+        ...extras,
         ...(tripType === "hourly" ? { hours } : {}),
         ...(tripType === "airport" ? { flightNumber } : {}),
         ...(favoriteDriverId ? { favoriteDriverId } : {}),
@@ -152,7 +186,8 @@ export async function confirmBookingAction(
   const city = String(formData.get("city") ?? "");
   const tripType = String(formData.get("tripType") ?? "point2point") as TripType;
   const pickup = String(formData.get("pickup") ?? "");
-  const drop = String(formData.get("drop") ?? "");
+  const drop = dropFor(tripType, pickup, String(formData.get("drop") ?? ""));
+  const { cruisePort, cruiseShip, ...legExtras } = readExtras(formData);
   const hours = Number(formData.get("hours") ?? 0);
   const flightNumber = String(formData.get("flightNumber") ?? "").trim();
   const favoriteDriverId = String(formData.get("favoriteDriverId") ?? "").trim();
@@ -170,6 +205,8 @@ export async function confirmBookingAction(
     ...(passengers > 0 ? { passengers } : {}),
     ...(tripType === "hourly" && hours ? { hours } : {}),
     ...(favoriteDriverId ? { favoriteDriverId } : {}),
+    // Both legs: the seats travel with the child, and Meet and Greet is per journey.
+    ...legExtras,
   };
 
   let bookingId: string;
@@ -185,6 +222,8 @@ export async function confirmBookingAction(
       // request twice would try to spend the same credit on both.
       ...(walletCreditRequested > 0 ? { walletCreditRequested } : {}),
       ...(tripType === "airport" ? { flightDetails: { flightNumber } } : {}),
+      // Outbound only — the return leg ends at the terminal rather than starting there.
+      ...(cruisePort ? { cruisePort, ...(cruiseShip ? { cruiseShip } : {}) } : {}),
     });
     bookingId = created.booking._id;
   } catch (err) {

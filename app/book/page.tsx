@@ -18,15 +18,26 @@ export const metadata: Metadata = {
  * drawn silhouette. That way adding a class in the console makes it bookable immediately
  * rather than waiting for artwork.
  */
+/**
+ * Classes added after the photo set, shown with the closest shipped photography until
+ * their own arrives. A class with neither gets the form's drawn placeholder.
+ */
+const PHOTO_STAND_IN: Record<string, string> = {
+  mpv: "suv",
+  "suv-first": "suv-luxury",
+};
+
 async function loadVehicles(): Promise<VehicleClassOption[]> {
   try {
     const classes = await listVehicleClasses();
     if (classes.length === 0) return VEHICLE_CLASSES;
 
-    // This flow books point-to-point journeys only, so a class operations limited to
-    // hourly charters is not offered here — the API would refuse to quote it.
-    return classes.filter((api) => api.usage !== "hourly").map((api) => {
-      const local = VEHICLE_CLASSES.find((v) => v.value === api.value);
+    // Every class comes through with its `usage`; the form shows each service only the
+    // classes the API will quote for it (an hourly-only class on the Hourly tab, etc.).
+    return classes.map((api) => {
+      const local =
+        VEHICLE_CLASSES.find((v) => v.value === api.value) ??
+        VEHICLE_CLASSES.find((v) => v.value === PHOTO_STAND_IN[api.value]);
       return {
         value: api.value,
         label: api.label,
@@ -34,6 +45,7 @@ async function loadVehicles(): Promise<VehicleClassOption[]> {
         seats: api.seats,
         bags: api.bags,
         photos: local?.photos ?? [],
+        usage: api.usage,
       };
     });
   } catch {

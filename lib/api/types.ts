@@ -141,9 +141,19 @@ export interface Booking {
   estimatedFare?: number;
   flightDetails?: { flightNumber: string; scheduledArrival?: string };
   favoriteDriverId?: string;
+  /** Hourly charters only. */
+  hours?: number;
+  meetAndGreet?: boolean;
+  carSeats?: number;
+  cruisePort?: CruisePort;
+  cruiseShip?: string;
+  /** What the chauffeur is told: Meet and Greet, car seats, cruise meeting point. */
+  serviceNotes?: string[];
   createdAt: string;
   updatedAt: string;
 }
+
+export type CruisePort = "pier66" | "pier91";
 
 export interface Trip {
   _id: string;
@@ -214,7 +224,9 @@ export interface FareBreakdown {
   /** Class uplift the API applied. 1 when the class is unknown or absent. */
   vehicleMultiplier: number;
   /** flat = fixed transfer price · hourly = fixed rate × hours · multiplier = base × uplifts. */
-  pricingModel?: "flat" | "hourly" | "multiplier";
+  pricingModel?: "flat" | "hourly" | "multiplier" | "route";
+  /** e.g. "Tacoma ↔ Sea-Tac", when a route price applied. */
+  route?: string;
   /** Whether the peak multiplier was charged (never on a fixed rate). */
   peakApplied?: boolean;
   /** Fare before surcharges, after any minimum fare. */
@@ -224,7 +236,9 @@ export interface FareBreakdown {
   /** Pickup between 10pm and 7am. */
   primetime?: boolean;
   primetimeSurcharge?: number;
-  /** What is charged: classFare + primetimeSurcharge. */
+  /** Meet and Greet add-on; 0 when not requested. */
+  meetAndGreetFee?: number;
+  /** What is charged: classFare + primetimeSurcharge + meetAndGreetFee. */
   fare: number;
 }
 

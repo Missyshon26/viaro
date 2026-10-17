@@ -19,7 +19,7 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { apiOptional, ApiError } from "@/lib/api/client";
 import { getBooking } from "@/lib/api/bookings";
 import type { Booking, Driver, Receipt, Trip, Wallet } from "@/lib/api/types";
-import { VEHICLE_CLASSES } from "@/lib/constants";
+import { CRUISE_PORTS, SUPPORT_EMAIL, SUPPORT_PHONE, VEHICLE_CLASSES } from "@/lib/constants";
 import { LiveRefresh } from "@/components/app/live-refresh";
 import { RideStatusBadge } from "@/components/app/status-badge";
 import { AddFavoriteButton } from "@/components/app/favorite-forms";
@@ -224,11 +224,61 @@ export default async function TripDetailPage({
                   {booking.flightDetails?.flightNumber ? (
                     <Detail label="Flight" value={booking.flightDetails.flightNumber} />
                   ) : null}
+                  {booking.tripType === "hourly" && booking.hours ? (
+                    <Detail label="Hours" value={String(booking.hours)} />
+                  ) : null}
+                  {booking.cruisePort ? (
+                    <Detail
+                      label="Cruise terminal"
+                      value={CRUISE_PORTS.find((p) => p.value === booking.cruisePort)?.label ?? booking.cruisePort}
+                      hint={booking.cruiseShip}
+                    />
+                  ) : null}
+                  {booking.meetAndGreet || booking.carSeats ? (
+                    <Detail
+                      label="Extras"
+                      value={[
+                        booking.meetAndGreet ? "Meet and Greet" : null,
+                        booking.carSeats
+                          ? `${booking.carSeats} car seat${booking.carSeats > 1 ? "s" : ""}`
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    />
+                  ) : null}
                   <Detail label="Reference" value={reference(booking._id)} />
                 </dl>
+
+                {/* Where to find the chauffeur at a cruise terminal. */}
+                {booking.serviceNotes?.some((n) => n.startsWith("Cruise pickup")) ? (
+                  <p className="mt-6 rounded-lg border border-border px-4 py-3 text-sm leading-relaxed text-muted-foreground">
+                    {booking.serviceNotes
+                      .filter((n) => n.startsWith("Cruise pickup"))
+                      .map((n) => n.replace(/^Cruise pickup( \([^)]*\))?\. /, ""))
+                      .join(" ")}
+                  </p>
+                ) : null}
               </div>
             ) : null}
           </Panel>
+
+          {created === "1" ? (
+            <Panel>
+              <SectionTitle>Questions about your booking?</SectionTitle>
+              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                A confirmation is on its way to your email. Call us on{" "}
+                <a href={`tel:${SUPPORT_PHONE.replace(/[^\d+]/g, "")}`} className="text-brand underline underline-offset-4">
+                  {SUPPORT_PHONE}
+                </a>{" "}
+                or email{" "}
+                <a href={`mailto:${SUPPORT_EMAIL}`} className="text-brand underline underline-offset-4">
+                  {SUPPORT_EMAIL}
+                </a>
+                {" "}— quote reference {booking ? reference(booking._id) : ""}.
+              </p>
+            </Panel>
+          ) : null}
 
           {amendments.length > 0 ? (
             <Panel>

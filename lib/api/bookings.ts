@@ -1,7 +1,7 @@
 import "server-only";
 import { api } from "./client";
 import type {
-  Booking, FareBreakdown, GeoPoint, Paginated, Receipt, TripType,
+  Booking, CruisePort, FareBreakdown, GeoPoint, Paginated, Receipt, TripType,
 } from "./types";
 
 /* ------------------------------- pricing --------------------------------- */
@@ -15,6 +15,11 @@ export interface FareEstimateQuery {
   hours?: number;
   /** Priced at the base rate when omitted. */
   vehicleClass?: string;
+  /** Both addresses, so a fixed route price (Tacoma ↔ Sea-Tac) can apply. */
+  pickup?: string;
+  drop?: string;
+  /** "true" adds the Meet and Greet fee. */
+  meetAndGreet?: "true" | "false";
 }
 
 /** Customer-only on the backend: a signed-out visitor cannot be quoted. */
@@ -41,6 +46,11 @@ export interface CreateBookingInput {
    * API spends it when a chauffeur is assigned and a Trip exists to spend it against.
    */
   walletCreditRequested?: number;
+  meetAndGreet?: boolean;
+  /** Child car seats, free, 0–3. */
+  carSeats?: number;
+  cruisePort?: CruisePort;
+  cruiseShip?: string;
 }
 
 /**

@@ -51,6 +51,8 @@ export interface VehicleClassOption {
   seats: number;
   bags: number;
   photos: VehiclePhoto[];
+  /** all · hourly (charters only) · transfer (never hourly). Absent = all. */
+  usage?: "all" | "hourly" | "transfer";
 }
 
 /** Stands in for every cabin until per-class interior photography exists. */
@@ -194,10 +196,36 @@ export const cityCoords = (name: string) =>
 export const SUPPORT_PHONE = "(206) 672-8281";
 export const SUPPORT_PHONE_HREF = "tel:+12066728281";
 export const SUPPORT_HOURS = "24 hours a day, 7 days a week";
-export const SUPPORT_EMAIL = "reservations@viaro.io";
+export const SUPPORT_EMAIL = "reservations@allblacklimoseattle.com";
 
 /** The API does not define a plan price, so the product states the offer. */
 export const MONTHLY_PLAN = { plan: "monthly", price: 49.99 } as const;
 
-/** Applied by the product, not the API — the fare endpoint returns no tax line. */
-export const TAX_RATE = 0.089;
+/*
+ * Booking extras. Mirrors viaro-backend/src/config/services.ts, which is what prices
+ * them — these are only for labelling the form; every total shown comes from the API.
+ */
+
+/** Meet and Greet add-on, per journey. */
+export const MEET_AND_GREET_FEE = 25;
+
+/** Child car seats are free; at most this many per booking. */
+export const MAX_CAR_SEATS = 3;
+
+/** Cruise terminals. The address becomes the pickup address. */
+export const CRUISE_PORTS = [
+  {
+    value: "pier66",
+    label: "Pier 66 — Bell Street Cruise Terminal",
+    address: "Bell Street Cruise Terminal, Pier 66, 2225 Alaskan Way, Seattle, WA 98121",
+  },
+  {
+    value: "pier91",
+    label: "Pier 91 — Smith Cove Cruise Terminal",
+    address: "Smith Cove Cruise Terminal, Pier 91, 2001 W Garfield St, Seattle, WA 98119",
+  },
+] as const;
+
+/** Default pickup for an airport booking. The customer can change it. */
+export const SEA_TAC_ADDRESS =
+  "Seattle-Tacoma International Airport (SEA), 17801 International Blvd, SeaTac, WA 98158";

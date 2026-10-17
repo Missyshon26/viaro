@@ -12,7 +12,15 @@ import {
   quoteVehiclesAction,
   type QuoteState,
 } from "@/lib/actions/booking";
-import { TAX_RATE, type VehicleClassOption } from "@/lib/constants";
+import {
+  CRUISE_PORTS,
+  MAX_CAR_SEATS,
+  MEET_AND_GREET_FEE,
+  SEA_TAC_ADDRESS,
+  SUPPORT_EMAIL,
+  SUPPORT_PHONE,
+  type VehicleClassOption,
+} from "@/lib/constants";
 import { money as fmtMoney } from "@/components/app/shell";
 import { VehicleGallery } from "@/components/app/vehicle-gallery";
 import { RoutePreview } from "@/components/app/route-preview";
@@ -20,7 +28,7 @@ import { AddressAutocomplete } from "@/components/app/address-autocomplete";
 import { PassengerPicker } from "@/components/passenger-picker";
 import { DateField, TimeField } from "@/components/date-time-fields";
 import type { FormState } from "@/lib/actions/auth";
-import type { TripType } from "@/lib/api/types";
+import type { CruisePort, TripType } from "@/lib/api/types";
 
 /**
  * Step-by-step booking.
@@ -70,21 +78,27 @@ const TABS: { key: JourneyShape; label: string }[] = [
 ];
 
 /**
- * ⚠ TWO VALUES THE FORM NO LONGER ASKS FOR, both of which the API still requires.
- *
- * Service type and city were dropped from the form, so every booking made here is a
- * point-to-point journey priced by Seattle's rule. That has consequences worth knowing:
- *
- *   - Airport transfers and hourly charters are not bookable from this form. Both are
- *     still fully implemented server-side (flight tracking, the 72 h hourly cancellation
- *     window); nothing reaches them.
- *   - A journey anywhere else is quoted at Seattle's base fare, and without a geocoder
- *     both ends resolve to Seattle's centre.
- *
- * Change either constant, or pass them in as props, to restore the behaviour — every
- * downstream branch already handles all three trip types.
+ * What the customer is booking. A cruise pickup is a point-to-point transfer that starts
+ * at a terminal, so it maps onto the API's three trip types like this.
  */
-const TRIP_TYPE: TripType = "point2point";
+type Service = "point2point" | "airport" | "cruise" | "hourly";
+
+const SERVICES: { key: Service; label: string }[] = [
+  { key: "point2point", label: "Point to Point" },
+  { key: "airport", label: "Airport" },
+  { key: "cruise", label: "Cruise Port" },
+  { key: "hourly", label: "Hourly" },
+];
+
+const tripTypeFor = (service: Service): TripType =>
+  service === "airport" ? "airport" : service === "hourly" ? "hourly" : "point2point";
+
+const HOUR_OPTIONS = [2, 3, 4, 5, 6, 8, 10, 12];
+
+/**
+ * Every journey is priced by Seattle's rule: there is no geocoder, so both ends resolve
+ * to Seattle's centre and a journey elsewhere is quoted at Seattle's rates.
+ */
 const DEFAULT_CITY = "Seattle";
 
 
@@ -138,19 +152,32 @@ export function BookingForm({ walletBalance, vehicles, prefill }: BookingFormPro
   const [returnTime, setReturnTime] = useState(prefill?.returnTime ?? "");
   const [passengers, setPassengers] = useState(prefill?.passengers ?? 1);
   const [vehicleClass, setVehicleClass] = useState("sedan");
+  const [service, setService] = useState<Service>("point2point");
+  const [flightNumber, setFlightNumber] = useState("");
+  const [cruisePort, setCruisePort] = useState<CruisePort>("pier91");
+  const [cruiseShip, setCruiseShip] = useState("");
+  const [hours, setHours] = useState(3);
+  const [meetAndGreet, setMeetAndGreet] = useState(false);
+  const [carSeats, setCarSeats] = useState(0);
 
   /** Fare per class for this journey, quoted by the API when the step is entered. */
   const [prices, setPrices] = useState<Record<string, number> | null>(null);
   /** Which class's photos the lightbox is showing, if any. */
   const [gallery, setGallery] = useState<string | null>(null);
+  const tripType = tripTypeFor(service);
+  // Only what the API will quote for this kind of trip: an hourly-only class (NEMT)
+  // appears on the Hourly tab alone, a transfers-only class never does.
+  const offered = vehicles.filter((v) =>
+    tripType === "hourly" ? v.usage !== "transfer" : v.usage !== "hourly",
+  );
   const galleryVehicle = vehicles.find((v) => v.value === gallery) ?? null;
   const chosenVehicle = vehicles.find((v) => v.value === vehicleClass) ?? null;
 
   // Capacity comes from the fetched catalogue, so a class added in the console filters
   // by its real seat count rather than by anything hard-coded here.
   const seatsOf = (value: string) =>
-    vehicles.find((v) => v.value === value)?.seats ?? 0;
-  const largestClass = Math.max(...vehicles.map((v) => v.seats), 1);
+    offered.find((v) => v.value === value)?.seats ?? 0;
+  const largestClass = Math.max(...offered.map((v) => v.seats), 1);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [pending, startTransition] = useTransition();
@@ -164,17 +191,20 @@ export function BookingForm({ walletBalance, vehicles, prefill }: BookingFormPro
     FormData
   >(confirmBookingAction, undefined);
 
-  const tripType = TRIP_TYPE;
   const city = DEFAULT_CITY;
-  const isRoundTrip = shape === "roundtrip";
+  // An hourly charter is a single block of time; it has no return leg.
+  const isRoundTrip = shape === "roundtrip" && service !== "hourly";
+  const cruise = CRUISE_PORTS.find((p) => p.value === cruisePort) ?? CRUISE_PORTS[0];
+  // A cruise pickup starts at the terminal, whatever was typed before switching.
+  const pickupAddress = service === "cruise" ? cruise.address : pickup.trim();
   const bookable = shape === "oneway" || shape === "roundtrip";
 
   const fare = quote?.fare;
   const input = quote?.input;
-  // A round trip is two bookings at the same fare, so the quote doubles.
+  // A round trip is two bookings at the same fare, so the quote doubles. The rate card
+  // is the price: no tax is added on top.
   const legs = isRoundTrip ? 2 : 1;
-  const tax = fare ? round2(fare.fare * legs * TAX_RATE) : 0;
-  const total = fare ? round2(fare.fare * legs + tax) : 0;
+  const total = fare ? round2(fare.fare * legs) : 0;
 
   /*
    * Wallet credit chosen here is a request, not a payment.
@@ -207,19 +237,39 @@ export function BookingForm({ walletBalance, vehicles, prefill }: BookingFormPro
     fd.set("city", city);
     fd.set("tripType", tripType);
     fd.set("vehicleClass", vehicleClass);
-    fd.set("pickup", pickup.trim());
+    fd.set("pickup", pickupAddress);
     fd.set("drop", drop.trim());
     fd.set("date", date);
     fd.set("time", time);
+    if (tripType === "airport") fd.set("flightNumber", flightNumber.trim());
+    if (tripType === "hourly") fd.set("hours", String(hours));
+    if (meetAndGreet) fd.set("meetAndGreet", "true");
+    fd.set("carSeats", String(carSeats));
+    if (service === "cruise") {
+      fd.set("cruisePort", cruisePort);
+      if (cruiseShip.trim()) fd.set("cruiseShip", cruiseShip.trim());
+    }
     return fd;
+  }
+
+  /** Switching to Airport starts the pickup at Sea-Tac, which is where most begin. */
+  function chooseService(next: Service) {
+    setService(next);
+    if (next === "airport" && !pickup.trim()) setPickup(SEA_TAC_ADDRESS);
   }
 
   /** Mirrors the server's checks so a step never advances into a rejection. */
   function validate(leaving: number): boolean {
     const next: Record<string, string> = {};
     if (leaving === 0) {
-      if (pickup.trim().length < 3) next.pickup = "Enter a pickup location (3 characters or more)";
-      if (drop.trim().length < 3) next.drop = "Enter a drop-off location (3 characters or more)";
+      if (pickupAddress.length < 3) next.pickup = "Enter a pickup location (3 characters or more)";
+      // An hourly charter can end where it started; the drop-off is optional there.
+      if (tripType !== "hourly" && drop.trim().length < 3) {
+        next.drop = "Enter a drop-off location (3 characters or more)";
+      }
+      if (tripType === "airport" && flightNumber.trim().length < 2) {
+        next.flightNumber = "Enter your flight number, e.g. AS 123";
+      }
       if (!date) next.date = "Pick a pickup date";
       if (!time) next.time = "Pick a pickup time";
       if (isRoundTrip) {
@@ -241,8 +291,9 @@ export function BookingForm({ walletBalance, vehicles, prefill }: BookingFormPro
     // Validate the step being left, not the one being entered.
     if (target > step && !validate(step)) return;
     // Moving on from the journey, drop a vehicle that cannot seat the party.
+    // The same when the chosen class is not offered for this kind of trip.
     if (target > 0 && seatsOf(vehicleClass) < passengers) {
-      const fits = vehicles.find((v) => v.seats >= passengers);
+      const fits = offered.find((v) => v.seats >= passengers);
       if (fits) setVehicleClass(fits.value);
     }
     // Entering the vehicle step, ask the API what each class costs for this journey.
@@ -254,6 +305,10 @@ export function BookingForm({ walletBalance, vehicles, prefill }: BookingFormPro
             city,
             tripType,
             scheduledAt: `${date}T${time}:00`,
+            ...(tripType === "hourly" ? { hours } : {}),
+            pickup: pickupAddress,
+            drop: drop.trim() || pickupAddress,
+            meetAndGreet,
           }),
         );
       });
@@ -282,13 +337,13 @@ export function BookingForm({ walletBalance, vehicles, prefill }: BookingFormPro
   }, []);
 
 
-  const showRoute = step > 0 && pickup.trim().length >= 3 && drop.trim().length >= 3;
+  const showRoute = step > 0 && pickupAddress.length >= 3 && drop.trim().length >= 3;
 
   return (
     <div className="space-y-6">
       {showRoute ? (
         <RoutePreview
-          pickup={pickup.trim()}
+          pickup={pickupAddress}
           drop={drop.trim()}
           date={date}
           time={time}
@@ -339,6 +394,32 @@ export function BookingForm({ walletBalance, vehicles, prefill }: BookingFormPro
             <QuoteByRequest shape={shape} />
           ) : (
             <>
+              <div
+                role="radiogroup"
+                aria-label="Service"
+                className="mb-5 grid grid-cols-2 gap-1 rounded-xl border border-white/10 p-1 sm:grid-cols-4"
+              >
+                {SERVICES.map(({ key, label }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    role="radio"
+                    aria-checked={service === key}
+                    onClick={() => chooseService(key)}
+                    className={`rounded-lg py-2 text-[10px] font-bold uppercase tracking-wider transition-all duration-200 sm:text-xs ${
+                      service === key ? "bg-white/15 text-white" : "text-white/50 hover:text-white"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {service === "hourly" && shape === "roundtrip" ? (
+                <p className="mb-4 text-xs text-white/50">
+                  An hourly charter is one block of time, so it is booked one way.
+                </p>
+              ) : null}
+
               {/*
                 Continue refuses to advance when a field is wrong. Without this summary
                 the only signal was a caption under the offending input, which is easy to
@@ -363,6 +444,42 @@ export function BookingForm({ walletBalance, vehicles, prefill }: BookingFormPro
               ) : null}
 
               <div className="flex flex-col gap-4">
+                {service === "cruise" ? (
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className={labelCls} htmlFor="cruisePort">
+                        Cruise Terminal
+                      </label>
+                      <select
+                        id="cruisePort"
+                        value={cruisePort}
+                        onChange={(e) => setCruisePort(e.target.value as CruisePort)}
+                        className={fieldCls}
+                      >
+                        {CRUISE_PORTS.map((port) => (
+                          <option key={port.value} value={port.value}>
+                            {port.label}
+                          </option>
+                        ))}
+                      </select>
+                      <FieldNote hint={cruise.address} />
+                    </div>
+                    <div>
+                      <label className={labelCls} htmlFor="cruiseShip">
+                        Ship (optional)
+                      </label>
+                      <input
+                        id="cruiseShip"
+                        value={cruiseShip}
+                        maxLength={80}
+                        onChange={(e) => setCruiseShip(e.target.value)}
+                        placeholder="e.g. Norwegian Encore"
+                        className={fieldCls}
+                      />
+                      <FieldNote hint="Helps your chauffeur find you at disembarkation." />
+                    </div>
+                  </div>
+                ) : (
                 <div>
                   <label className={labelCls} htmlFor="pickup">
                     Pickup Location
@@ -376,16 +493,39 @@ export function BookingForm({ walletBalance, vehicles, prefill }: BookingFormPro
                   />
                   <FieldNote error={errors.pickup} />
                 </div>
+                )}
+
+                {service === "airport" ? (
+                  <div>
+                    <label className={labelCls} htmlFor="flightNumber">
+                      Flight Number
+                    </label>
+                    <input
+                      id="flightNumber"
+                      value={flightNumber}
+                      maxLength={10}
+                      autoCapitalize="characters"
+                      onChange={(e) => setFlightNumber(e.target.value.toUpperCase())}
+                      placeholder="e.g. AS 123"
+                      className={fieldCls}
+                      aria-invalid={Boolean(errors.flightNumber)}
+                    />
+                    <FieldNote
+                      error={errors.flightNumber}
+                      hint="We track the flight, so a delay doesn't cost you your car."
+                    />
+                  </div>
+                ) : null}
 
                 <div>
                   <label className={labelCls} htmlFor="drop">
-                    Drop-off Location
+                    {service === "hourly" ? "Final Drop-off (optional)" : "Drop-off Location"}
                   </label>
                   <AddressAutocomplete
                     id="drop"
                     value={drop}
                     onChange={setDrop}
-                    placeholder="Destination..."
+                    placeholder={service === "hourly" ? "Leave blank to end at the pickup" : "Destination..."}
                     className={fieldCls}
                   />
                   <FieldNote error={errors.drop} />
@@ -407,6 +547,26 @@ export function BookingForm({ walletBalance, vehicles, prefill }: BookingFormPro
                     <FieldNote error={errors.time} hint="Pacific time." />
                   </div>
                 </div>
+
+                {service === "hourly" ? (
+                  <div>
+                    <label className={labelCls} htmlFor="hours">
+                      Hours
+                    </label>
+                    <select
+                      id="hours"
+                      value={hours}
+                      onChange={(e) => setHours(Number(e.target.value))}
+                      className={fieldCls}
+                    >
+                      {HOUR_OPTIONS.map((h) => (
+                        <option key={h} value={h}>
+                          {h} hours
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null}
 
                 {isRoundTrip ? (
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -461,6 +621,59 @@ export function BookingForm({ walletBalance, vehicles, prefill }: BookingFormPro
                     </Link>
                   ) : null}
                 </div>
+
+                <fieldset className="rounded-xl border border-white/15 p-4">
+                  <legend className="px-1 text-[10px] uppercase tracking-widest text-white/40">
+                    Extras
+                  </legend>
+                  <label className="flex cursor-pointer items-start gap-3">
+                    <input
+                      type="checkbox"
+                      checked={meetAndGreet}
+                      onChange={(e) => setMeetAndGreet(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 accent-[var(--primary)]"
+                    />
+                    <span className="min-w-0 flex-1 text-sm text-white">
+                      Meet and Greet
+                      <span className="block text-xs text-white/50">
+                        Your chauffeur meets you inside with a name sign.
+                      </span>
+                    </span>
+                    <span className="text-sm font-semibold text-white">
+                      +{fmtMoney(MEET_AND_GREET_FEE)}
+                    </span>
+                  </label>
+
+                  <div className="mt-4 flex items-center gap-3">
+                    <span className="min-w-0 flex-1 text-sm text-white" id="carSeatsLabel">
+                      Child car seats
+                      <span className="block text-xs text-white/50">Free · up to {MAX_CAR_SEATS}</span>
+                    </span>
+                    <div className="flex items-center gap-2" role="group" aria-labelledby="carSeatsLabel">
+                      <button
+                        type="button"
+                        onClick={() => setCarSeats((n) => Math.max(0, n - 1))}
+                        disabled={carSeats === 0}
+                        aria-label="One fewer car seat"
+                        className="h-8 w-8 rounded-full border border-white/20 text-white disabled:opacity-30"
+                      >
+                        −
+                      </button>
+                      <span className="w-5 text-center text-sm font-semibold text-white" aria-live="polite">
+                        {carSeats}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setCarSeats((n) => Math.min(MAX_CAR_SEATS, n + 1))}
+                        disabled={carSeats === MAX_CAR_SEATS}
+                        aria-label="One more car seat"
+                        className="h-8 w-8 rounded-full border border-white/20 text-white disabled:opacity-30"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                </fieldset>
               </div>
 
               <StepNav onNext={() => goTo(1)} />
@@ -474,7 +687,7 @@ export function BookingForm({ walletBalance, vehicles, prefill }: BookingFormPro
         <Panel>
           <SectionTitle>Which vehicle?</SectionTitle>
           <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {vehicles.map((vehicle) => {
+            {offered.map((vehicle) => {
               const fits = vehicle.seats >= passengers;
               const selected = vehicleClass === vehicle.value;
               const price = prices?.[vehicle.value];
@@ -496,21 +709,29 @@ export function BookingForm({ walletBalance, vehicles, prefill }: BookingFormPro
                     committing to booking it.
                   */}
                   <div className="relative aspect-[16/10] overflow-hidden bg-secondary">
-                    <Image
-                      src={cover.src}
-                      alt={cover.alt}
-                      fill
-                      sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-                      className={`object-cover transition-transform duration-500 ${
-                        fits ? "group-hover:scale-[1.04]" : "grayscale"
-                      }`}
-                    />
+                    {cover ? (
+                      <Image
+                        src={cover.src}
+                        alt={cover.alt}
+                        fill
+                        sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+                        className={`object-cover transition-transform duration-500 ${
+                          fits ? "group-hover:scale-[1.04]" : "grayscale"
+                        }`}
+                      />
+                    ) : (
+                      // A class added in the console before its photography exists.
+                      <span className="absolute inset-0 flex items-center justify-center text-xs uppercase tracking-widest text-muted-foreground">
+                        {vehicle.label}
+                      </span>
+                    )}
                     {selected ? (
                       <span className="absolute right-2 top-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
                         ✓
                       </span>
                     ) : null}
 
+                    {vehicle.photos.length ? (
                     <button
                       type="button"
                       onClick={() => setGallery(vehicle.value)}
@@ -522,6 +743,7 @@ export function BookingForm({ walletBalance, vehicles, prefill }: BookingFormPro
                       View photos
                       <span className="text-white/60">({vehicle.photos.length})</span>
                     </button>
+                    ) : null}
                   </div>
 
                   <button
@@ -558,8 +780,8 @@ export function BookingForm({ walletBalance, vehicles, prefill }: BookingFormPro
             })}
           </div>
           <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
-            Prices are for this journey, before tax, and are quoted by the same calculator
-            that will charge you. Showing what seats {passengers}{" "}
+            Prices are the total for this journey{meetAndGreet ? ", Meet and Greet included" : ""},
+            quoted by the same calculator that will charge you. Showing what seats {passengers}{" "}
             {passengers === 1 ? "passenger" : "passengers"} — you can change the class
             later from the booking, up until a chauffeur is assigned.
           </p>
@@ -642,9 +864,21 @@ export function BookingForm({ walletBalance, vehicles, prefill }: BookingFormPro
               </div>
 
               <dl className="mt-5 space-y-3 text-sm">
+                <Row label="Service" value={SERVICES.find((x) => x.key === service)?.label ?? ""} />
                 <Row label="Trip type" value={isRoundTrip ? "Round trip" : "One way"} />
-                <Row label="Pickup location" value={pickup} />
-                <Row label="Drop-off location" value={drop} />
+                {service === "cruise" ? (
+                  <>
+                    <Row label="Cruise terminal" value={cruise.label} />
+                    {cruiseShip.trim() ? <Row label="Ship" value={cruiseShip.trim()} /> : null}
+                  </>
+                ) : null}
+                <Row label="Pickup location" value={pickupAddress} />
+                <Row
+                  label="Drop-off location"
+                  value={drop.trim() || (service === "hourly" ? "Back to the pickup" : "")}
+                />
+                {service === "airport" ? <Row label="Flight" value={flightNumber.trim()} /> : null}
+                {service === "hourly" ? <Row label="Hours" value={`${hours} hours`} /> : null}
                 <Row label="Pickup date" value={longDate(date)} />
                 <Row label="Pickup time" value={`${time} PT`} />
                 {isRoundTrip ? (
@@ -656,6 +890,17 @@ export function BookingForm({ walletBalance, vehicles, prefill }: BookingFormPro
                 <Row
                   label="Passengers"
                   value={`${passengers} ${passengers === 1 ? "passenger" : "passengers"}`}
+                />
+                <Row
+                  label="Extras"
+                  value={
+                    [
+                      meetAndGreet ? "Meet and Greet" : null,
+                      carSeats ? `${carSeats} car seat${carSeats > 1 ? "s" : ""} (free)` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ") || "None"
+                  }
                 />
               </dl>
 
@@ -694,7 +939,11 @@ export function BookingForm({ walletBalance, vehicles, prefill }: BookingFormPro
                     <div className="flex justify-between gap-4">
                       <dt className="text-muted-foreground">
                         {chosenVehicle?.label ?? "Vehicle"} ·{" "}
-                        {fare.pricingModel === "hourly" ? `${fare.hours ?? 1} h` : "flat rate"}
+                        {fare.pricingModel === "hourly"
+                          ? `${fare.hours ?? 1} h`
+                          : fare.pricingModel === "route"
+                            ? fare.route
+                            : "flat rate"}
                         {fare.minimumFare ? " · minimum fare" : ""}
                       </dt>
                       <dd className="text-foreground">{money(fare.classFare ?? fare.fare)}</dd>
@@ -747,16 +996,26 @@ export function BookingForm({ walletBalance, vehicles, prefill }: BookingFormPro
                       <dd className="text-foreground">{money(fare.primetimeSurcharge)}</dd>
                     </div>
                   ) : null}
+                  {fare.meetAndGreetFee ? (
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-muted-foreground">Meet and Greet</dt>
+                      <dd className="text-foreground">{money(fare.meetAndGreetFee)}</dd>
+                    </div>
+                  ) : null}
+                  {carSeats ? (
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-muted-foreground">
+                        Child car seat{carSeats > 1 ? `s × ${carSeats}` : ""}
+                      </dt>
+                      <dd className="text-brand">free</dd>
+                    </div>
+                  ) : null}
                   {isRoundTrip ? (
                     <div className="flex justify-between gap-4">
                       <dt className="text-muted-foreground">Return leg</dt>
                       <dd className="text-foreground">{money(fare.fare)}</dd>
                     </div>
                   ) : null}
-                  <div className="flex justify-between gap-4">
-                    <dt className="text-muted-foreground">Tax · 8.9%</dt>
-                    <dd className="text-foreground">{money(tax)}</dd>
-                  </div>
                   <div className="flex items-baseline justify-between gap-4 border-t border-border pt-4">
                     <dt className="font-medium text-foreground">Total</dt>
                     <dd className="font-sans text-2xl font-bold text-foreground">
@@ -884,6 +1143,18 @@ export function BookingForm({ walletBalance, vehicles, prefill }: BookingFormPro
                   <input type="hidden" name="pickup" value={input.pickup} />
                   <input type="hidden" name="drop" value={input.drop} />
                   <input type="hidden" name="scheduledAt" value={input.scheduledAt} />
+                  {input.flightNumber ? (
+                    <input type="hidden" name="flightNumber" value={input.flightNumber} />
+                  ) : null}
+                  {input.hours ? <input type="hidden" name="hours" value={input.hours} /> : null}
+                  {input.meetAndGreet ? <input type="hidden" name="meetAndGreet" value="true" /> : null}
+                  <input type="hidden" name="carSeats" value={input.carSeats} />
+                  {input.cruisePort ? (
+                    <input type="hidden" name="cruisePort" value={input.cruisePort} />
+                  ) : null}
+                  {input.cruiseShip ? (
+                    <input type="hidden" name="cruiseShip" value={input.cruiseShip} />
+                  ) : null}
                   {isRoundTrip ? (
                     <input
                       type="hidden"
@@ -908,11 +1179,17 @@ export function BookingForm({ walletBalance, vehicles, prefill }: BookingFormPro
                   </Button>
                 </form>
 
-                <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
-                  Free cancellation up to {FREE_CANCEL_HOURS[input.tripType]} h before
-                  pickup — you get 90% back as wallet credit. Cancel inside that window and
-                  the fare is retained.
-                </p>
+                <div className="mt-4 rounded-lg border border-border px-3.5 py-3 text-xs leading-relaxed text-muted-foreground">
+                  <p className="font-medium text-foreground">Cancellation policy</p>
+                  <p className="mt-1">
+                    Cancel at least {FREE_CANCEL_HOURS[input.tripType]} hours before pickup and
+                    you get 90% back as wallet credit — a 10% admin fee applies. Cancel within{" "}
+                    {FREE_CANCEL_HOURS[input.tripType]} hours of pickup and the fare is not refunded.
+                  </p>
+                  <p className="mt-2">
+                    Questions? Call {SUPPORT_PHONE} or email {SUPPORT_EMAIL}.
+                  </p>
+                </div>
               </>
             )}
           </Panel>

@@ -6,7 +6,7 @@ import type { UserRole } from "@/lib/api/types";
  * Token storage.
  *
  * The backend is a stateless Bearer API: it returns an access token (15m) and a
- * refresh token (30d), and expects the refresh token in the *body* of
+ * refresh token (7d), and expects the refresh token in the *body* of
  * POST /auth/refresh. None of that can be exposed to the browser safely, so both
  * tokens live in httpOnly cookies that only Server Components, Server Actions and
  * Route Handlers can read. No token ever reaches client JavaScript.
@@ -19,13 +19,14 @@ const isProd = process.env.NODE_ENV === "production";
 
 /** Mirrors the backend's JWT_ACCESS_EXPIRES_IN (15m), with a little headroom. */
 const ACCESS_MAX_AGE = 60 * 20;
-/** Mirrors JWT_REFRESH_EXPIRES_IN (30d). */
-const REFRESH_MAX_AGE = 60 * 60 * 24 * 30;
+/** Mirrors the backend's REFRESH_TOKEN_TTL (7d, renewed on every refresh). */
+const REFRESH_MAX_AGE = 60 * 60 * 24 * 7;
 
 const base = {
   httpOnly: true,
   secure: isProd,
-  sameSite: "lax" as const,
+  // Strict: the cookie is never sent on a request started by another site (checklist §4).
+  sameSite: "strict" as const,
   path: "/",
 };
 

@@ -35,7 +35,7 @@ async function enquiryInbox(): Promise<string> {
 
 /** Shown instead of transport internals, which mean nothing to a visitor. */
 const SEND_FAILED =
-  "We couldn't send your request just now. Please call us on (206) 672-8281 or email reservations@viaro.io — we're available 24/7.";
+  "We couldn't send your request just now. Please call us on (206) 672-8281 or email reservations@allblacklimoseattle.com — we're available 24/7.";
 
 export type FormState = {
   success: boolean;
