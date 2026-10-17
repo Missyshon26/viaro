@@ -213,6 +213,18 @@ export interface FareBreakdown {
   vehicleClass?: string;
   /** Class uplift the API applied. 1 when the class is unknown or absent. */
   vehicleMultiplier: number;
+  /** flat = fixed transfer price · hourly = fixed rate × hours · multiplier = base × uplifts. */
+  pricingModel?: "flat" | "hourly" | "multiplier";
+  /** Whether the peak multiplier was charged (never on a fixed rate). */
+  peakApplied?: boolean;
+  /** Fare before surcharges, after any minimum fare. */
+  classFare?: number;
+  /** Present when the class's minimum fare lifted the price. */
+  minimumFare?: number;
+  /** Pickup between 10pm and 7am. */
+  primetime?: boolean;
+  primetimeSurcharge?: number;
+  /** What is charged: classFare + primetimeSurcharge. */
   fare: number;
 }
 

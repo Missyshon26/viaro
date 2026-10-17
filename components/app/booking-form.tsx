@@ -689,26 +689,62 @@ export function BookingForm({ walletBalance, vehicles, prefill }: BookingFormPro
             ) : (
               <>
                 <dl className="mt-6 space-y-3 text-sm">
+                  {fare.pricingModel && fare.pricingModel !== "multiplier" ? (
+                    // A fixed rate is the price: no base fare, no peak line to explain.
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-muted-foreground">
+                        {chosenVehicle?.label ?? "Vehicle"} ·{" "}
+                        {fare.pricingModel === "hourly" ? `${fare.hours ?? 1} h` : "flat rate"}
+                        {fare.minimumFare ? " · minimum fare" : ""}
+                      </dt>
+                      <dd className="text-foreground">{money(fare.classFare ?? fare.fare)}</dd>
+                    </div>
+                  ) : (
                   <div className="flex justify-between gap-4">
                     <dt className="text-muted-foreground">
                       Base fare
                     </dt>
                     <dd className="text-foreground">{money(fare.baseFare)}</dd>
                   </div>
-                  {fare.isPeak && !fare.subscriber ? (
+                  )}
+                  {(fare.peakApplied ?? fare.isPeak) && !fare.subscriber ? (
                     <div className="flex justify-between gap-4">
                       <dt className="text-muted-foreground">
                         Peak surcharge · ×{fare.peakMultiplier}
                       </dt>
                       <dd className="text-foreground">
-                        {money(round2(fare.fare - fare.baseFare * (fare.hours ?? 1)))}
+                        {money(
+                          round2(
+                            (fare.classFare ?? fare.fare) -
+                              fare.baseFare * (fare.hours ?? 1) * fare.vehicleMultiplier,
+                          ),
+                        )}
                       </dd>
                     </div>
                   ) : null}
-                  {fare.isPeak && fare.subscriber ? (
+                  {(fare.pricingModel ?? "multiplier") === "multiplier" &&
+                  fare.vehicleMultiplier !== 1 ? (
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-muted-foreground">
+                        {chosenVehicle?.label ?? "Vehicle"} · ×{fare.vehicleMultiplier}
+                      </dt>
+                      <dd className="text-foreground">
+                        {money(
+                          round2(fare.baseFare * (fare.hours ?? 1) * (fare.vehicleMultiplier - 1)),
+                        )}
+                      </dd>
+                    </div>
+                  ) : null}
+                  {fare.isPeak && fare.subscriber && fare.pricingModel !== "flat" && fare.pricingModel !== "hourly" ? (
                     <div className="flex justify-between gap-4">
                       <dt className="text-muted-foreground">Peak surcharge</dt>
                       <dd className="text-brand">waived · subscriber</dd>
+                    </div>
+                  ) : null}
+                  {fare.primetimeSurcharge ? (
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-muted-foreground">Primetime surcharge · 10pm–7am</dt>
+                      <dd className="text-foreground">{money(fare.primetimeSurcharge)}</dd>
                     </div>
                   ) : null}
                   {isRoundTrip ? (
@@ -736,7 +772,14 @@ export function BookingForm({ walletBalance, vehicles, prefill }: BookingFormPro
                   </p>
                 ) : null}
 
-                {fare.isPeak && !fare.subscriber ? (
+                {fare.primetimeSurcharge ? (
+                  <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+                    Pickups between 10pm and 7am carry a {money(fare.primetimeSurcharge)} primetime
+                    surcharge per journey.
+                  </p>
+                ) : null}
+
+                {(fare.peakApplied ?? fare.isPeak) && !fare.subscriber ? (
                   <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
                     This pickup falls in a peak window.{" "}
                     <Link
