@@ -22,6 +22,13 @@ export interface IUser {
   passwordHash: string;
   /** Google's stable id for the account, set when the customer signs in with Google. */
   googleId?: string;
+  /** The account's id in the old Firebase project (history import); links old records. */
+  firebaseUid?: string;
+  /**
+   * 'firebase' while the password still only exists in the old Firebase project. The first
+   * successful login checks it there, stores it as a normal hash here and clears this.
+   */
+  legacyAuth?: 'firebase';
   /** Customer's favourite drivers (spec §4.1). */
   favorites: Types.ObjectId[];
   walletId?: Types.ObjectId;
@@ -74,6 +81,8 @@ const userSchema = new Schema<IUser>(
     phone: { type: String, required: true, trim: true },
     passwordHash: { type: String, required: true, select: false },
     googleId: { type: String, index: { unique: true, sparse: true } },
+    firebaseUid: { type: String, index: { unique: true, sparse: true } },
+    legacyAuth: { type: String, enum: ['firebase'] },
     favorites: [{ type: Schema.Types.ObjectId, ref: 'Driver' }],
     walletId: { type: Schema.Types.ObjectId, ref: 'Wallet' },
     stripeCustomerId: { type: String, index: true, sparse: true },

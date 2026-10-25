@@ -15,6 +15,7 @@ import type { LoginInput, RegisterInput } from './auth.validation';
 import { revokeUserSessions } from './revocation';
 import { splitName } from '../../utils/profile';
 import { sendWelcomeEmail } from '../notifications/notification.emails';
+import { verifyFirebasePassword } from '../../integrations/firebasePassword';
 
 const BCRYPT_ROUNDS = 12;
 const BLACKLIST_PREFIX = 'auth:blacklist:refresh:';
@@ -173,9 +174,25 @@ export async function login(input: LoginInput) {
    * account-enumeration oracle that needs no error-message difference to exploit. Hashing
    * against a dummy value keeps the timing of the two paths comparable.
    */
-  const matches = user
+  let matches = user
     ? await bcrypt.compare(input.password, user.passwordHash)
     : await bcrypt.compare(input.password, DUMMY_PASSWORD_HASH);
+
+  /*
+   * A customer carried over from the old site has no password here yet — only in the old
+   * Firebase project. Ask Firebase once; if it agrees, keep the password as an ordinary
+   * hash so every later login is local and Firebase is never needed for them again.
+   */
+  if (user && !matches && user.legacyAuth === 'firebase') {
+    const verdict = await verifyFirebasePassword(input.email, input.password);
+    if (verdict.ok) {
+      user.passwordHash = await bcrypt.hash(input.password, BCRYPT_ROUNDS);
+      user.legacyAuth = undefined;
+      if (!user.firebaseUid) user.firebaseUid = verdict.uid;
+      await user.save();
+      matches = true;
+    }
+  }
 
   if (!user || !matches) throw ApiError.unauthorized('Invalid email or password');
 

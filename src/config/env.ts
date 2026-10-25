@@ -26,6 +26,11 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(5000),
 
   MONGO_URI: z.string().min(1, 'MONGO_URI is required'),
+  /**
+   * Optional safety net: when set, the app refuses to start unless MONGO_URI names exactly
+   * this database. Strongly advised on any cluster that holds other databases.
+   */
+  EXPECTED_DB_NAME: z.string().optional(),
   REDIS_URL: z.string().min(1, 'REDIS_URL is required'),
 
   JWT_ACCESS_SECRET: z.string().min(1, 'JWT_ACCESS_SECRET is required'),
@@ -34,6 +39,11 @@ const envSchema = z.object({
   // "Sign in with Google": the OAuth Web client id (public — it is also in the browser).
   // Empty = the endpoint answers 503 and the passenger site hides the button.
   GOOGLE_CLIENT_ID: z.string().optional(),
+
+  // Old-site customers: their passwords still live in the old Firebase project. With this
+  // key set, a customer flagged `legacyAuth` is checked against Firebase on first login and
+  // the password is then stored here. It is the public web key the old booking site ships.
+  FIREBASE_WEB_API_KEY: z.string().optional(),
 
   // Flight data: aviationstack | flightaware. Empty = mock data.
   FLIGHT_API_PROVIDER: z.string().optional(),

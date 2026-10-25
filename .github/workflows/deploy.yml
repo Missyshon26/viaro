@@ -1,0 +1,52 @@
+name: Deploy backend
+
+# Push to main -> test -> build -> upload to the server -> restart -> health check.
+# The server never reaches out to GitHub: CI builds, then pushes the finished build over SSH.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run test:integration
+      - run: npm run build
+
+      - name: Package release
+        run: |
+          mkdir -p release
+          cp -r dist package.json package-lock.json release/
+          tar -czf release.tgz -C release .
+
+      - name: Install SSH key
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Upload and switch release
+        env:
+          TARGET: ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}
+          RELEASE: ${{ github.sha }}
+        run: |
+          SSH="ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes"
+          scp -i ~/.ssh/deploy_key -o IdentitiesOnly=yes release.tgz "$TARGET:/tmp/abl-$RELEASE.tgz"
+          $SSH "$TARGET" "bash -s" -- "$RELEASE" < scripts/deploy/remote-deploy.sh

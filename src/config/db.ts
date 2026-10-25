@@ -2,6 +2,7 @@ import dns from 'node:dns';
 import mongoose from 'mongoose';
 import { env, isProduction } from './env';
 import { logger } from '../utils/logger';
+import { assertConnectedDatabase, assertExpectedDatabase } from './dbGuard';
 
 mongoose.set('strictQuery', true);
 
@@ -10,6 +11,9 @@ if (!isProduction) {
 }
 
 export async function connectMongo(): Promise<typeof mongoose> {
+  // Before anything connects: is this even the database we meant?
+  assertExpectedDatabase(env.MONGO_URI, env.EXPECTED_DB_NAME);
+
   mongoose.connection.on('connected', () => logger.info('Mongo connected'));
   mongoose.connection.on('disconnected', () => logger.warn('Mongo disconnected'));
   mongoose.connection.on('error', (err: Error) => logger.error('Mongo error', err));
@@ -35,6 +39,7 @@ export async function connectMongo(): Promise<typeof mongoose> {
     await mongoose.connect(env.MONGO_URI, { serverSelectionTimeoutMS: 10_000 });
   }
 
+  assertConnectedDatabase(mongoose.connection.name, env.EXPECTED_DB_NAME);
   return mongoose;
 }
 
