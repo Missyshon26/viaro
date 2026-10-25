@@ -6,8 +6,9 @@ set -euo pipefail
 RELEASE="$1"
 BASE="$HOME/abl-backend"
 NEXT="$BASE/releases/$RELEASE"
-PORT="${ABL_PORT:-9015}"
-export NVM_DIR="$HOME/.nvm"; . "$NVM_DIR/nvm.sh"; nvm use 22 >/dev/null
+PORT="$(grep -E '^PORT=' "$BASE/.env" | tail -1 | cut -d= -f2)"; PORT="${PORT:-9015}"
+NODE_BIN="$HOME/node22/bin"
+export PATH="$NODE_BIN:$PATH"
 
 [ -f "$BASE/.env" ] || { echo "missing $BASE/.env" >&2; exit 1; }
 
@@ -23,7 +24,7 @@ ln -sfn "$NEXT" "$BASE/current"
 if pm2 describe abl-backend >/dev/null 2>&1; then
   pm2 reload abl-backend --update-env
 else
-  (cd "$BASE/current" && PORT="$PORT" pm2 start dist/server.js --name abl-backend --time)
+  (pm2 start "$BASE/current/dist/server.js" --cwd "$BASE/current" --name abl-backend --interpreter "$NODE_BIN/node" --time)
 fi
 pm2 save >/dev/null
 
@@ -31,8 +32,9 @@ pm2 save >/dev/null
 for i in $(seq 1 20); do
   if curl -fsS "http://127.0.0.1:$PORT/health" >/dev/null; then
     echo "healthy: $RELEASE"
-    # keep the three newest releases, drop the rest
-    ls -1dt "$BASE"/releases/*/ | tail -n +4 | xargs -r rm -rf
+    # keep the two newest releases (each carries its own node_modules), drop the rest
+    ls -1dt "$BASE"/releases/*/ | tail -n +3 | xargs -r rm -rf
+    "$NODE_BIN/npm" cache clean --force >/dev/null 2>&1 || true
     exit 0
   fi
   sleep 2
