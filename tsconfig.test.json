@@ -1,0 +1,12 @@
+{
+  // The build config deliberately compiles only src/, so tests/ was never typechecked —
+  // vitest transpiles without checking types. `npm run typecheck` runs this too.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    // The build pins rootDir to src/; widened here so tests/ can be part of the program.
+    "rootDir": ".",
+    "types": ["node", "vitest/globals"]
+  },
+  "include": ["src/**/*.ts", "tests/**/*.ts", "vitest.config.mts"]
+}

@@ -1,0 +1,339 @@
+import { PricingRule } from '../../models/PricingRule';
+import { Subscription } from '../../models/Subscription';
+import type { TripType } from '../../models/Booking';
+import { hourOfDay, now, toAppTime, toDate, type DateInput } from '../../config/timezone';
+import { ApiError } from '../../utils/ApiError';
+import { round2 } from '../../utils/money';
+import * as vehicleService from '../vehicle/vehicle.service';
+import { collectPayment, isStripeEnabled } from '../../integrations/paymentGateway';
+import { getCardOnFile } from '../payments/cardPayments';
+import { getSettingsValues } from '../admin/settings.service';
+import { applyAdjustments, discountFor, type Discount, type DiscountKind } from './pricing.adjustments';
+import { MEET_AND_GREET_FEE, routeFareFor } from '../../config/services';
+import type {
+  CreatePricingRuleInput,
+  CreateSubscriptionInput,
+  UpdatePricingRuleInput,
+} from './pricing.validation';
+
+/**
+ * Peak windows, expressed in America/Los_Angeles local time (spec §8 rule 1).
+ * Defined once here and reused by both the estimate endpoint and the real fare
+ * calculation used when a booking is created — never duplicated.
+ */
+export const PEAK_WINDOWS: Array<{ startHour: number; endHour: number }> = [
+  { startHour: 7, endHour: 9 }, // 07:00–08:59 PT
+  { startHour: 17, endHour: 19 }, // 17:00–18:59 PT
+];
+
+export function isPeakHour(when: DateInput = now()): boolean {
+  const hour = hourOfDay(when);
+  return PEAK_WINDOWS.some((w) => hour >= w.startHour && hour < w.endHour);
+}
+
+/**
+ * Primetime: a flat surcharge on pickups late at night or early in the morning, in
+ * America/Los_Angeles local time (pre-deployment checklist §2: +$20, 10pm–7am).
+ *
+ * Unlike the peak multiplier this applies to every pricing model, fixed rates included,
+ * and a subscription does not waive it — it pays for an unsocial-hours chauffeur, not
+ * for demand.
+ */
+export const PRIMETIME = { startHour: 22, endHour: 7, surcharge: 20 } as const;
+
+export function isPrimetime(when: DateInput = now()): boolean {
+  const hour = hourOfDay(when);
+  // The window wraps midnight: 22:00–23:59 and 00:00–06:59.
+  return hour >= PRIMETIME.startHour || hour < PRIMETIME.endHour;
+}
+
+export async function hasActiveSubscription(userId: string): Promise<boolean> {
+  const sub = await Subscription.findOne({ userId, status: 'active' }).lean();
+  if (!sub) return false;
+  // An 'active' row whose renewal date has passed is really expired.
+  return toAppTime(sub.renewalDate) >= now();
+}
+
+export interface FareBreakdown {
+  city: string;
+  tripType: TripType;
+  baseFare: number;
+  peakMultiplier: number;
+  isPeak: boolean;
+  subscriber: boolean;
+  hours?: number;
+  /** Echoed back so a client can show which class the quote is for. */
+  vehicleClass?: string;
+  /** The class uplift applied, from config/vehicles.ts. 1 when the class is unknown. */
+  vehicleMultiplier: number;
+  /**
+   * How the class part of the fare was worked out:
+   *   flat        — the class's fixed transfer price
+   *   hourly      — the class's fixed price per hour × hours
+   *   multiplier  — city base fare × peak × hours × class multiplier
+   *   route       — a fixed price for this journey (config/services.ts ROUTE_FARES)
+   */
+  pricingModel: 'flat' | 'hourly' | 'multiplier' | 'route';
+  /** The route the price came from, when pricingModel is 'route'. */
+  route?: string;
+  /** Whether the peak multiplier was actually charged (never on a fixed rate). */
+  peakApplied: boolean;
+  /** The fare before surcharges, after any minimum fare. */
+  classFare: number;
+  /** Set when the class's minimum fare lifted the price. */
+  minimumFare?: number;
+  primetime: boolean;
+  primetimeSurcharge: number;
+  /** The Meet and Greet add-on; 0 when not requested. */
+  meetAndGreetFee: number;
+  /** How many intermediate stops were priced, and the charge for them (0 if none). */
+  stopCount: number;
+  stopFee: number;
+  /** The trip price: classFare + primetimeSurcharge + meetAndGreetFee + stopFee. */
+  subtotal: number;
+  /** The tip the customer chose (a percentage of the subtotal), and what it comes to. */
+  gratuityPct: number;
+  gratuity: number;
+  /** A welcome or loyalty discount, in dollars; 0 when none applies. */
+  discountKind?: DiscountKind;
+  discount: number;
+  /** Sales tax on subtotal + gratuity − discount. */
+  taxPct: number;
+  tax: number;
+  /** What is charged: subtotal + gratuity − discount + tax. */
+  fare: number;
+}
+
+/**
+ * Single fare calculator — the estimate endpoint and booking creation both call this, so
+ * a customer can never be quoted one number and charged another.
+ *
+ * Rule (spec §4.2): an active subscriber pays the flat city base fare with no peak
+ * uplift. Everyone else pays baseFare * peakMultiplier during a peak window.
+ */
+export async function calculateFare(opts: {
+  city: string;
+  tripType: TripType;
+  requestedAt?: DateInput;
+  hours?: number;
+  customerId?: string;
+  /** Optional: an absent or unrecognised class bills at the base rate. */
+  vehicleClass?: string;
+  /** Both addresses, so a fixed route price (e.g. Tacoma ↔ Sea-Tac) can apply. */
+  pickupAddress?: string;
+  dropAddress?: string;
+  meetAndGreet?: boolean;
+  /** Intermediate stops on a transfer; each is charged the class's stopFee. */
+  stopCount?: number;
+  /** The tip the customer chose, as a percentage of the trip price. Absent = none. */
+  gratuityPct?: number;
+  /** Earlier trips in the same request (the legs of a journey priced together). */
+  tripsAhead?: number;
+  /**
+   * Re-pricing a booking that already exists: keep the tip, tax rate and discount it was
+   * given, instead of looking them up again. Today's settings, or the customer's trip
+   * count, must not change what an amendment costs.
+   */
+  locked?: { gratuityPct: number; taxPct: number; discount?: Discount | null };
+}): Promise<FareBreakdown> {
+  const rule = await PricingRule.findOne({ city: opts.city.toLowerCase() }).lean();
+  if (!rule) throw ApiError.notFound(`No pricing rule configured for city '${opts.city}'`);
+
+  const when = opts.requestedAt ?? now();
+  const peak = isPeakHour(when);
+  const subscriber = opts.customerId ? await hasActiveSubscription(opts.customerId) : false;
+
+  // Hourly trips bill the (possibly peak-adjusted) rate per hour booked.
+  const multiplier = subscriber || !peak ? 1 : rule.peakMultiplier;
+  const hours = opts.tripType === 'hourly' ? (opts.hours ?? 1) : undefined;
+  // The class uplift compounds with the peak multiplier: a Sprinter in a peak window
+  // pays both. A subscriber still escapes the peak part, never the class part — the
+  // plan waives surge pricing, it does not buy a bigger car at saloon rates.
+  // The catalogue is a collection now, so operations can change a class multiplier
+  // without a deploy. config/vehicles.ts is only the seed and the last-resort fallback.
+  // A class restricted to hourly (or to transfers) cannot be quoted for the other kind.
+  await vehicleService.assertClassOffered(opts.vehicleClass, opts.tripType);
+  const rates = await vehicleService.ratesFor(opts.vehicleClass, opts.tripType);
+
+  /*
+   * A fixed rate on the class wins: the rate card is the price, so neither the city base
+   * fare nor the peak window touches it. The city rule is still required above — it is
+   * what makes a city bookable at all.
+   */
+  // A route price is the most specific of all, so it wins over the class's flat rate.
+  // Transfers only: an hourly charter is priced by the hour wherever it goes.
+  const route =
+    opts.tripType === 'hourly'
+      ? null
+      : routeFareFor(opts.pickupAddress, opts.dropAddress, opts.vehicleClass);
+
+  const pricingModel: FareBreakdown['pricingModel'] = route
+    ? 'route'
+    : rates.fixedRate !== null
+      ? opts.tripType === 'hourly'
+        ? 'hourly'
+        : 'flat'
+      : 'multiplier';
+  const computed = route
+    ? route.price
+    : pricingModel === 'multiplier'
+      ? rule.baseFare * multiplier * (hours ?? 1) * rates.multiplier
+      : (rates.fixedRate as number) * (hours ?? 1);
+
+  const floored = rates.minimumFare !== null && computed < rates.minimumFare;
+  const classFare = round2(floored ? (rates.minimumFare as number) : computed);
+
+  const primetime = isPrimetime(when);
+  const primetimeSurcharge = primetime ? PRIMETIME.surcharge : 0;
+  const meetAndGreetFee = opts.meetAndGreet ? MEET_AND_GREET_FEE : 0;
+  // Stops belong to transfers: an hourly charter goes wherever the hours take it.
+  const stopCount = opts.tripType === 'hourly' ? 0 : Math.max(0, Math.floor(opts.stopCount ?? 0));
+  const stopFee = round2(stopCount * rates.stopFee);
+  const subtotal = round2(classFare + primetimeSurcharge + meetAndGreetFee + stopFee);
+
+  const locked = opts.locked;
+  const adjustments = applyAdjustments({
+    subtotal,
+    gratuityPct: locked ? locked.gratuityPct : opts.gratuityPct,
+    taxPct: locked ? locked.taxPct : (await getSettingsValues()).taxPct,
+    discount: locked
+      ? locked.discount
+      : opts.customerId
+        ? await discountFor(opts.customerId, opts.tripsAhead ?? 0)
+        : null,
+  });
+
+  return {
+    city: rule.city,
+    tripType: opts.tripType,
+    baseFare: rule.baseFare,
+    peakMultiplier: rule.peakMultiplier,
+    isPeak: peak,
+    subscriber,
+    ...(hours !== undefined ? { hours } : {}),
+    ...(opts.vehicleClass ? { vehicleClass: opts.vehicleClass } : {}),
+    vehicleMultiplier: rates.multiplier,
+    pricingModel,
+    ...(route ? { route: route.label } : {}),
+    peakApplied: pricingModel === 'multiplier' && multiplier !== 1,
+    classFare,
+    ...(floored ? { minimumFare: rates.minimumFare as number } : {}),
+    primetime,
+    primetimeSurcharge,
+    meetAndGreetFee,
+    stopCount,
+    stopFee,
+    subtotal,
+    gratuityPct: adjustments.gratuityPct,
+    gratuity: adjustments.gratuity,
+    ...(adjustments.discountKind ? { discountKind: adjustments.discountKind } : {}),
+    discount: adjustments.discount,
+    taxPct: adjustments.taxPct,
+    tax: adjustments.tax,
+    fare: adjustments.total,
+  };
+}
+
+/* ------------------------------ subscriptions ----------------------------- */
+
+/**
+ * The subscription catalogue — the ONLY source of a plan's price.
+ *
+ * Price used to arrive in the request body, so `{"plan":"free","price":0}` bought a real
+ * subscription for nothing and switched on the subscriber discount for every subsequent
+ * fare. A price the customer can name is not a price.
+ */
+export const SUBSCRIPTION_PLANS: Record<string, { label: string; price: number }> = {
+  monthly: { label: 'ABL Monthly', price: 49 },
+  annual: { label: 'ABL Annual', price: 499 },
+};
+
+export function listSubscriptionPlans() {
+  return Object.entries(SUBSCRIPTION_PLANS).map(([key, plan]) => ({
+    plan: key,
+    label: plan.label,
+    price: plan.price,
+  }));
+}
+
+export async function createSubscription(userId: string, input: CreateSubscriptionInput) {
+  const active = await Subscription.findOne({ userId, status: 'active' }).lean();
+  if (active) throw ApiError.conflict('You already have an active subscription');
+
+  const catalogue = SUBSCRIPTION_PLANS[input.plan.toLowerCase()];
+  if (!catalogue) {
+    throw ApiError.badRequest(
+      `Unknown plan '${input.plan}'. Choose one of: ${Object.keys(SUBSCRIPTION_PLANS).join(', ')}`,
+    );
+  }
+
+  /*
+   * Charge BEFORE activating.
+   *
+   * Activation is what grants the discount, so it must never happen on the strength of an
+   * unpaid request. A declined card leaves no subscription behind at all.
+   */
+  // Charged to the card saved at the customer's last booking checkout.
+  const card = isStripeEnabled() ? await getCardOnFile(userId) : null;
+  if (isStripeEnabled() && !card) {
+    throw new ApiError(402, 'Add a card by booking a ride first, then you can subscribe.');
+  }
+  const charge = await collectPayment({
+    amount: catalogue.price,
+    reference: `subscription:${userId}:${Date.now()}`,
+    description: `ABL ${catalogue.label} subscription`,
+    ...(card ? { customerId: card.customerId, paymentMethodId: card.paymentMethodId } : {}),
+  });
+
+  if (!charge.success) throw new ApiError(402, 'Payment for the subscription was declined');
+
+  const startDate = now();
+  return Subscription.create({
+    userId,
+    plan: input.plan.toLowerCase(),
+    price: catalogue.price,
+    status: 'active',
+    startDate: toDate(startDate),
+    renewalDate: toDate(startDate.plus({ months: 1 })),
+    paymentReference: charge.gatewayReference ?? null,
+  });
+}
+
+export async function getMySubscription(userId: string) {
+  const sub = await Subscription.findOne({ userId }).sort({ createdAt: -1 }).lean();
+  if (!sub) throw ApiError.notFound('No subscription found');
+  return sub;
+}
+
+export async function cancelSubscription(userId: string) {
+  const sub = await Subscription.findOne({ userId, status: 'active' });
+  if (!sub) throw ApiError.notFound('No active subscription to cancel');
+
+  sub.status = 'cancelled';
+  await sub.save();
+  return sub;
+}
+
+/* ------------------------------ admin pricing ----------------------------- */
+
+export async function createPricingRule(input: CreatePricingRuleInput) {
+  const existing = await PricingRule.findOne({ city: input.city.toLowerCase() }).lean();
+  if (existing) throw ApiError.conflict(`Pricing for '${input.city}' already exists — PATCH it instead`);
+  return PricingRule.create(input);
+}
+
+export async function listPricingRules() {
+  return PricingRule.find().sort({ city: 1 }).lean();
+}
+
+export async function updatePricingRule(id: string, input: UpdatePricingRuleInput) {
+  const rule = await PricingRule.findByIdAndUpdate(id, { $set: input }, { new: true, runValidators: true });
+  if (!rule) throw ApiError.notFound('Pricing rule not found');
+  return rule;
+}
+
+/** Bookings reference a city by name, not by rule id, so removing a rule orphans nothing. */
+export async function deletePricingRule(id: string): Promise<void> {
+  const rule = await PricingRule.findByIdAndDelete(id);
+  if (!rule) throw ApiError.notFound('Pricing rule not found');
+}

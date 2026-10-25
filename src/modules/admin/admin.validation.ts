@@ -1,0 +1,126 @@
+import { z } from 'zod';
+import { DRIVER_PAYOUT_MODES, DRIVER_STATUSES } from '../../models/Driver';
+import { paginationSchema } from '../../utils/pagination';
+import { MAX_JOURNEY_LEGS } from '../../config/services';
+import { createBookingSchema, refineLegOrder } from '../booking/booking.validation';
+
+/**
+ * A company either links an existing driver account by email, or creates one outright.
+ * Supplying a password means "create"; omitting it means "link an existing account".
+ */
+export const createDriverSchema = z.object({
+  name: z.string().min(2).max(120),
+  email: z.string().email().toLowerCase(),
+  phone: z.string().min(6).max(30),
+  password: z.string().min(8).max(128).optional(),
+  vehicleClass: z.string().min(1).max(60),
+});
+
+export type CreateDriverInput = z.infer<typeof createDriverSchema>;
+
+export const updateDriverSchema = z
+  .object({
+    vehicleClass: z.string().min(1).max(60).optional(),
+    status: z.enum(DRIVER_STATUSES).optional(),
+    /**
+     * What this driver is paid per completed trip, set by their owner.
+     *   percentage -> % of the owner's revenue share for that trip
+     *   flat       -> fixed amount per trip
+     */
+    payout: z
+      .object({
+        mode: z.enum(DRIVER_PAYOUT_MODES),
+        value: z.coerce.number().min(0),
+      })
+      .optional(),
+  })
+  .refine((d) => Object.keys(d).length > 0, { message: 'No updatable fields supplied' })
+  .refine((d) => !(d.payout?.mode === 'percentage' && d.payout.value > 100), {
+    message: 'A percentage payout cannot exceed 100',
+    path: ['payout', 'value'],
+  });
+
+export type UpdateDriverInput = z.infer<typeof updateDriverSchema>;
+
+export const idParamSchema = z.object({
+  id: z.string().regex(/^[a-fA-F0-9]{24}$/, 'Invalid id'),
+});
+
+export type IdParam = z.infer<typeof idParamSchema>;
+
+export const listQuerySchema = paginationSchema;
+
+/** PATCH /admin/settings/payout — the default rate for chauffeurs with none of their own. */
+export const payoutDefaultsSchema = z
+  .object({
+    mode: z.enum(DRIVER_PAYOUT_MODES),
+    value: z.coerce.number().min(0).max(10_000),
+  })
+  .refine((d) => !(d.mode === 'percentage' && d.value > 100), {
+    message: 'A percentage payout cannot exceed 100',
+    path: ['value'],
+  });
+
+export type PayoutDefaultsInput = z.infer<typeof payoutDefaultsSchema>;
+
+/** PATCH /admin/settings — any subset of the admin-editable business settings. */
+export const settingsUpdateSchema = z
+  .object({
+    driverPayout: z
+      .object({ mode: z.enum(DRIVER_PAYOUT_MODES), value: z.coerce.number().min(0).max(10_000) })
+      .refine((d) => !(d.mode === 'percentage' && d.value > 100), {
+        message: 'A percentage payout cannot exceed 100',
+        path: ['value'],
+      })
+      .optional(),
+    companyRevenuePct: z.coerce.number().min(0).max(100).optional(),
+    withdrawalFeePct: z.coerce.number().min(0).max(50).optional(),
+    supportInboxEmail: z.string().trim().toLowerCase().email().optional(),
+    taxPct: z.coerce.number().min(0, 'Tax cannot be negative').max(30, 'Tax above 30% is probably a typo').optional(),
+    welcomeDiscount: z.coerce.number().min(0).max(1000).optional(),
+    loyaltyDiscount: z.coerce.number().min(0).max(1000).optional(),
+    loyaltyEveryNth: z.coerce.number().int().min(2, 'At least every 2nd trip').max(50).optional(),
+  })
+  .refine((d) => Object.keys(d).length > 0, 'Nothing to update');
+
+export type SettingsUpdateInput = z.infer<typeof settingsUpdateSchema>;
+
+/**
+ * A trip an operator books for a client. The trip itself is exactly what the passenger site
+ * sends, nested so its own rules (stops, cruise, hourly) are enforced unchanged.
+ */
+export const adminTripSchema = z.object({
+  customerId: z.string().regex(/^[a-fA-F0-9]{24}$/, 'Choose a client'),
+  trip: createBookingSchema,
+});
+export type AdminTripInput = z.infer<typeof adminTripSchema>;
+
+/** A multi-city journey or round trip an operator books for a client: two to five legs. */
+export const adminJourneySchema = z
+  .object({
+    customerId: z.string().regex(/^[a-fA-F0-9]{24}$/, 'Choose a client'),
+    legs: z.array(createBookingSchema).min(2).max(MAX_JOURNEY_LEGS),
+  })
+  .superRefine((data, ctx) => refineLegOrder(data.legs, ctx));
+export type AdminJourneyInput = z.infer<typeof adminJourneySchema>;
+
+/**
+ * A refund made from the trip page. `amount` is dollars (the whole fare or part of it);
+ * `requestId` is made once per refund dialog so a repeated request cannot refund twice.
+ */
+export const adminRefundSchema = z.object({
+  amount: z.coerce.number().positive('Enter an amount greater than zero').max(1_000_000),
+  requestId: z.string().regex(/^[A-Za-z0-9_-]{8,64}$/, 'Missing request id'),
+  note: z.string().trim().max(200).optional(),
+});
+export type AdminRefundInput = z.infer<typeof adminRefundSchema>;
+
+/** Turning down a booking request: the reason is shown to the customer, so it is required. */
+export const adminRejectSchema = z.object({
+  reason: z.string().trim().min(3, 'Give the customer a reason').max(300),
+});
+export type AdminRejectInput = z.infer<typeof adminRejectSchema>;
+
+/** Approving or rejecting a customer's signed agreement. */
+export const adminAgreementReviewSchema = z.object({ decision: z.enum(['approve', 'reject']) });
+export type AdminAgreementReviewInput = z.infer<typeof adminAgreementReviewSchema>;
