@@ -39,7 +39,7 @@ export async function fareEstimate(req: Request, res: Response): Promise<void> {
     tripType: q.tripType,
     requestedAt: q.requestedAt,
     hours: q.hours,
-    customerId: req.user!.userId,
+    customerId: req.user?.role === 'customer' ? req.user.userId : undefined,
     vehicleClass: q.vehicleClass,
     pickupAddress: q.pickup,
     dropAddress: q.drop,

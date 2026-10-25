@@ -9,7 +9,8 @@ import { sendWelcomeEmail } from '../notifications/notification.emails';
 import { issueTokens, sanitise } from './auth.service';
 import type { GoogleInput } from './auth.validation';
 
-const BCRYPT_ROUNDS = 12;
+/** The stored password for a Google-created account is random and unknowable; see auth.guest.service. */
+const UNUSABLE_PASSWORD_ROUNDS = 4;
 
 /**
  * "Sign in with Google" for passengers.
@@ -58,7 +59,7 @@ export async function googleSignIn(input: GoogleInput) {
     return { status: 'needs_phone' as const, profile: { name: google.name, email: google.email } };
   }
 
-  const passwordHash = await bcrypt.hash(crypto.randomBytes(24).toString('base64url'), BCRYPT_ROUNDS);
+  const passwordHash = await bcrypt.hash(crypto.randomBytes(24).toString('base64url'), UNUSABLE_PASSWORD_ROUNDS);
   const fullName = google.name;
   const user = await User.create({
     role: 'customer',

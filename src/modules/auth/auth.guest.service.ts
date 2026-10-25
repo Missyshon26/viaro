@@ -9,7 +9,13 @@ import { alertNewCustomer } from '../notifications/notification.emails';
 import { sendGuestWelcome } from './auth.account.service';
 import type { GuestInput } from './auth.validation';
 
-const BCRYPT_ROUNDS = 12;
+/**
+ * The password a guest account is created with is random and never shown to anyone, so it
+ * cannot be guessed whatever the cost — a full-strength hash only made "Continue as guest"
+ * wait about 0.3s for nothing. When the guest later sets a real password it is hashed
+ * at the normal strength then.
+ */
+const UNUSABLE_PASSWORD_ROUNDS = 4;
 
 /**
  * "Continue as guest" at checkout.
@@ -27,7 +33,7 @@ export async function guestCheckout(input: GuestInput) {
     });
   }
 
-  const passwordHash = await bcrypt.hash(crypto.randomBytes(24).toString('base64url'), BCRYPT_ROUNDS);
+  const passwordHash = await bcrypt.hash(crypto.randomBytes(24).toString('base64url'), UNUSABLE_PASSWORD_ROUNDS);
 
   const user = await User.create({
     role: 'customer',

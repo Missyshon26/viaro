@@ -132,8 +132,8 @@ export const MATRIX: MatrixEntry[] = [
   {
     method: 'GET',
     path: '/pricing/fare-estimate',
-    allowed: ['customer'],
-    note: 'a signed-out visitor cannot be quoted — see FRONTEND-STATUS §4b',
+    allowed: PUBLIC,
+    note: 'the booking form quotes before sign-in; only a signed-in customer is quoted their own discounts',
   },
   { method: 'POST', path: '/subscriptions', allowed: ['customer'] },
   // The plan catalogue: prices moved server-side, so customers read them from here.
@@ -160,8 +160,8 @@ export const MATRIX: MatrixEntry[] = [
   {
     method: 'GET',
     path: '/vehicle-classes',
-    allowed: ANY_ROLE,
-    note: 'every app turns a stored vehicleClass key into a label',
+    allowed: PUBLIC,
+    note: 'the booking form is shown before sign-in; visitors get the catalogue without its pricing inputs',
   },
   { method: 'POST', path: '/admin/vehicle-classes', allowed: ['admin'] },
   { method: 'PATCH', path: '/admin/vehicle-classes/:id', allowed: ['admin'] },

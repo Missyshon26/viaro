@@ -11,20 +11,23 @@ import {
 } from './vehicle.validation';
 import { validate } from '../../utils/validate';
 import { asyncHandler } from '../../utils/asyncHandler';
-import { authGuard } from '../../middlewares/authGuard';
+import { authGuard, optionalAuth } from '../../middlewares/authGuard';
 import { roleGuard } from '../../middlewares/roleGuard';
 
 /**
  * Mounted at /vehicle-classes — the catalogue the booking form renders.
  *
- * Readable by any signed-in role rather than customers only: the chauffeur portal and
- * both consoles all need to turn a stored `vehicleClass` key into a label.
+ * Open to everyone, because the booking form is shown before anyone has signed in. A visitor
+ * with no account gets the catalogue without the pricing inputs (multipliers, flat and hourly
+ * rates, minimum fare, stop fee) — they see prices as quotes for a journey, never the rate
+ * card behind them. Any signed-in role gets the full record: the chauffeur portal and both
+ * consoles turn a stored `vehicleClass` key into a label and the admin edits the rates.
  */
 export const vehicleRouter = Router();
 
 vehicleRouter.get(
   '/',
-  authGuard,
+  optionalAuth,
   validate({ query: listVehicleQuerySchema }),
   asyncHandler(controller.list),
 );
