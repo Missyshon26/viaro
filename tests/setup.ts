@@ -38,6 +38,11 @@ process.env.MONGO_URI = 'mongodb://127.0.0.1:27017/abl-test';
 // Uploaded images go to a throwaway folder, never into the project's own ./uploads.
 process.env.UPLOAD_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'abl-test-uploads-'));
 process.env.PUBLIC_API_URL = 'http://api.test';
+// The authorization matrix fires several hundred requests from one caller; the production
+// default (300/min) would answer the tail of it with 429. Set here so the suite does not
+// depend on whatever a developer's own .env raises it to.
+process.env.API_RATE_LIMIT_MAX = '100000';
+process.env.AUTH_RATE_LIMIT_MAX = '100000';
 process.env.REDIS_URL = 'redis://127.0.0.1:6379';
 for (const key of [
   'PAYMENT_GATEWAY_PROVIDER',
