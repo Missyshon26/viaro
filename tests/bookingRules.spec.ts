@@ -13,7 +13,10 @@ import { WEDDING_VEHICLE_CLASSES, isWeddingVehicle } from '../src/config/service
 
 describe('the wedding rule', () => {
   it('names exactly the two First Class classes', () => {
-    expect([...WEDDING_VEHICLE_CLASSES]).toEqual(['sedan-first', 'suv-first']);
+    expect([...WEDDING_VEHICLE_CLASSES]).toEqual(['sedan-first', 'suv-first', 'legacy-first-class-sedan-long-distance', 'legacy-first-class-suv']);
+    // the same two classes under the keys they carry from the old booking site
+    expect(isWeddingVehicle('legacy-first-class-suv')).toBe(true);
+    expect(isWeddingVehicle('legacy-executive-sedan-sea-region')).toBe(false);
     expect(isWeddingVehicle('sedan-first')).toBe(true);
     expect(isWeddingVehicle('SUV-First')).toBe(true);
     expect(isWeddingVehicle(' suv-first ')).toBe(true);
@@ -79,7 +82,7 @@ describe('assertVehicleRules', () => {
   it('refuses the wrong vehicle for a wedding, with a code a client can act on', async () => {
     await expect(assertVehicleRules({ vehicleClass: 'sedan', occasion: 'Wedding' })).rejects.toMatchObject({
       statusCode: 400,
-      details: { code: 'WEDDING_VEHICLE_REQUIRED', allowed: ['sedan-first', 'suv-first'] },
+      details: { code: 'WEDDING_VEHICLE_REQUIRED', allowed: ['sedan-first', 'suv-first', 'legacy-first-class-sedan-long-distance', 'legacy-first-class-suv'] },
     });
   });
 

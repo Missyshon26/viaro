@@ -57,7 +57,7 @@ describe('the wedding vehicle rule', () => {
     for (const vehicleClass of ['sedan', 'mpv', 'suv', 'minibus']) {
       const res = await request(server).post('/bookings').set('Authorization', auth).send(body({ vehicleClass, occasion: 'Wedding' }));
       expect(res.status, vehicleClass).toBe(400);
-      expect(res.body.details).toMatchObject({ code: 'WEDDING_VEHICLE_REQUIRED', allowed: ['sedan-first', 'suv-first'] });
+      expect(res.body.details).toMatchObject({ code: 'WEDDING_VEHICLE_REQUIRED', allowed: ['sedan-first', 'suv-first', 'legacy-first-class-sedan-long-distance', 'legacy-first-class-suv'] });
     }
     expect(await Booking.countDocuments({})).toBe(0);
   });

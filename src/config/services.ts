@@ -143,7 +143,13 @@ export const WEDDING_OCCASION = 'Wedding';
  * Class SUV. These are catalogue KEYS (immutable, stored on every booking), not display
  * names, so renaming a class in the console cannot silently lift or break the rule.
  */
-export const WEDDING_VEHICLE_CLASSES: readonly string[] = ['sedan-first', 'suv-first'];
+export const WEDDING_VEHICLE_CLASSES: readonly string[] = [
+  'sedan-first',
+  'suv-first',
+  // The same two classes under the keys they carry from the old booking site.
+  'legacy-first-class-sedan-long-distance',
+  'legacy-first-class-suv',
+];
 
 export const isWeddingVehicle = (vehicleClass: string): boolean =>
   WEDDING_VEHICLE_CLASSES.includes(vehicleClass.trim().toLowerCase());
