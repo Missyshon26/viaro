@@ -22,6 +22,8 @@ export interface IUser {
   passwordHash: string;
   /** Google's stable id for the account, set when the customer signs in with Google. */
   googleId?: string;
+  /** Optional sign-in name, lowercase, unique. Carried over from the old admin console, which signed in by username. */
+  username?: string;
   /** The account's id in the old Firebase project (history import); links old records. */
   firebaseUid?: string;
   /**
@@ -81,6 +83,7 @@ const userSchema = new Schema<IUser>(
     phone: { type: String, required: true, trim: true },
     passwordHash: { type: String, required: true, select: false },
     googleId: { type: String, index: { unique: true, sparse: true } },
+    username: { type: String, lowercase: true, trim: true, index: { unique: true, sparse: true } },
     firebaseUid: { type: String, index: { unique: true, sparse: true } },
     legacyAuth: { type: String, enum: ['firebase'] },
     favorites: [{ type: Schema.Types.ObjectId, ref: 'Driver' }],

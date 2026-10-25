@@ -164,7 +164,10 @@ export async function register(input: InternalRegisterInput) {
 
 export async function login(input: LoginInput) {
   // passwordHash is select:false on the schema, so it must be requested explicitly.
-  const user = await User.findOne({ email: input.email }).select('+passwordHash');
+  const user =
+    (await User.findOne({ email: input.email }).select('+passwordHash')) ??
+    // No email match: the identifier may be a username (accounts carried over from the old admin console).
+    (input.email.includes('@') ? null : await User.findOne({ username: input.email }).select('+passwordHash'));
 
   /*
    * Constant-ish work on both paths.
@@ -184,7 +187,7 @@ export async function login(input: LoginInput) {
    * hash so every later login is local and Firebase is never needed for them again.
    */
   if (user && !matches && user.legacyAuth === 'firebase') {
-    const verdict = await verifyFirebasePassword(input.email, input.password);
+    const verdict = await verifyFirebasePassword(user.email, input.password);
     if (verdict.ok) {
       user.passwordHash = await bcrypt.hash(input.password, BCRYPT_ROUNDS);
       user.legacyAuth = undefined;

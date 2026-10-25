@@ -32,8 +32,13 @@ export const registerSchema = z
 
 export type RegisterInput = z.infer<typeof registerSchema>;
 
+/**
+ * `email` is the sign-in identifier: an email address, or the username of an account that
+ * has one (the old admin console signed in by username). The field keeps its name so every
+ * existing client keeps working.
+ */
 export const loginSchema = z.object({
-  email: z.string().email().toLowerCase(),
+  email: z.string().trim().toLowerCase().min(1, 'Enter your email or username').max(254),
   password: z.string().min(1),
 });
 
