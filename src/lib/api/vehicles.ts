@@ -37,6 +37,9 @@ export interface VehicleClass {
   minimumFare?: number | null;
   /** Charged per intermediate stop on a transfer; unset or 0 means stops are free. */
   stopFee?: number | null;
+  /** The flat transfer rate covers this many miles; each mile beyond costs `perMileRate`. Both unset = flat however far. */
+  baseMiles?: number | null;
+  perMileRate?: number | null;
   images: VehicleImage[];
   active: boolean;
   sortOrder: number;
@@ -71,6 +74,8 @@ export interface VehicleClassInput {
   hourlyRate?: number | null;
   minimumFare?: number | null;
   stopFee?: number | null;
+  baseMiles?: number | null;
+  perMileRate?: number | null;
   active?: boolean;
   sortOrder?: number;
   images?: VehicleImage[];

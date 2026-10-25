@@ -283,6 +283,8 @@ function VehicleDialog({
     hourlyRate: vehicle?.hourlyRate ?? null,
     minimumFare: vehicle?.minimumFare ?? null,
     stopFee: vehicle?.stopFee ?? null,
+    baseMiles: vehicle?.baseMiles ?? null,
+    perMileRate: vehicle?.perMileRate ?? null,
     sortOrder: vehicle?.sortOrder ?? 0,
     active: vehicle?.active ?? true,
   });
@@ -314,6 +316,9 @@ function VehicleDialog({
       hourlyRate: form.usage === "transfer" ? null : (form.hourlyRate ?? null),
       minimumFare: form.minimumFare ?? null,
       stopFee: form.stopFee ?? null,
+      // By the mile only makes sense for a flat transfer rate, and needs both numbers.
+      baseMiles: form.usage === "hourly" || !form.flatRate || !form.perMileRate ? null : (form.baseMiles ?? null),
+      perMileRate: form.usage === "hourly" || !form.flatRate || !form.baseMiles ? null : (form.perMileRate ?? null),
     };
     try {
       if (isNew) {
@@ -573,6 +578,24 @@ function VehicleDialog({
           >
             <RateInput value={form.stopFee} onChange={(v) => set("stopFee", v)} />
           </Field>
+
+          {form.usage !== "hourly" ? (
+            <>
+              <Field
+                label="Miles the flat rate covers"
+                hint="With a flat transfer rate: how far the trip goes before extra miles are charged. Leave blank, with the rate below, to charge the flat rate however far."
+              >
+                <RateInput value={form.baseMiles} onChange={(v) => set("baseMiles", v)} />
+              </Field>
+
+              <Field
+                label="Rate per extra mile ($)"
+                hint="Charged for each mile beyond that, rounded up. The route is measured by the server."
+              >
+                <RateInput value={form.perMileRate} onChange={(v) => set("perMileRate", v)} />
+              </Field>
+            </>
+          ) : null}
 
           {vehicle ? (
             <PhotoManager vehicle={vehicle} onChanged={onPhotosChanged} />
