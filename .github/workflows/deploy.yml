@@ -41,11 +41,22 @@ jobs:
           tar -czf release.tgz -C release .
 
       - name: Install SSH key
+        env:
+          # Preferred: the key as ONE base64 line (cannot be damaged by copy and paste).
+          KEY_B64: ${{ secrets.DEPLOY_SSH_KEY_B64 }}
+          # Fallback: the raw multi-line key.
+          KEY_RAW: ${{ secrets.DEPLOY_SSH_KEY }}
         run: |
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
-          [ -n "${{ secrets.DEPLOY_SSH_KEY }}" ] || { echo "Repository secret DEPLOY_SSH_KEY is missing or empty"; exit 1; }
-          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          if [ -n "$KEY_B64" ]; then
+            printf '%s' "$KEY_B64" | tr -d ' \r\n' | base64 -d > ~/.ssh/deploy_key
+          elif [ -n "$KEY_RAW" ]; then
+            printf '%s\n' "$KEY_RAW" | tr -d '\r' > ~/.ssh/deploy_key
+          else
+            echo "No SSH key: add the repository secret DEPLOY_SSH_KEY_B64 (or DEPLOY_SSH_KEY)"; exit 1
+          fi
           chmod 600 ~/.ssh/deploy_key
+          ssh-keygen -y -f ~/.ssh/deploy_key >/dev/null || { echo "The stored SSH key is not a valid private key"; exit 1; }
           ssh-keyscan -H "${{ env.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
 
       - name: Upload and switch release
