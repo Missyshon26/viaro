@@ -80,6 +80,9 @@ export async function activateLegacyCatalogue(options: {
       cls.sortOrder = position + 1;
       const feature = String(v.feature ?? '').trim();
       if (feature) cls.detail = feature;
+      // The card label the old site put on a class ("Most Popular").
+      const banner = String(v.banner ?? '').trim();
+      if (banner) cls.badge = banner;
       await cls.save();
 
       if (photos === 0 && fetchImage) {

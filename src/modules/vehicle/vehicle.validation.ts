@@ -19,6 +19,8 @@ export const createVehicleClassSchema = z.object({
     .regex(/^[a-z0-9-]+$/, 'Use lowercase letters, numbers and hyphens only'),
   label: z.string().min(2).max(80),
   detail: z.string().max(160).optional(),
+  /** A short label on the card, e.g. "Most Popular". Empty clears it. */
+  badge: z.string().trim().max(40).optional(),
   seats: z.coerce.number().int().min(1).max(60),
   bags: z.coerce.number().int().min(0).max(60),
   multiplier: z.coerce.number().min(0.1).max(20),

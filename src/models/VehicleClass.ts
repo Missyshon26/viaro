@@ -39,6 +39,8 @@ export interface IVehicleClass {
   label: string;
   /** Shown on the booking card, e.g. "Up to 3 passengers, 2 bags". */
   detail?: string;
+  /** A short label on the card, e.g. "Most Popular". */
+  badge?: string;
   seats: number;
   bags: number;
   /** Fare = cityBaseFare × peakMultiplier × hours × THIS. */
@@ -92,6 +94,7 @@ const vehicleClassSchema = new Schema<IVehicleClass>(
     value: { type: String, required: true, unique: true, trim: true, lowercase: true },
     label: { type: String, required: true, trim: true },
     detail: { type: String, trim: true },
+    badge: { type: String, trim: true, maxlength: 40 },
     seats: { type: Number, required: true, min: 1, max: 60 },
     bags: { type: Number, required: true, min: 0, max: 60 },
     multiplier: { type: Number, required: true, min: 0.1, max: 20 },

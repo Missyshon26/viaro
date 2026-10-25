@@ -23,7 +23,7 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
 
 const OLD = [
   { vehicleName: 'Executive Sedan (SEA Region)', status: 'Live', slNo: 1, maxPersons: '2', maxBags: '2', basePrice: '129', pricePerUnitHour: '119', stopPrice: '40', feature: 'Mid-Size Sedan', images: ['a.png'] },
-  { vehicleName: 'First Class SUV', status: 'Live', slNo: 4, maxPersons: '6', maxBags: '5', basePrice: '199', pricePerUnitHour: '179', stopPrice: '40', feature: 'Long Distance', images: ['b.png'] },
+  { vehicleName: 'First Class SUV', status: 'Live', slNo: 4, banner: 'Most Popular', maxPersons: '6', maxBags: '5', basePrice: '199', pricePerUnitHour: '179', stopPrice: '40', feature: 'Long Distance', images: ['b.png'] },
   { vehicleName: 'Passenger Bus', status: 'Live', slNo: 0, maxPersons: '24', maxBags: '24', basePrice: '599', pricePerUnitHour: '499', stopPrice: '40', feature: '24 Passenger Bus', images: [] },
   { vehicleName: 'Test Reservation', status: 'Inactive', slNo: 0, maxPersons: '2', maxBags: '5', basePrice: '1', pricePerUnitHour: '1', stopPrice: '1', images: [] },
 ];
@@ -69,6 +69,8 @@ describe('bringing the old vehicle lineup into service', () => {
     expect(sedan?.images).toHaveLength(1);
     expect(sedan?.images[0].key).toBeTruthy();
     expect(sedan?.images[0].src).toMatch(/^\/uploads\/vehicles\//);
+    expect((await VehicleClass.findOne({ value: valueOf('First Class SUV') }).lean())?.badge).toBe('Most Popular');
+    expect(sedan?.badge).toBeUndefined();
     const bus = await VehicleClass.findOne({ label: 'Passenger Bus' }).lean();
     expect(bus).toMatchObject({ active: true, flatRate: 599, hourlyRate: 499 });
     expect(bus!.sortOrder).toBeGreaterThan(sedan!.sortOrder); // slNo 0 means "no position": last

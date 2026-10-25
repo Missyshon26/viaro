@@ -17,10 +17,10 @@ afterAll(async () => {
 beforeEach(resetData);
 
 const QUOTE = { city: 'seattle', tripType: 'point2point', requestedAt: '2026-11-20T10:00:00', vehicleClass: 'sedan' };
-const PRICING_FIELDS = ['multiplier', 'hourlyMultiplier', 'flatRate', 'hourlyRate', 'minimumFare', 'stopFee'];
+const PRIVATE_FIELDS = ['multiplier', 'hourlyMultiplier', 'minimumFare'];
 
 describe('booking before sign-in', () => {
-  it('shows a visitor the vehicles, without the rate card behind the prices', async () => {
+  it('shows a visitor the vehicles and their rates, without the formula behind the prices', async () => {
     const res = await request(server).get('/vehicle-classes');
     expect(res.status).toBe(200);
     expect(res.body.data.length).toBeGreaterThan(0);
@@ -28,8 +28,10 @@ describe('booking before sign-in', () => {
       expect(v.value).toBeTruthy();
       expect(v.label).toBeTruthy();
       expect(v.seats).toBeGreaterThan(0);
-      for (const f of PRICING_FIELDS) expect(v, `${v.value}.${f}`).not.toHaveProperty(f);
+      for (const f of PRIVATE_FIELDS) expect(v, `${v.value}.${f}`).not.toHaveProperty(f);
     }
+    // what a customer is charged is on the card, as on the old booking site
+    expect(res.body.data.find((v: { value: string }) => v.value === 'sedan')).toMatchObject({ flatRate: 140 });
   });
 
   it('still gives a signed-in user the full record, pricing included', async () => {

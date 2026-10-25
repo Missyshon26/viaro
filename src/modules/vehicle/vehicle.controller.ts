@@ -12,8 +12,12 @@ import type {
   UpdateVehicleClassInput,
 } from './vehicle.validation';
 
-/** The pricing inputs of a class. Quotes are public; these are not. */
-const PRICING_FIELDS = ['multiplier', 'hourlyMultiplier', 'flatRate', 'hourlyRate', 'minimumFare', 'stopFee'] as const;
+/**
+ * The inputs of the fare formula, which stay private. What a customer is charged is public
+ * (the flat rate, the hourly rate and the stop fee are shown on the card, as on the old booking
+ * site); the multipliers and the minimum that the formula is built from are not.
+ */
+const PRICING_FIELDS = ['multiplier', 'hourlyMultiplier', 'minimumFare'] as const;
 
 export function withoutPricing<T extends object>(record: T): Omit<T, (typeof PRICING_FIELDS)[number]> {
   const copy: Record<string, unknown> = { ...(record as Record<string, unknown>) };
@@ -26,7 +30,7 @@ export async function list(req: Request, res: Response): Promise<void> {
   // Only an admin may see retired classes; every other role gets the bookable ones.
   const showAll = Boolean(includeInactive) && req.user?.role === 'admin';
   const classes = await vehicleService.list(showAll);
-  // No account: show the catalogue, not the rate card behind the prices.
+  // No account: the catalogue and its customer-facing rates, not the formula behind them.
   res.json({ success: true, data: req.user ? classes : classes.map(withoutPricing) });
 }
 
