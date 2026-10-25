@@ -40,12 +40,15 @@ export function SignInForm() {
   return (
     <form onSubmit={handleSubmit} className="mt-8 space-y-5" aria-busy={submitting}>
       <TextField
-        label="Work email"
-        placeholder="you@company.com"
-        type="email"
+        label="Email or username"
+        placeholder="you@company.com or your username"
+        type="text"
         value={email}
         onChange={(event) => setEmail(event.target.value)}
-        autoComplete="email"
+        autoComplete="username"
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
         required
       />
       <TextField

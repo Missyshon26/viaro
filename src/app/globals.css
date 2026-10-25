@@ -215,6 +215,9 @@ button:not(:disabled), summary, select { cursor: pointer; }
 button:disabled { cursor: not-allowed; }
 input, select, textarea { font: inherit; }
 input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+/* A TextField already draws its focus as a rounded border + ring around the whole box; the
+   generic rule above would add a second, square outline inside it. */
+input.field-input:focus-visible { outline: none; }
 h1, h2, h3 { text-wrap: balance; }
 ::selection { background: var(--accent-soft); color: var(--fg); }
 .workspace-rail { background: var(--surface-raised); }

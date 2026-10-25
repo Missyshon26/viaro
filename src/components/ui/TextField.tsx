@@ -33,7 +33,7 @@ export function TextField({ label, error, hint, className = "", ...props }: Text
           {...props}
           aria-invalid={error ? true : props["aria-invalid"]}
           aria-describedby={error || hint ? `${id}-message` : props["aria-describedby"]}
-          className="mt-0.5 w-full bg-transparent text-body font-bold text-fg outline-none placeholder:font-normal placeholder:text-fg-muted"
+          className="field-input mt-0.5 w-full bg-transparent text-body font-bold text-fg outline-none placeholder:font-normal placeholder:text-fg-muted"
         />
       </div>
 
