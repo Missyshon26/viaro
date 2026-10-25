@@ -5,6 +5,7 @@ import { isParsableDate, now, toAppTime } from '../../config/timezone';
 import {
   CRUISE_PORT_KEYS,
   MAX_CAR_SEATS,
+  totalCarSeats,
   MAX_JOURNEY_LEGS,
   MAX_GRATUITY_PCT,
   MAX_STOPS,
@@ -100,6 +101,16 @@ export const createBookingSchema = z
     /** Extras (config/services.ts). Meet and Greet is charged; car seats are free. */
     meetAndGreet: z.boolean().optional(),
     carSeats: z.coerce.number().int().min(0).max(MAX_CAR_SEATS).optional(),
+    /** The same seats by age. When sent, `carSeats` is taken as their total. */
+    carSeatTypes: z
+      .object({
+        infant: z.coerce.number().int().min(0).max(MAX_CAR_SEATS).default(0),
+        toddler: z.coerce.number().int().min(0).max(MAX_CAR_SEATS).default(0),
+        booster: z.coerce.number().int().min(0).max(MAX_CAR_SEATS).default(0),
+      })
+      .optional(),
+    /** Anything else the passenger needs the chauffeur or dispatch to know. */
+    description: z.string().trim().min(1).max(500).optional(),
     /** A cruise terminal pickup. The ship name helps the chauffeur find the right gate. */
     cruisePort: z.enum(CRUISE_PORT_KEYS as [CruisePort, ...CruisePort[]]).optional(),
     cruiseShip: z.string().trim().min(1).max(80).optional(),
@@ -123,6 +134,13 @@ export const createBookingSchema = z
         code: 'custom',
         path: ['stops'],
         message: 'An hourly charter goes wherever the hours take it; stops apply to transfers',
+      });
+    }
+    if (data.carSeatTypes && totalCarSeats(data.carSeatTypes) > MAX_CAR_SEATS) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['carSeatTypes'],
+        message: `At most ${MAX_CAR_SEATS} child seats per booking`,
       });
     }
     if (data.passengerPhone && !data.passengerName) {

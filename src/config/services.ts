@@ -16,6 +16,18 @@ export const MEET_AND_GREET_FEE = 25;
 /** Child car seats are free; this caps how many one booking can ask for. */
 export const MAX_CAR_SEATS = 3;
 
+/** The kinds of child seat a passenger can ask for, by the age they suit. All free. */
+export const CAR_SEAT_KINDS = [
+  { key: 'infant', label: 'infant seat (ages 0-1)' },
+  { key: 'toddler', label: 'toddler seat (ages 1-3)' },
+  { key: 'booster', label: 'booster seat (ages 3-6)' },
+] as const;
+export type CarSeatKind = (typeof CAR_SEAT_KINDS)[number]['key'];
+export type CarSeatTypes = Record<CarSeatKind, number>;
+
+export const totalCarSeats = (types?: Partial<CarSeatTypes> | null): number =>
+  CAR_SEAT_KINDS.reduce((sum, k) => sum + (types?.[k.key] ?? 0), 0);
+
 /* ------------------------------ extra stops -------------------------------- */
 
 /**
@@ -153,6 +165,10 @@ export interface ServiceRequest {
   vehicleClass: string;
   meetAndGreet?: boolean;
   carSeats?: number;
+  /** The same seats by age; when present these are what the note lists. */
+  carSeatTypes?: Partial<CarSeatTypes> | null;
+  /** What the customer said they need ("wheelchair", "long wait at arrivals"…). */
+  description?: string | null;
   cruisePort?: CruisePort | null;
   cruiseShip?: string | null;
   stops?: { address: string }[];
@@ -173,7 +189,12 @@ export interface ServiceRequest {
 export function buildServiceNotes(b: ServiceRequest): string[] {
   const notes: string[] = [];
   if (b.meetAndGreet) notes.push('Meet and Greet: meet the passenger inside with a name sign.');
-  if (b.carSeats) {
+  if (totalCarSeats(b.carSeatTypes) > 0) {
+    const parts = CAR_SEAT_KINDS.filter((k) => (b.carSeatTypes?.[k.key] ?? 0) > 0).map(
+      (k) => `${b.carSeatTypes![k.key]} × ${k.label}`,
+    );
+    notes.push(`Child car seats: ${parts.join(', ')} (free).`);
+  } else if (b.carSeats) {
     notes.push(`Child car seat${b.carSeats > 1 ? 's' : ''}: ${b.carSeats} requested (free).`);
   }
   if (b.cruisePort) {
@@ -196,6 +217,7 @@ export function buildServiceNotes(b: ServiceRequest): string[] {
       `Booked for someone else: ${b.passengerName}${b.passengerPhone ? `, ${b.passengerPhone}` : ''}.`,
     );
   }
+  if (b.description?.trim()) notes.push(`Customer note: ${b.description.trim()}`);
   return notes;
 }
 

@@ -213,6 +213,10 @@ export interface IBooking {
   meetAndGreet?: boolean;
   /** Child car seats requested. Free. */
   carSeats?: number;
+  /** The same seats by age (infant 0-1, toddler 1-3, booster 3-6). `carSeats` is their total. */
+  carSeatTypes?: { infant: number; toddler: number; booster: number };
+  /** In the customer's words: what they need that the other fields do not cover. */
+  description?: string;
   /** Set when the pickup is a cruise terminal. */
   cruisePort?: CruisePort;
   cruiseShip?: string;
@@ -357,6 +361,18 @@ const bookingSchema = new Schema<IBooking>(
     hours: { type: Number, min: 1, max: 24 },
     meetAndGreet: { type: Boolean, default: false },
     carSeats: { type: Number, min: 0, max: MAX_CAR_SEATS, default: 0 },
+    carSeatTypes: {
+      type: new Schema(
+        {
+          infant: { type: Number, min: 0, max: MAX_CAR_SEATS, default: 0 },
+          toddler: { type: Number, min: 0, max: MAX_CAR_SEATS, default: 0 },
+          booster: { type: Number, min: 0, max: MAX_CAR_SEATS, default: 0 },
+        },
+        { _id: false },
+      ),
+      default: undefined,
+    },
+    description: { type: String, trim: true, maxlength: 500 },
     cruisePort: { type: String, enum: CRUISE_PORT_KEYS },
     cruiseShip: { type: String, trim: true, maxlength: 80 },
     isGuest: { type: Boolean, default: false },

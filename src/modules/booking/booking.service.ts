@@ -29,7 +29,7 @@ import { applyAmendment, assertChangeable } from './booking.amendments';
 import { companyOwnsDriver } from '../../utils/roster';
 import { recordBookingCancellation } from './booking.cancellation';
 import * as events from '../events/events.bus';
-import { buildServiceNotes } from '../../config/services';
+import { buildServiceNotes, totalCarSeats } from '../../config/services';
 import { evaluate as cancellationPolicy } from '../cancellation/cancellation.service';
 import { cardLabel, refundBookingToCard } from '../payments/cardPayments';
 
@@ -149,7 +149,10 @@ export async function createBooking(
   const extras = {
     ...(input.stops?.length ? { stops: input.stops } : {}),
     meetAndGreet: Boolean(input.meetAndGreet),
-    carSeats: input.carSeats ?? 0,
+    // Seats by age, when given, are the truth and `carSeats` their total.
+    carSeats: input.carSeatTypes ? totalCarSeats(input.carSeatTypes) : (input.carSeats ?? 0),
+    ...(input.carSeatTypes && totalCarSeats(input.carSeatTypes) > 0 ? { carSeatTypes: input.carSeatTypes } : {}),
+    ...(input.description ? { description: input.description } : {}),
     ...(input.cruisePort ? { cruisePort: input.cruisePort } : {}),
     ...(input.cruisePort && input.cruiseShip ? { cruiseShip: input.cruiseShip } : {}),
     ...(input.occasion ? { occasion: input.occasion } : {}),
@@ -422,6 +425,8 @@ export async function updateBooking(bookingId: string, customerId: string, input
       vehicleClass: booking.vehicleClass,
       meetAndGreet: booking.meetAndGreet,
       carSeats: booking.carSeats,
+      carSeatTypes: booking.carSeatTypes,
+      description: booking.description,
       cruisePort: booking.cruisePort,
       cruiseShip: booking.cruiseShip,
       stops: booking.stops,
