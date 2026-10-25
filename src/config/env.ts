@@ -40,6 +40,10 @@ const envSchema = z.object({
   // Empty = the endpoint answers 503 and the passenger site hides the button.
   GOOGLE_CLIENT_ID: z.string().optional(),
 
+  // Server-side Google Directions key (the same kind the passenger site's route banner uses). It
+  // measures a journey for per-mile pricing; without it, such classes are priced at their base rate.
+  GOOGLE_MAPS_SERVER_KEY: z.string().optional(),
+
   // Old-site customers: their passwords still live in the old Firebase project. With this
   // key set, a customer flagged `legacyAuth` is checked against Firebase on first login and
   // the password is then stored here. It is the public web key the old booking site ships.

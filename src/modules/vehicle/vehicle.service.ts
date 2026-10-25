@@ -211,6 +211,9 @@ export interface ClassRates {
   minimumFare: number | null;
   /** Charge per intermediate stop. 0 when the class does not charge for stops. */
   stopFee: number;
+  /** Per-mile pricing for a flat transfer: miles the flat rate covers, and the charge per mile after. */
+  baseMiles: number | null;
+  perMileRate: number | null;
   label?: string;
 }
 
@@ -222,7 +225,7 @@ export interface ClassRates {
  * as multiplierFor — collection, then shipped defaults, then nothing.
  */
 export async function ratesFor(value?: string | null, tripType?: TripType): Promise<ClassRates> {
-  if (!value) return { multiplier: 1, fixedRate: null, minimumFare: null, stopFee: 0 };
+  if (!value) return { multiplier: 1, fixedRate: null, minimumFare: null, stopFee: 0, baseMiles: null, perMileRate: null };
 
   const hourly = tripType === 'hourly';
   const stored = await repo.findByValue(value);
@@ -232,6 +235,8 @@ export async function ratesFor(value?: string | null, tripType?: TripType): Prom
       fixedRate: (hourly ? stored.hourlyRate : stored.flatRate) ?? null,
       minimumFare: stored.minimumFare ?? null,
       stopFee: stored.stopFee ?? 0,
+      baseMiles: stored.baseMiles ?? null,
+      perMileRate: stored.perMileRate ?? null,
       label: stored.label,
     };
   }
@@ -242,6 +247,8 @@ export async function ratesFor(value?: string | null, tripType?: TripType): Prom
     fixedRate: (hourly ? fallback?.hourlyRate : fallback?.flatRate) ?? null,
     minimumFare: fallback?.minimumFare ?? null,
     stopFee: 0,
+    baseMiles: null,
+    perMileRate: null,
     label: fallback?.label,
   };
 }

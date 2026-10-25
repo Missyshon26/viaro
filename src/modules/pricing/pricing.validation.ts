@@ -40,6 +40,8 @@ export const fareEstimateQuerySchema = z.object({
   drop: z.string().max(300).optional(),
   /** Intermediate stops on a transfer, each charged the class's stop fee. */
   stops: z.coerce.number().int().min(0).max(MAX_STOPS).optional(),
+  /** Those stops' addresses, `|`-separated, so the route can be measured through them. */
+  via: z.string().max(1600).optional(),
   /**
    * Which trip of a journey this is quoting (0 = the first). A discount that belongs to the
    * customer's first or Nth trip is judged as if the earlier legs were already booked.

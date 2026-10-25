@@ -29,7 +29,7 @@ async function main(): Promise<void> {
   console.log(apply ? 'APPLIED' : 'DRY RUN (nothing written)');
   console.log('Switched on:');
   for (const v of r.switchedOn) {
-    console.log(`  ${v.label.padEnd(38)} flat $${v.flatRate}  hourly ${v.hourlyRate ? '$' + v.hourlyRate : '-'}  stop ${v.stopFee ? '$' + v.stopFee : '-'}  photos ${v.photos}`);
+    console.log(`  ${v.label.padEnd(38)} flat $${v.flatRate}  hourly ${v.hourlyRate ? '$' + v.hourlyRate : '-'}  stop ${v.stopFee ? '$' + v.stopFee : '-'}  ${v.baseMiles && v.perMileRate ? `$${v.perMileRate}/mile after ${v.baseMiles} mi` : 'flat'}  photos ${v.photos}`);
   }
   console.log(`Switched off (this app's own defaults): ${r.switchedOff.join(', ') || 'none'}`);
   console.log(`Seattle pricing rule: ${r.pricingRule}`);

@@ -72,6 +72,15 @@ export function fareBreakdownFor(
     meetAndGreetFee: fare.meetAndGreetFee,
     stopCount: fare.stopCount,
     stopFee: fare.stopFee,
+    ...(fare.distanceFee > 0 || fare.distanceMiles !== undefined
+      ? {
+          ...(fare.distanceMiles !== undefined ? { distanceMiles: fare.distanceMiles } : {}),
+          ...(fare.includedMiles !== undefined ? { includedMiles: fare.includedMiles } : {}),
+          ...(fare.extraMiles !== undefined ? { extraMiles: fare.extraMiles } : {}),
+          ...(fare.perMileRate !== undefined ? { perMileRate: fare.perMileRate } : {}),
+          distanceFee: fare.distanceFee,
+        }
+      : {}),
     ...(fare.pricingModel ? { pricingModel: fare.pricingModel } : {}),
     ...(fare.route ? { route: fare.route } : {}),
     ...(fare.hours !== undefined ? { hours: fare.hours } : {}),
@@ -143,6 +152,7 @@ export async function createBooking(
     dropAddress: input.drop.address,
     meetAndGreet: input.meetAndGreet,
     stopCount: input.stops?.length,
+    stopAddresses: input.stops?.map((s) => s.address),
     gratuityPct: input.gratuityPct,
   });
 
@@ -412,6 +422,7 @@ export async function updateBooking(bookingId: string, customerId: string, input
       meetAndGreet: booking.meetAndGreet,
       // A stop is part of the booking, so amending something else must not drop its charge.
       stopCount: booking.stops?.length,
+      stopAddresses: booking.stops?.map((s) => s.address),
       // The tip, tax and discount it was booked with — today's settings do not move it.
       locked: lockedAdjustments(booking),
     });

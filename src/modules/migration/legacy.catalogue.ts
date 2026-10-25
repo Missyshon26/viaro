@@ -14,10 +14,11 @@ import * as vehicleService from '../vehicle/vehicle.service';
  *   base price (covers the first 18 miles)  ->  the class's flat transfer rate
  *   hourly price                            ->  the class's hourly rate
  *   stop price                              ->  the class's stop fee
+ *   base distance + rate after it           ->  included miles + rate per extra mile
  *   the vehicle's photo                     ->  copied into this app's own storage
  *
- * The old per-mile rate for distance beyond the base is NOT carried: this calculator has no
- * per-mile price, so a longer trip costs the flat rate, not more. The default classes this
+ * Distance beyond the base distance is charged by the mile, as on the old site (the server
+ * measures the route; see integrations/routeDistance). The default classes this
  * app created for itself are switched off, and a Seattle base-fare rule is added if there is
  * none (the calculator will not price anything without one; every old class has a flat or
  * hourly rate, so the figure itself is not what these prices come from).
@@ -26,7 +27,15 @@ import * as vehicleService from '../vehicle/vehicle.service';
  */
 export interface CatalogueReport {
   apply: boolean;
-  switchedOn: { label: string; flatRate: number; hourlyRate: number | null; stopFee: number | null; photos: number }[];
+  switchedOn: {
+    label: string;
+    flatRate: number;
+    hourlyRate: number | null;
+    stopFee: number | null;
+    baseMiles: number | null;
+    perMileRate: number | null;
+    photos: number;
+  }[];
   switchedOff: string[];
   pricingRule: 'created' | 'already there';
   notes: string[];
@@ -69,6 +78,9 @@ export async function activateLegacyCatalogue(options: {
     }
     const hourlyRate = price(v.pricePerUnitHour);
     const stopFee = price(v.stopPrice);
+    // Per-mile terms only when the old vehicle had both: the miles the base covers and a rate after.
+    const perMileRate = price(v.pricePerUnitDistance);
+    const baseMiles = perMileRate ? price(v.baseDistance) : null;
     const files = Array.isArray(v.images) ? (v.images as string[]) : [];
     let photos = cls.images?.length ?? 0;
 
@@ -77,6 +89,8 @@ export async function activateLegacyCatalogue(options: {
       cls.flatRate = flatRate;
       cls.hourlyRate = hourlyRate;
       cls.stopFee = stopFee;
+      cls.baseMiles = baseMiles;
+      cls.perMileRate = baseMiles ? perMileRate : null;
       cls.sortOrder = position + 1;
       const feature = String(v.feature ?? '').trim();
       if (feature) cls.detail = feature;
@@ -101,7 +115,7 @@ export async function activateLegacyCatalogue(options: {
         }
       }
     }
-    report.switchedOn.push({ label, flatRate, hourlyRate, stopFee, photos });
+    report.switchedOn.push({ label, flatRate, hourlyRate, stopFee, baseMiles, perMileRate: baseMiles ? perMileRate : null, photos });
   }
 
   if (report.switchedOn.length > 0) {

@@ -150,6 +150,12 @@ export interface IFareBreakdown {
   meetAndGreetFee: number;
   stopCount: number;
   stopFee: number;
+  /** Per-mile pricing on a flat transfer: miles driven, miles the flat rate covered, miles beyond, rate, charge. */
+  distanceMiles?: number;
+  includedMiles?: number;
+  extraMiles?: number;
+  perMileRate?: number;
+  distanceFee?: number;
   /** flat · hourly · multiplier · route — how classFare was worked out. */
   pricingModel?: string;
   /** e.g. "Tacoma ↔ Sea-Tac", when a route price applied. */
@@ -478,6 +484,11 @@ const bookingSchema = new Schema<IBooking>(
           meetAndGreetFee: { type: Number, required: true, min: 0 },
           stopCount: { type: Number, required: true, min: 0 },
           stopFee: { type: Number, required: true, min: 0 },
+          distanceMiles: { type: Number, min: 0 },
+          includedMiles: { type: Number, min: 0 },
+          extraMiles: { type: Number, min: 0 },
+          perMileRate: { type: Number, min: 0 },
+          distanceFee: { type: Number, min: 0 },
           pricingModel: { type: String },
           route: { type: String },
           hours: { type: Number },

@@ -62,6 +62,8 @@ for (const key of [
   'S3_SECRET_KEY',
   'FLIGHT_API_PROVIDER',
   'FLIGHT_API_KEY',
+  // Never measure a route with a real key in a test.
+  'GOOGLE_MAPS_SERVER_KEY',
 ]) {
   process.env[key] = '';
 }

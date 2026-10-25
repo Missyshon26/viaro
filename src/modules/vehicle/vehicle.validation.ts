@@ -36,6 +36,10 @@ export const createVehicleClassSchema = z.object({
   minimumFare: z.coerce.number().positive().max(100_000).nullable().optional(),
   /** Charge per intermediate stop; null (or 0) makes stops free for this class. */
   stopFee: z.coerce.number().min(0).max(100_000).nullable().optional(),
+  /** A flat transfer rate covers this many miles; null clears per-mile pricing. */
+  baseMiles: z.coerce.number().min(0).max(1000).nullable().optional(),
+  /** Charge for each mile beyond `baseMiles`; null clears per-mile pricing. */
+  perMileRate: z.coerce.number().min(0).max(1000).nullable().optional(),
   images: z.array(imageSchema).max(10).optional(),
   active: z.boolean().optional(),
   sortOrder: z.coerce.number().int().min(0).max(999).optional(),

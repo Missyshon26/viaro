@@ -64,6 +64,13 @@ export interface IVehicleClass {
   minimumFare?: number | null;
   /** Charged per intermediate stop on a transfer. Unset = stops are free for this class. */
   stopFee?: number | null;
+  /**
+   * Per-mile pricing for a flat-rate transfer: the flat rate covers the first `baseMiles`, and
+   * every further mile (rounded up) costs `perMileRate`. Both unset = the flat rate is the price
+   * however far the trip goes.
+   */
+  baseMiles?: number | null;
+  perMileRate?: number | null;
   images: IVehicleImage[];
   /**
    * Retiring a class rather than deleting it. An inactive class disappears from the
@@ -104,6 +111,8 @@ const vehicleClassSchema = new Schema<IVehicleClass>(
     hourlyRate: { type: Number, min: 0, max: 100_000, default: null },
     minimumFare: { type: Number, min: 0, max: 100_000, default: null },
     stopFee: { type: Number, min: 0, max: 100_000, default: null },
+    baseMiles: { type: Number, min: 0, max: 1000, default: null },
+    perMileRate: { type: Number, min: 0, max: 1000, default: null },
     images: { type: [imageSchema], default: [] },
     active: { type: Boolean, default: true, index: true },
     sortOrder: { type: Number, default: 0 },

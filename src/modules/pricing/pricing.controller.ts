@@ -45,6 +45,7 @@ export async function fareEstimate(req: Request, res: Response): Promise<void> {
     dropAddress: q.drop,
     meetAndGreet: q.meetAndGreet,
     stopCount: q.stops,
+    stopAddresses: q.via ? q.via.split('|') : undefined,
     gratuityPct: q.gratuity,
     tripsAhead: q.tripsAhead,
   });

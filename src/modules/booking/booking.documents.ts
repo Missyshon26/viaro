@@ -118,6 +118,13 @@ function linesFor(booking: IBooking, vehicle: string, total: number): DocumentLi
             : undefined,
     },
   ];
+  if (b.distanceFee) {
+    lines.push({
+      label: `Additional miles (${b.extraMiles ?? 0} × ${b.perMileRate !== undefined ? `$${b.perMileRate.toFixed(2)}` : 'per mile'})`,
+      amount: b.distanceFee,
+      note: b.distanceMiles !== undefined && b.includedMiles !== undefined ? `${b.distanceMiles} mi driven; the base rate covers ${b.includedMiles}` : undefined,
+    });
+  }
   if (b.primetimeSurcharge) lines.push({ label: 'Primetime surcharge (10pm to 7am)', amount: b.primetimeSurcharge });
   if (b.meetAndGreetFee) lines.push({ label: 'Meet and Greet', amount: b.meetAndGreetFee });
   if (b.stopFee) {

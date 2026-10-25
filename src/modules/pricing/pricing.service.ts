@@ -10,6 +10,7 @@ import { getCardOnFile } from '../payments/cardPayments';
 import { getSettingsValues } from '../admin/settings.service';
 import { applyAdjustments, discountFor, type Discount, type DiscountKind } from './pricing.adjustments';
 import { MEET_AND_GREET_FEE, routeFareFor } from '../../config/services';
+import { routeMiles } from '../../integrations/routeDistance';
 import type {
   CreatePricingRuleInput,
   CreateSubscriptionInput,
@@ -89,7 +90,20 @@ export interface FareBreakdown {
   /** How many intermediate stops were priced, and the charge for them (0 if none). */
   stopCount: number;
   stopFee: number;
-  /** The trip price: classFare + primetimeSurcharge + meetAndGreetFee + stopFee. */
+  /**
+   * Per-mile pricing, for a flat-rate transfer whose class has it: the route measured by the
+   * server, the miles the flat rate covers, the miles beyond them (rounded up), the rate for each,
+   * and the charge. `distanceFee` is 0 when the trip is within the included miles, or the class
+   * does not charge by the mile. `distanceUnknown` is set when the route could not be measured,
+   * in which case the flat rate is charged on its own.
+   */
+  distanceMiles?: number;
+  includedMiles?: number;
+  extraMiles?: number;
+  perMileRate?: number;
+  distanceFee: number;
+  distanceUnknown?: boolean;
+  /** The trip price: classFare + distanceFee + primetimeSurcharge + meetAndGreetFee + stopFee. */
   subtotal: number;
   /** The tip the customer chose (a percentage of the subtotal), and what it comes to. */
   gratuityPct: number;
@@ -125,6 +139,8 @@ export async function calculateFare(opts: {
   meetAndGreet?: boolean;
   /** Intermediate stops on a transfer; each is charged the class's stopFee. */
   stopCount?: number;
+  /** The stops' addresses, so the route can be measured through them. */
+  stopAddresses?: readonly string[];
   /** The tip the customer chose, as a percentage of the trip price. Absent = none. */
   gratuityPct?: number;
   /** Earlier trips in the same request (the legs of a journey priced together). */
@@ -189,7 +205,40 @@ export async function calculateFare(opts: {
   // Stops belong to transfers: an hourly charter goes wherever the hours take it.
   const stopCount = opts.tripType === 'hourly' ? 0 : Math.max(0, Math.floor(opts.stopCount ?? 0));
   const stopFee = round2(stopCount * rates.stopFee);
-  const subtotal = round2(classFare + primetimeSurcharge + meetAndGreetFee + stopFee);
+
+  /*
+   * By the mile: a flat transfer rate covers the first `baseMiles`; each mile after costs
+   * `perMileRate`, miles rounded up. The server measures the route (never the request), through
+   * the stops. If it cannot, the flat rate stands alone and the quote says the distance was
+   * unknown, rather than guessing a number into a customer's bill.
+   */
+  let distance: { miles: number; included: number; extra: number; rate: number; fee: number } | null = null;
+  let distanceUnknown = false;
+  if (
+    pricingModel === 'flat' &&
+    rates.perMileRate !== null &&
+    rates.perMileRate > 0 &&
+    rates.baseMiles !== null &&
+    opts.pickupAddress &&
+    opts.dropAddress
+  ) {
+    const miles = await routeMiles(opts.pickupAddress, opts.dropAddress, opts.stopAddresses ?? []);
+    if (miles === null) {
+      distanceUnknown = true;
+    } else {
+      const extra = Math.ceil(Math.max(0, miles - rates.baseMiles));
+      distance = {
+        miles: Math.round(miles * 10) / 10,
+        included: rates.baseMiles,
+        extra,
+        rate: rates.perMileRate,
+        fee: round2(extra * rates.perMileRate),
+      };
+    }
+  }
+  const distanceFee = distance?.fee ?? 0;
+
+  const subtotal = round2(classFare + distanceFee + primetimeSurcharge + meetAndGreetFee + stopFee);
 
   const locked = opts.locked;
   const adjustments = applyAdjustments({
@@ -223,6 +272,11 @@ export async function calculateFare(opts: {
     meetAndGreetFee,
     stopCount,
     stopFee,
+    ...(distance
+      ? { distanceMiles: distance.miles, includedMiles: distance.included, extraMiles: distance.extra, perMileRate: distance.rate }
+      : {}),
+    distanceFee,
+    ...(distanceUnknown ? { distanceUnknown: true } : {}),
     subtotal,
     gratuityPct: adjustments.gratuityPct,
     gratuity: adjustments.gratuity,

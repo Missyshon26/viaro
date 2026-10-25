@@ -22,7 +22,7 @@ const col = (n: string) => mongoose.connection.collection(`legacy_${n}`);
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');
 
 const OLD = [
-  { vehicleName: 'Executive Sedan (SEA Region)', status: 'Live', slNo: 1, maxPersons: '2', maxBags: '2', basePrice: '129', pricePerUnitHour: '119', stopPrice: '40', feature: 'Mid-Size Sedan', images: ['a.png'] },
+  { vehicleName: 'Executive Sedan (SEA Region)', status: 'Live', slNo: 1, maxPersons: '2', maxBags: '2', basePrice: '129', baseDistance: '18', pricePerUnitDistance: '3', pricePerUnitHour: '119', stopPrice: '40', feature: 'Mid-Size Sedan', images: ['a.png'] },
   { vehicleName: 'First Class SUV', status: 'Live', slNo: 4, banner: 'Most Popular', maxPersons: '6', maxBags: '5', basePrice: '199', pricePerUnitHour: '179', stopPrice: '40', feature: 'Long Distance', images: ['b.png'] },
   { vehicleName: 'Passenger Bus', status: 'Live', slNo: 0, maxPersons: '24', maxBags: '24', basePrice: '599', pricePerUnitHour: '499', stopPrice: '40', feature: '24 Passenger Bus', images: [] },
   { vehicleName: 'Test Reservation', status: 'Inactive', slNo: 0, maxPersons: '2', maxBags: '5', basePrice: '1', pricePerUnitHour: '1', stopPrice: '1', images: [] },
@@ -65,7 +65,7 @@ describe('bringing the old vehicle lineup into service', () => {
     const r = await activateLegacyCatalogue({ apply: true, fetchImage });
     expect(r.problems).toEqual([]);
     const sedan = await VehicleClass.findOne({ label: 'Executive Sedan (SEA Region)' }).lean();
-    expect(sedan).toMatchObject({ active: true, flatRate: 129, hourlyRate: 119, stopFee: 40, detail: 'Mid-Size Sedan', sortOrder: 1 });
+    expect(sedan).toMatchObject({ active: true, flatRate: 129, hourlyRate: 119, stopFee: 40, baseMiles: 18, perMileRate: 3, detail: 'Mid-Size Sedan', sortOrder: 1 });
     expect(sedan?.images).toHaveLength(1);
     expect(sedan?.images[0].key).toBeTruthy();
     expect(sedan?.images[0].src).toMatch(/^\/uploads\/vehicles\//);

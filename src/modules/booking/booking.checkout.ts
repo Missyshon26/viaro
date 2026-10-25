@@ -77,6 +77,7 @@ export async function startCheckout(userId: string, input: CreateBookingInput[])
       dropAddress: leg.drop.address,
       meetAndGreet: leg.meetAndGreet,
       stopCount: leg.stops?.length,
+      stopAddresses: leg.stops?.map((s) => s.address),
       gratuityPct: leg.gratuityPct,
       // Leg 2 is priced as the trip after leg 1, as it will be once leg 1 is saved.
       tripsAhead: index,

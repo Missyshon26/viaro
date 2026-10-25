@@ -52,6 +52,7 @@ export async function quoteTrip(customerId: string, input: CreateBookingInput, t
     dropAddress: input.drop.address,
     meetAndGreet: input.meetAndGreet,
     stopCount: input.stops?.length,
+    stopAddresses: input.stops?.map((s) => s.address),
     gratuityPct: input.gratuityPct,
     tripsAhead,
   });
