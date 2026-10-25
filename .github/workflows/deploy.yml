@@ -11,6 +11,9 @@ concurrency:
   cancel-in-progress: false
 
 env:
+  # Not secret: where to deploy. Only the private key is a repository secret.
+  DEPLOY_HOST: ec2-54-213-12-58.us-west-2.compute.amazonaws.com
+  DEPLOY_USER: ubuntu
   APP: abl-admin
   PORT: "3012"
   # Baked into the browser bundle at build time (public by design).
@@ -42,13 +45,14 @@ jobs:
       - name: Install SSH key
         run: |
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          [ -n "${{ secrets.DEPLOY_SSH_KEY }}" ] || { echo "Repository secret DEPLOY_SSH_KEY is missing or empty"; exit 1; }
           printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+          ssh-keyscan -H "${{ env.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
 
       - name: Upload and switch release
         env:
-          TARGET: ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}
+          TARGET: ${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }}
           RELEASE: ${{ github.sha }}
         run: |
           SSH="ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes"
