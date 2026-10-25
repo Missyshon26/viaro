@@ -24,6 +24,8 @@ export interface IUser {
   googleId?: string;
   /** Optional sign-in name, lowercase, unique. Carried over from the old admin console, which signed in by username. */
   username?: string;
+  /** Present only on accounts carried over from the old system. */
+  legacy?: { id: Types.ObjectId; stripeId?: string; documentStatus?: string; mergedIds?: Types.ObjectId[]; mergedUids?: string[]; importedAt: Date };
   /** The account's id in the old Firebase project (history import); links old records. */
   firebaseUid?: string;
   /**
@@ -85,6 +87,20 @@ const userSchema = new Schema<IUser>(
     googleId: { type: String, index: { unique: true, sparse: true } },
     username: { type: String, lowercase: true, trim: true, index: { unique: true, sparse: true } },
     firebaseUid: { type: String, index: { unique: true, sparse: true } },
+    legacy: {
+      type: new Schema(
+        {
+          id: { type: Schema.Types.ObjectId, required: true },
+          stripeId: { type: String },
+          documentStatus: { type: String },
+          mergedIds: { type: [Schema.Types.ObjectId], default: undefined },
+          mergedUids: { type: [String], default: undefined },
+          importedAt: { type: Date, required: true },
+        },
+        { _id: false },
+      ),
+      default: undefined,
+    },
     legacyAuth: { type: String, enum: ['firebase'] },
     favorites: [{ type: Schema.Types.ObjectId, ref: 'Driver' }],
     walletId: { type: Schema.Types.ObjectId, ref: 'Wallet' },

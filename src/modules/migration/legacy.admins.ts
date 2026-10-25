@@ -30,11 +30,13 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 /** Mail to this address can never be delivered (RFC 2606 reserves `.invalid`). */
 export const placeholderEmail = (username: string): string => `${username.replace(/[^a-z0-9._-]/g, '-')}@no-email.invalid`;
 
+export type StaffRole = 'admin' | 'driver';
+
 export type AdminPlan =
   | {
       ok: true;
       user: {
-        role: 'admin';
+        role: StaffRole;
         username: string;
         name: string;
         firstName: string;
@@ -49,6 +51,11 @@ export type AdminPlan =
   | { ok: false; username: string; reason: string };
 
 export function planAdmin(doc: LegacyUserDoc): AdminPlan {
+  return planStaff(doc, 'admin');
+}
+
+/** Same rules for a chauffeur: signs in by username (or email) with the password they had. */
+export function planStaff(doc: LegacyUserDoc, role: StaffRole): AdminPlan {
   const username = (doc.userName ?? '').trim().toLowerCase();
   if (!username) return { ok: false, username: '(none)', reason: 'no username' };
   if ((doc.status ?? '').toLowerCase() !== 'live') return { ok: false, username, reason: `status is ${doc.status ?? 'missing'}` };
@@ -63,7 +70,7 @@ export function planAdmin(doc: LegacyUserDoc): AdminPlan {
   return {
     ok: true,
     user: {
-      role: 'admin',
+      role,
       username,
       name: joinName(firstName, lastName) || (doc.userName ?? username).trim(),
       firstName,

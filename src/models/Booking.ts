@@ -170,6 +170,30 @@ export interface IFareBreakdown {
   tax?: number;
 }
 
+/**
+ * Where a booking came from when it was carried over from the old system. One old trip with
+ * several legs becomes one booking per leg, all pointing at the same `tripId`. Kept so the
+ * old trip number can still be found, and so the import can be run twice without duplicating
+ * anything. Absent on every booking made in this app.
+ */
+export interface IBookingLegacy {
+  tripId: Types.ObjectId;
+  /** The old trip number customers were given, e.g. "ABL-1234". */
+  tripNo?: string;
+  legIndex: number;
+  legCount: number;
+  /** The old leg status as it was, before it was mapped onto this app's statuses. */
+  status?: string;
+  rideType?: string;
+  /** Old payment fields. A payment that did not go through Stripe has no `payment` here. */
+  paymentStatus?: string;
+  paymentMethod?: string;
+  bookingSource?: string;
+  /** The old record was an unfinished stage long after its pickup; it was closed on import. */
+  closedOnImport?: boolean;
+  importedAt: Date;
+}
+
 export interface IBooking {
   customerId: Types.ObjectId;
   pickup: GeoPoint;
@@ -206,6 +230,8 @@ export interface IBooking {
   source?: 'customer' | 'admin';
   createdBy?: Types.ObjectId;
   paymentLink?: IBookingPaymentLink;
+  /** Present only on bookings carried over from the old system. */
+  legacy?: IBookingLegacy;
   /** Where this booking stands on the operations calendar (modules/calendar). */
   calendar?: IBookingCalendar;
   /** Set on every leg of a journey paid for as one (round trip, multi-city). */
@@ -334,6 +360,25 @@ const bookingSchema = new Schema<IBooking>(
     cruisePort: { type: String, enum: CRUISE_PORT_KEYS },
     cruiseShip: { type: String, trim: true, maxlength: 80 },
     isGuest: { type: Boolean, default: false },
+    legacy: {
+      type: new Schema<IBookingLegacy>(
+        {
+          tripId: { type: Schema.Types.ObjectId, required: true },
+          tripNo: { type: String },
+          legIndex: { type: Number, required: true, min: 0 },
+          legCount: { type: Number, required: true, min: 1 },
+          status: { type: String },
+          rideType: { type: String },
+          paymentStatus: { type: String },
+          paymentMethod: { type: String },
+          bookingSource: { type: String },
+          closedOnImport: { type: Boolean },
+          importedAt: { type: Date, required: true },
+        },
+        { _id: false },
+      ),
+      default: undefined,
+    },
     source: { type: String, enum: ['customer', 'admin'] },
     createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
     calendar: {
@@ -443,6 +488,12 @@ const bookingSchema = new Schema<IBooking>(
 bookingSchema.index(
   { 'payment.intentId': 1, 'payment.leg': 1 },
   { unique: true, partialFilterExpression: { 'payment.intentId': { $exists: true } } },
+);
+
+/** One booking per old trip leg: re-running the import can never create a leg twice. */
+bookingSchema.index(
+  { 'legacy.tripId': 1, 'legacy.legIndex': 1 },
+  { unique: true, partialFilterExpression: { 'legacy.tripId': { $exists: true } } },
 );
 
 export const Booking = model<IBooking>('Booking', bookingSchema);
