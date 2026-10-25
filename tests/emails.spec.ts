@@ -260,7 +260,7 @@ describe('which email each event sends', () => {
   });
 
   it('a failed PDF never stops the email', async () => {
-    const docs = await import('../src/modules/booking/booking.documents.load');
+    const docs = await import('../src/modules/booking/booking.documents.load.js');
     vi.mocked(docs.renderStoredDocument).mockRejectedValueOnce(new Error('pdf broke'));
     const built = await emailFor('booking.created', customer, ctx(booking()));
     expect(built!.message.subject).toMatch(/Invoice/);

@@ -40,7 +40,7 @@ const trip = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
-const post = (path: string, auth: string, body: unknown) =>
+const post = (path: string, auth: string, body: string | object) =>
   request(server).post(path).set('Authorization', auth).send(body);
 
 describe('POST /admin/bookings/quote', () => {

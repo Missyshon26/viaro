@@ -305,8 +305,8 @@ describe('undoing a no-show', () => {
     const platform = await getPlatformWallet();
     const driverWallet = await getOrCreateWallet(driver!.userId, 'driver');
     return {
-      platform: Math.round((await (await import('../../src/models/Wallet')).Wallet.findById(platform._id).lean())!.balance * 100) / 100,
-      driver: Math.round((await (await import('../../src/models/Wallet')).Wallet.findById(driverWallet._id).lean())!.balance * 100) / 100,
+      platform: Math.round((await (await import('../../src/models/Wallet.js')).Wallet.findById(platform._id).lean())!.balance * 100) / 100,
+      driver: Math.round((await (await import('../../src/models/Wallet.js')).Wallet.findById(driverWallet._id).lean())!.balance * 100) / 100,
     };
   }
 
@@ -381,7 +381,7 @@ describe('undoing a no-show', () => {
   });
 
   it('sends no email about it, only an in-app note', async () => {
-    const { emailFor } = await import('../../src/modules/notifications/notification.emails');
+    const { emailFor } = await import('../../src/modules/notifications/notification.emails.js');
     const built = await emailFor('trip.no_show_reverted', { name: 'Pat', email: 'p@x.test', role: 'customer' }, { booking: { _id: 'b' } as never, trip: null, vehicleLabel: 'x' }, {});
     expect(built).toBeNull();
   });

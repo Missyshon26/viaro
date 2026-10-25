@@ -254,7 +254,7 @@ describe('what a booking stores', () => {
     await setSettings({ taxPct: 10, welcomeDiscount: 20 });
     const client = await makeUser('customer');
     const res = await request(server).post('/bookings').set('Authorization', client.auth).send(trip({ gratuityPct: 10 }));
-    const { buildDocument } = await import('../../src/modules/booking/booking.documents');
+    const { buildDocument } = await import('../../src/modules/booking/booking.documents.js');
     const stored = await Booking.findById(res.body.data.booking._id).lean();
     const doc = buildDocument('invoice', {
       booking: stored as never,
