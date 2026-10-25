@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { ConsolePage } from "@/components/ui/DataTable";
 import { ListSearch, matches } from "@/components/ui/ListSearch";
+import { PersonCell, StatusBadge } from "@/components/ui/Dashboard";
+import { vehicleLabel } from "@/lib/vehicles";
 import {
   listDrivers,
   updateDriver,
@@ -111,20 +113,25 @@ export default function DriversPage() {
               {shown.map((driver) => (
                 <li key={driver._id} className="px-6 py-5">
                   <div className="flex flex-wrap items-center gap-3">
-                    <div>
-                      <p className="text-meta font-bold text-fg">{nameOf(driver)}</p>
-                      <p className="mt-0.5 text-note text-fg-muted">
-                        {driver.vehicleClass}
-                        {typeof driver.rating === "number"
-                          ? ` · ${driver.rating.toFixed(2)} ★`
-                          : ""}
-                        {driver.penaltyCount ? ` · ${driver.penaltyCount} penalties` : ""}
-                      </p>
-                    </div>
-                    <span className="ml-auto">
+                    <PersonCell
+                      name={nameOf(driver)}
+                      meta={
+                        typeof driver.userId === "object"
+                          ? [driver.userId.email, driver.userId.phone].filter(Boolean).join(" · ")
+                          : undefined
+                      }
+                    />
+                    <span className="ml-auto flex flex-wrap items-center gap-2">
+                      {typeof driver.rating === "number" ? (
+                        <span className="text-note font-semibold text-fg-body">{driver.rating.toFixed(2)} ★</span>
+                      ) : null}
+                      {driver.penaltyCount ? (
+                        <StatusBadge tone="warn">{driver.penaltyCount} penalties</StatusBadge>
+                      ) : null}
                       <Badge>{driver.status}</Badge>
                     </span>
                   </div>
+                  <p className="mt-2 pl-[3.125rem] text-note text-fg-muted">{vehicleLabel(driver.vehicleClass)}</p>
                   <div className="mt-3">
                     <PayoutForm driver={driver} fallback={settings?.driverPayout} onDone={load} />
                   </div>

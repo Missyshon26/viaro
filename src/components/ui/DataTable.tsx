@@ -116,7 +116,7 @@ export function DataTable<T>({
   const hasToolbar = Boolean(searchable || toolbar || columns.some((column) => column.sortValue));
 
   return (
-    <div data-dense={columns.length > 6} className="record-container rounded-card border border-border bg-surface-raised shadow-[var(--shadow-card)]">
+    <div className="record-container rounded-card border border-border bg-surface-raised shadow-[var(--shadow-card)]">
       {hasToolbar ? (
         <div className="flex flex-wrap items-center gap-3 border-b border-border-subtle px-4 py-3">
           {searchable ? (
@@ -171,13 +171,8 @@ export function DataTable<T>({
         <>
           <ul className="record-cards divide-y divide-border-subtle">
             {visible!.map((row, index) => (
-              <li key={rowKey(row, index)} className="space-y-4 px-4 py-5">
-                {mobileCard ? mobileCard(row) : <dl className="space-y-3">
-                  {columns.map((column) => <div key={column.key} className="flex min-w-0 flex-wrap items-start justify-between gap-x-4 gap-y-1">
-                    <dt className="text-label font-medium text-fg-muted">{column.header || "Actions"}</dt>
-                    <dd className="min-w-0 max-w-full break-words text-meta text-fg">{column.cell(row)}</dd>
-                  </div>)}
-                </dl>}
+              <li key={rowKey(row, index)} className="space-y-4 px-4 py-5 sm:px-6">
+                {mobileCard ? mobileCard(row) : <DefaultCard row={row} columns={columns} />}
                 {rowHref ? <Link href={rowHref(row)} className="inline-flex min-h-11 items-center rounded-field border border-border px-4 text-note font-bold text-accent">View details <span aria-hidden className="ml-2">→</span></Link> : null}
               </li>
             ))}
@@ -196,7 +191,7 @@ export function DataTable<T>({
                         aria-sort={
                           active ? (sort!.dir === "asc" ? "ascending" : "descending") : undefined
                         }
-                        className={`px-5 py-3 text-note font-bold uppercase tracking-wider text-fg-body ${
+                        className={`px-4 py-3 text-label font-semibold text-fg-muted ${
                           column.align === "right" ? "text-right" : ""
                         } ${column.secondary ? "hidden lg:table-cell" : ""}`}
                       >
@@ -253,7 +248,7 @@ export function DataTable<T>({
                       {columns.map((column) => (
                         <td
                           key={column.key}
-                          className={`px-5 py-3.5 align-middle text-fg ${
+                          className={`px-4 py-4 align-middle text-fg ${
                             column.align === "right" ? "text-right" : ""
                           } ${column.secondary ? "hidden lg:table-cell" : ""}`}
                         >
@@ -291,6 +286,40 @@ export function DataTable<T>({
           ) : null}
         </>
       )}
+    </div>
+  );
+}
+
+/**
+ * The narrow-screen card: the first column is the heading, a column with no header is
+ * the action footer, and everything else is a small label/value grid in between — so a
+ * row reads as one record rather than a stack of unlabeled fields.
+ */
+function DefaultCard<T>({ row, columns }: { row: T; columns: Column<T>[] }) {
+  const [head, ...rest] = columns;
+  const actions = rest.filter((column) => !column.header);
+  const fields = rest.filter((column) => column.header);
+  return (
+    <div className="space-y-4">
+      {head ? <div className="min-w-0 text-fg">{head.cell(row)}</div> : null}
+      {fields.length ? (
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
+          {fields.map((column) => (
+            <div key={column.key} className="min-w-0">
+              <dt className="text-label font-medium text-fg-muted">{column.header}</dt>
+              <dd className="mt-1 min-w-0 break-words text-meta text-fg">{column.cell(row)}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
+      {actions.map((column) => {
+        const cell = column.cell(row);
+        return cell ? (
+          <div key={column.key} className="flex flex-wrap justify-end gap-2">
+            {cell}
+          </div>
+        ) : null;
+      })}
     </div>
   );
 }

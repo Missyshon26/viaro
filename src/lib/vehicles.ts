@@ -35,8 +35,17 @@ const BY_VALUE = new Map(VEHICLE_CLASSES.map((v) => [v.value, v]));
 export const findVehicleClass = (value?: string | null): VehicleClassInfo | undefined =>
   value ? BY_VALUE.get(value) : undefined;
 
+/** `legacy-executive-sedan-sea-region` → "Executive Sedan Sea Region" for classes with no entry above. */
+const readable = (value: string): string =>
+  value
+    .replace(/^legacy-/, "")
+    .split(/[-_]/)
+    .filter(Boolean)
+    .map((word) => (word.length <= 3 && word === word.toLowerCase() && word === "sea" ? "SEA" : word[0].toUpperCase() + word.slice(1)))
+    .join(" ");
+
 export const vehicleLabel = (value?: string | null): string =>
-  findVehicleClass(value)?.label ?? value ?? "—";
+  findVehicleClass(value)?.label ?? (value ? readable(value) : "—");
 
 export const TRIP_TYPE_LABEL: Record<string, string> = {
   point2point: "Point to point",

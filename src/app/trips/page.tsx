@@ -188,28 +188,20 @@ export default function TripsPage() {
 
   const columns: Column<Row>[] = [
     {
-      key: "ref",
-      header: "Reference",
-      cell: (r) => (
-        <Link
-          href={`/trips/${r._id}`}
-          className="font-mono text-[0.8125rem] font-bold text-fg hover:text-accent"
-        >
-          {reference(r._id)}
-        </Link>
-      ),
-      sortValue: (r) => r._id,
-    },
-    {
       key: "customer",
       header: "Customer",
       cell: (r) => (
-        <div className="flex flex-wrap items-center gap-2">
-          <PersonCell
-            name={customerName(r)}
-            meta={customerOf(r)?.email}
-          />
-          {r.isGuest ? <StatusBadge tone="info">Guest</StatusBadge> : null}
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <PersonCell name={customerName(r)} meta={customerOf(r)?.email} />
+            {r.isGuest ? <StatusBadge tone="info">Guest</StatusBadge> : null}
+          </div>
+          <Link
+            href={`/trips/${r._id}`}
+            className="mt-1.5 inline-block font-mono text-label font-semibold text-fg-muted hover:text-accent"
+          >
+            {reference(r._id)}
+          </Link>
         </div>
       ),
       sortValue: (r) => customerName(r),
@@ -217,20 +209,18 @@ export default function TripsPage() {
     {
       key: "route",
       header: "Route",
-      secondary: true,
       cell: (r) => (
-        <span className="block min-w-0 max-w-[18rem]">
-          <span className="flex min-w-0 items-center gap-1.5">
-            <span className="truncate text-fg">{r.pickup.address}</span>
-            <span aria-hidden className="shrink-0 text-fg-faint">
-              →
-            </span>
-            <span className="truncate text-fg-muted">{r.drop.address}</span>
+        <span className="block min-w-0 max-w-[22rem]">
+          <span className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-2.5 gap-y-1.5">
+            <span aria-hidden className="mt-1.5 h-2 w-2 rounded-full border-2 border-accent" />
+            <span className="line-clamp-2 text-meta text-fg">{r.pickup.address}</span>
+            <span aria-hidden className="mt-1.5 h-2 w-2 rounded-full bg-accent" />
+            <span className="line-clamp-2 text-meta text-fg-body">{r.drop.address}</span>
           </span>
           {/* An airport run lives or dies on the flight, so it belongs on the row
               rather than only in the search index. */}
           {r.flightDetails?.flightNumber ? (
-            <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-accent-soft px-2 py-0.5 text-label font-bold text-accent-strong">
+            <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-accent-soft px-2 py-0.5 text-label font-bold text-accent-strong">
               <IconPlane size={11} />
               {r.flightDetails.flightNumber}
             </span>
@@ -242,7 +232,7 @@ export default function TripsPage() {
       key: "when",
       header: "Pickup",
       cell: (r) => (
-        <span className="whitespace-nowrap text-fg-body">
+        <span className="whitespace-nowrap font-medium text-fg">
           {r.scheduledAtLocal ?? formatDateTime(r.scheduledAt)}
         </span>
       ),
@@ -251,7 +241,6 @@ export default function TripsPage() {
     {
       key: "vehicle",
       header: "Vehicle",
-      secondary: true,
       cell: (r) => <span className="text-fg-body">{vehicleLabel(r.vehicleClass)}</span>,
       sortValue: (r) => vehicleLabel(r.vehicleClass),
     },

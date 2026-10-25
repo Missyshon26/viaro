@@ -264,16 +264,14 @@ h1, h2, h3 { text-wrap: balance; }
 .record-cards dl > div { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
 .record-cards dd { width: 100%; overflow-wrap: anywhere; }
 .record-cards dd > * { max-width: 100%; }
-@container (min-width: 560px) {
-  .record-cards dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@container (min-width: 1200px) {
+@container (min-width: 880px) {
   .record-table { display: block; }
   .record-cards, .record-sort { display: none; }
 }
 .record-table table { width: 100%; table-layout: auto; }
-.record-table th, .record-table td { padding: 16px 12px; overflow-wrap: normal; word-break: normal; }
-.record-table th { white-space: nowrap; font-size: 12px; letter-spacing: 0; text-transform: none; }
+.record-table th, .record-table td { padding: 14px 12px; overflow-wrap: normal; word-break: normal; }
+.record-table th { white-space: nowrap; font-size: 12px; letter-spacing: 0.02em; text-transform: none; }
+.record-table thead tr { background: color-mix(in srgb, var(--surface) 70%, transparent); }
 button, [role="status"] { word-break: normal; overflow-wrap: normal; }
 button { flex-shrink: 0; }
 .record-table button, .record-cards button { white-space: nowrap; }
@@ -291,9 +289,4 @@ h1, h2, h3 { letter-spacing: -0.025em; }
   .responsive-table td > * { max-width: 100%; }
 }
 
-@container (min-width: 1200px) and (max-width: 1439px) {
-  [data-dense="true"] > .record-table { display: none; }
-  [data-dense="true"] > .record-cards { display: block; }
-  [data-dense="true"] .record-sort { display: flex; }
-}
 .record-cards li:hover { background: color-mix(in srgb, var(--surface) 45%, transparent); }
