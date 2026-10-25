@@ -1,0 +1,33 @@
+import { Bell, CalendarDays, CarFront, ChartNoAxesCombined, Check, ChevronDown, ChevronRight, Clock3, FileText, Headset, House, Inbox, LogOut, MapPin, Menu, Moon, PanelLeftClose, Plane, RadioTower, Route, Search, Star, Sun, Tags, TrendingDown, TrendingUp, TriangleAlert, Users, Wallet, X, type LucideProps } from "lucide-react";
+
+// Keep the existing icon API while sharing Lucide geometry and sizing.
+export const IconHome = (props: LucideProps) => <House size={18} strokeWidth={1.75} aria-hidden {...props} />;
+export const IconCalendar = (props: LucideProps) => <CalendarDays size={18} strokeWidth={1.75} aria-hidden {...props} />;
+export const IconRoute = (props: LucideProps) => <Route size={18} strokeWidth={1.75} aria-hidden {...props} />;
+export const IconUsers = (props: LucideProps) => <Users size={18} strokeWidth={1.75} aria-hidden {...props} />;
+export const IconDispatch = (props: LucideProps) => <RadioTower size={18} strokeWidth={1.75} aria-hidden {...props} />;
+export const IconPricing = (props: LucideProps) => <Tags size={18} strokeWidth={1.75} aria-hidden {...props} />;
+export const IconCar = (props: LucideProps) => <CarFront size={18} strokeWidth={1.75} aria-hidden {...props} />;
+export const IconMoney = (props: LucideProps) => <Wallet size={18} strokeWidth={1.75} aria-hidden {...props} />;
+export const IconReport = (props: LucideProps) => <ChartNoAxesCombined size={18} strokeWidth={1.75} aria-hidden {...props} />;
+export const IconSupport = (props: LucideProps) => <Headset size={18} strokeWidth={1.75} aria-hidden {...props} />;
+export const IconDocument = (props: LucideProps) => <FileText size={18} strokeWidth={1.75} aria-hidden {...props} />;
+export const IconPenalty = (props: LucideProps) => <TriangleAlert size={18} strokeWidth={1.75} aria-hidden {...props} />;
+export const IconSearch = (props: LucideProps) => <Search size={18} strokeWidth={1.75} aria-hidden {...props} />;
+export const IconBell = (props: LucideProps) => <Bell size={18} strokeWidth={1.75} aria-hidden {...props} />;
+export const IconChevronDown = (props: LucideProps) => <ChevronDown size={18} strokeWidth={1.75} aria-hidden {...props} />;
+export const IconChevronRight = (props: LucideProps) => <ChevronRight size={18} strokeWidth={1.75} aria-hidden {...props} />;
+export const IconLogout = (props: LucideProps) => <LogOut size={18} strokeWidth={1.75} aria-hidden {...props} />;
+export const IconMenu = (props: LucideProps) => <Menu size={18} strokeWidth={1.75} aria-hidden {...props} />;
+export const IconClose = (props: LucideProps) => <X size={18} strokeWidth={1.75} aria-hidden {...props} />;
+export const IconPanelLeft = (props: LucideProps) => <PanelLeftClose size={18} strokeWidth={1.75} aria-hidden {...props} />;
+export const IconTrendUp = (props: LucideProps) => <TrendingUp size={18} strokeWidth={1.75} aria-hidden {...props} />;
+export const IconTrendDown = (props: LucideProps) => <TrendingDown size={18} strokeWidth={1.75} aria-hidden {...props} />;
+export const IconStar = (props: LucideProps) => <Star size={18} strokeWidth={1.75} aria-hidden {...props} />;
+export const IconClock = (props: LucideProps) => <Clock3 size={18} strokeWidth={1.75} aria-hidden {...props} />;
+export const IconPin = (props: LucideProps) => <MapPin size={18} strokeWidth={1.75} aria-hidden {...props} />;
+export const IconPlane = (props: LucideProps) => <Plane size={18} strokeWidth={1.75} aria-hidden {...props} />;
+export const IconCheck = (props: LucideProps) => <Check size={18} strokeWidth={1.75} aria-hidden {...props} />;
+export const IconInbox = (props: LucideProps) => <Inbox size={18} strokeWidth={1.75} aria-hidden {...props} />;
+export const IconSun = (props: LucideProps) => <Sun size={18} strokeWidth={1.75} aria-hidden {...props} />;
+export const IconMoon = (props: LucideProps) => <Moon size={18} strokeWidth={1.75} aria-hidden {...props} />;

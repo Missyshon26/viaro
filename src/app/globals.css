@@ -1,0 +1,296 @@
+@import "tailwindcss";
+
+/*
+  Theme tokens — the ABL brand manual ("ABL, Manual de Marca"):
+
+    Midnight Route   #1153A4   primary actions, links, the logo mark on light
+    Azure Drive      #6096BA   accents; the mark and links on dark
+    Cloud Leather    #E1EFE6   light neutral; text on dark
+    Executive Black  #060606   text on light; the dark ground
+
+  Typeface: standard sans-serif for readable operational screens.
+  Greys and tints are derived from these four; red/green/amber are kept only for
+  error, success and warning states. These replaced the Figma palette-B navy
+  (#04182E) and blue (#0055A9), which were never brand colours.
+*/
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  color-scheme: light;
+
+  --bg: #ffffff; /* screen background */
+  --surface: #f7f8fa; /* input fields, icon tiles, back button */
+  --surface-raised: #ffffff; /* cards sitting on the page */
+  --border: #dce3ec; /* field borders */
+  --border-subtle: #e9edf3; /* footer / divider hairlines */
+
+  --fg: #15243b; /* headings and values */
+  --fg-muted: #566068; /* field labels, secondary copy */
+  --fg-faint: #5f666d; /* captions */
+
+  --accent: #1153a4; /* links, "Forgot my password", desktop CTA fill */
+  --primary: #1153a4; /* primary button fill */
+  --primary-fg: #ffffff;
+
+  --danger: #b3261e;
+  --success: #0f7b4f;
+
+  /*
+    Desktop-only tokens. The mobile screens never used these; the desktop marketing
+    pages lean on them heavily. Values read from the palette-B desktop frames.
+  */
+  --fg-body: #2a3138; /* body copy on the marketing pages (72 nodes on Home alone) */
+  --accent-strong: #0d4285; /* eyebrow labels over tinted fills */
+  --accent-soft: #e3ebf6; /* badge fill, segmented-control track */
+  --panel: #102c50; /* dark CTA bands and the "undefined rule" callouts */
+  --panel-fg: #e1efe6;
+  --panel-muted: #bbd0e5; /* secondary copy inside a dark panel */
+
+  /* --- Dashboard system additions ------------------------------------------
+     Chart series and elevation. The series ramp walks the brand blue from the
+     deep navy of --primary out to a pale tint, so a multi-series chart reads as
+     one family rather than a rainbow; --chart-warn/-bad are reserved for
+     cancelled and penalised states, which must never look like normal traffic. */
+  --chart-1: #1153a4;
+  --chart-2: #6096ba;
+  --chart-3: #9fc0d6;
+  --chart-4: #cfe0ea;
+  --chart-5: #060606;
+  --chart-good: #0f7b4f;
+  --chart-warn: #946718;
+  --chart-bad: #b3261e;
+  --chart-grid: #e7efea;
+
+  --shadow-card: 0 1px 2px rgba(4, 24, 46, 0.04), 0 1px 3px rgba(4, 24, 46, 0.06);
+  --shadow-raised: 0 4px 12px rgba(4, 24, 46, 0.08), 0 1px 3px rgba(4, 24, 46, 0.04);
+}
+
+.dark {
+  color-scheme: dark;
+
+  --bg: #0c1420;
+  --surface: #152131;
+  --surface-raised: #1b2b40;
+  --border: #33445b;
+  --border-subtle: #29394e;
+
+  --fg: #e1efe6;
+  --fg-muted: #b2c0d0;
+  --fg-faint: #a7b7ca;
+
+  --accent: #6096ba;
+  --primary: #1153a4; /* dark mode promotes blue to the button fill */
+  --primary-fg: #ffffff;
+
+  --danger: #f2b8b5;
+  --success: #6dd6a5;
+
+  /*
+    ⚠ Derived, not sampled. The palette-C desktop frames (57:5843) were never read —
+    the Figma MCP quota ran out after Home. These extend palette C's own logic: a
+    "dark panel" cannot be navy-on-navy, so it becomes the raised surface, and the
+    soft accent becomes a blue-tinted shade of it. Re-check against 57:5843 when the
+    quota resets.
+  */
+  --fg-body: #b8c6be;
+  --accent-strong: #6096ba;
+  --accent-soft: #0f1d2c;
+  --panel: #203957;
+  --panel-fg: #e1efe6;
+  --panel-muted: #b3c6d9;
+
+  /* Dashboard additions — same roles, lifted for the dark ground. */
+  --chart-1: #6096ba;
+  --chart-2: #1153a4;
+  --chart-3: #9fc0d6;
+  --chart-4: #2c4a66;
+  --chart-5: #b8c6be;
+  --chart-good: #6dd6a5;
+  --chart-warn: #e0b860;
+  --chart-bad: #f2b8b5;
+  --chart-grid: #252a2e;
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.2);
+  --shadow-raised: 0 4px 12px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+@theme inline {
+  --font-sans: Arial, "Helvetica Neue", sans-serif;
+
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-faint: var(--fg-faint);
+  --color-accent: var(--accent);
+  --color-primary: var(--primary);
+  --color-primary-fg: var(--primary-fg);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --color-fg-body: var(--fg-body);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-panel: var(--panel);
+  --color-panel-fg: var(--panel-fg);
+  --color-panel-muted: var(--panel-muted);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-good: var(--chart-good);
+  --color-chart-warn: var(--chart-warn);
+  --color-chart-bad: var(--chart-bad);
+  --color-chart-grid: var(--chart-grid);
+  --shadow-card: var(--shadow-card);
+  --shadow-raised: var(--shadow-raised);
+
+
+  /* Type scale taken verbatim from the Figma text nodes. */
+  --text-label: 0.75rem; /* 10px  — field labels */
+  --text-link: 0.8125rem; /* 11px  — inline links */
+  --text-meta: 0.875rem; /* 13px  — captions */
+  --text-body: 0.90625rem; /* 14.5px — inputs, buttons, list rows */
+  --text-title: 1.03125rem; /* 16.5px — screen titles */
+  --text-display: 1.5rem; /* 24px  — marketing headings */
+
+  /* Desktop continues the same scale upward. */
+  --text-micro: 0.75rem; /* 10.5px — footer column headings, section kickers */
+  --text-note: 0.875rem; /* 11.5px — card body copy, the desktop workhorse */
+  --text-small: 0.875rem; /* 12.5px — footer links, callout copy */
+  --text-action: 0.875rem; /* 14px  — button labels, card titles */
+  --text-lead: 0.96875rem; /* 15.5px — hero and section intros */
+  --text-card: 1rem; /* 16px  — card headings */
+  --text-price: 1.1875rem; /* 19px  — fleet prices */
+  --text-stat: 1.3125rem; /* 21px  — hero stats */
+  --text-metric: 1.75rem; /* 28px  — the metrics strip */
+  --text-heading: 1.875rem; /* 30px  — band headings */
+  --text-page: 1.9375rem; /* 31px  — booking-step page titles */
+  --text-hero: 2.75rem; /* 44px  — hero headline */
+
+  --radius-field: 0.75rem;
+  --radius-card: 1rem;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* The design draws focus states as solid borders rather than glows. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/*
+ * Brand manual typography: Clash Display, running text in LIGHT with the important
+ * phrases in BOLD. Explicit weight classes (font-bold, font-medium…) still apply.
+ * Word space widened slightly — Clash Display sets it very tight.
+ */
+body {
+  /* Clash Display sets tight; small UI text needs a little air between letters. */
+  letter-spacing: 0.005em;
+  word-spacing: normal;
+  font-weight: 400;
+}
+strong,
+b {
+  font-weight: 700;
+}
+
+/* Workspace surfaces and accessible interaction defaults. */
+button:not(:disabled), summary, select { cursor: pointer; }
+button:disabled { cursor: not-allowed; }
+input, select, textarea { font: inherit; }
+input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+h1, h2, h3 { text-wrap: balance; }
+::selection { background: var(--accent-soft); color: var(--fg); }
+.workspace-rail { background: var(--surface-raised); }
+.workspace-topbar { background: color-mix(in srgb, var(--surface-raised) 94%, transparent); }
+.workspace-main { background: var(--bg); }
+.skip-link { position: fixed; left: 1rem; top: -5rem; z-index: 100; padding: .75rem 1rem; border-radius: .75rem; background: var(--primary); color: var(--primary-fg); }
+.skip-link:focus { top: 1rem; }
+.auth-layout { min-height: 100dvh; display: grid; grid-template-columns: 1fr 1fr; background: var(--bg); padding: 24px; gap: 24px; }
+.auth-story { display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; position: relative; padding: clamp(32px,5vw,80px); border-radius: 24px; background: #102c50; color: #f5f8fc; }
+.auth-story::after { content: ''; position: absolute; width: 540px; height: 540px; border: 1px solid #6096ba40; border-radius: 50%; right: -290px; bottom: -190px; box-shadow: 0 0 0 70px #6096ba10, 0 0 0 140px #6096ba08; pointer-events: none; }
+.auth-story h2 { font-size: clamp(36px,4.4vw,68px); line-height: 1.06; letter-spacing: -.035em; font-weight: 600; white-space: pre-line; max-width: 600px; }
+.auth-content { display: flex; align-items: center; justify-content: center; padding: 40px 24px; }
+.auth-form { width: 100%; max-width: 420px; }
+.auth-feature { display: flex; align-items: center; gap: 12px; padding: 14px 0; color: #cbdaec; font-size: 14px; border-bottom: 1px solid #ffffff18; }
+.auth-feature span { color: #8eb7df; font-variant-numeric: tabular-nums; font-size: 12px; }
+@media (max-width: 900px) { .auth-layout { grid-template-columns: 1fr; padding: 0; gap: 0; } .auth-story { padding: 28px; border-radius: 0; min-height: 220px; } .auth-story h2 { font-size: 34px; margin-top: 32px; } .auth-story-details { display: none; } .auth-content { padding: 36px 24px; } }
+@media (max-width: 639px) { input, select, textarea { font-size: 16px !important; } .workspace-topbar { gap: 4px; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
+
+/* Keep controls, long identifiers and page actions usable at narrow widths. */
+.workspace-main > * { min-width: 0; }
+.workspace-main dd { overflow-wrap: anywhere; }
+.workspace-main input:not([type="checkbox"]):not([type="radio"]), .workspace-main select { min-height: 44px; }
+@media (max-width: 639px) {
+  .workspace-topbar { height: 72px; padding-inline: 12px; }
+  .workspace-topbar h1 { font-size: 14px; }
+  .auth-story { min-height: auto; }
+  .auth-story > div:nth-child(2) { padding-block: 12px; }
+  .auth-story h2 { margin-top: 16px; }
+  .auth-story p { font-size: 13px; }
+}
+
+@media (min-width: 375px) and (max-width: 639px) {
+  .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .metric-card { padding: 16px; }
+  .metric-value { font-size: 26px; overflow-wrap: anywhere; }
+}
+
+/* Responsive records use their section width, including beside a desktop rail. */
+.record-container, .responsive-table { container-type: inline-size; min-width: 0; }
+.record-table { display: none; }
+.record-cards { display: block; }
+.record-cards dl { display: grid; gap: 16px; }
+.record-cards dl > div { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.record-cards dd { width: 100%; overflow-wrap: anywhere; }
+.record-cards dd > * { max-width: 100%; }
+@container (min-width: 560px) {
+  .record-cards dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container (min-width: 1200px) {
+  .record-table { display: block; }
+  .record-cards, .record-sort { display: none; }
+}
+.record-table table { width: 100%; table-layout: auto; }
+.record-table th, .record-table td { padding: 16px 12px; overflow-wrap: normal; word-break: normal; }
+.record-table th { white-space: nowrap; font-size: 12px; letter-spacing: 0; text-transform: none; }
+button, [role="status"] { word-break: normal; overflow-wrap: normal; }
+button { flex-shrink: 0; }
+.record-table button, .record-cards button { white-space: nowrap; }
+.workspace-main { min-width: 0; }
+.workspace-main > *, .workspace-main section { min-width: 0; max-width: 100%; }
+h1, h2, h3 { letter-spacing: -0.025em; }
+.font-bold { font-weight: 600; }
+.responsive-table table { width: 100%; min-width: 0; }
+@container (max-width: 900px) {
+  .responsive-table table, .responsive-table tbody { display: block; }
+  .responsive-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .responsive-table tbody > tr { display: grid; grid-template-columns: minmax(0, 1fr); padding: 16px; gap: 12px; }
+  .responsive-table tbody > tr > td { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 8px 16px; padding: 0; text-align: left; min-width: 0; overflow-wrap: anywhere; }
+  .responsive-table td[data-label]::before { content: attr(data-label); color: var(--fg-muted); font-size: 12px; font-weight: 500; flex-shrink: 0; }
+  .responsive-table td > * { max-width: 100%; }
+}
+
+@container (min-width: 1200px) and (max-width: 1439px) {
+  [data-dense="true"] > .record-table { display: none; }
+  [data-dense="true"] > .record-cards { display: block; }
+  [data-dense="true"] .record-sort { display: flex; }
+}
+.record-cards li:hover { background: color-mix(in srgb, var(--surface) 45%, transparent); }

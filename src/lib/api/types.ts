@@ -1,0 +1,301 @@
+/**
+ * Shapes returned by the viaro-backend API.
+ * Kept in one file so a backend change has a single place to land.
+ */
+
+export type UserRole = "customer" | "driver" | "admin" | "company";
+export type UserStatus = "active" | "pending_documents" | "suspended";
+
+/** Every endpoint answers with this envelope. */
+export interface ApiEnvelope<T> {
+  success: true;
+  data: T;
+  message?: string;
+}
+
+export interface ApiErrorBody {
+  success: false;
+  message: string;
+  details?: unknown;
+}
+
+export interface Paginated<T> {
+  items: T[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface User {
+  _id: string;
+  role: UserRole;
+  name: string;
+  /** The halves of `name`; absent on accounts made before they existed. */
+  firstName?: string;
+  lastName?: string;
+  address?: { line1: string; line2?: string; city: string; state: string; postalCode: string };
+  email: string;
+  phone: string;
+  status: UserStatus;
+  walletId?: string;
+  favorites?: string[];
+  /** Created through "Continue as guest" at checkout. */
+  isGuest?: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Driver {
+  _id: string;
+  userId: string | User;
+  vehicleClass: string;
+  status: "available" | "busy" | "offline";
+  rating: number;
+  ratingCount: number;
+  penaltyCount: number;
+  documents: string[];
+  payout?: { mode: "percentage" | "flat"; value: number; setBy?: "admin" | "company" };
+}
+
+export interface AuthResult {
+  user: User;
+  role: UserRole;
+  accessToken: string;
+  refreshToken: string;
+}
+
+export type TripType = "point2point" | "airport" | "hourly";
+export type BookingStatus = "pending" | "dispatched" | "assigned" | "cancelled";
+
+export interface GeoPoint {
+  lat: number;
+  lng: number;
+  address: string;
+}
+
+/**
+ * Who ended a booking, why, and when.
+ *
+ * On the Booking rather than only the Trip because a booking can be cancelled before a
+ * trip exists at all — a pending or dispatched one has no Trip document. This is the
+ * single field to read no matter which of the four paths ended it.
+ */
+export interface BookingCancellation {
+  reason?: string;
+  by: "customer" | "driver" | "admin";
+  byUserId?: string;
+  /** Snapshotted at cancellation time, so a later rename or scrub cannot blank it. */
+  byName?: string;
+  /** Operations turned the request down, rather than a ride being called off. */
+  rejected?: boolean;
+  at: string;
+}
+
+export interface Booking {
+  _id: string;
+  customerId: string | User;
+  /** Booked by an account created through "Continue as guest". */
+  isGuest?: boolean;
+  /** `admin` = an operator booked it for the client from the console (unpaid until collected). */
+  source?: "customer" | "admin";
+  /** Intermediate stops, in order. */
+  stops?: GeoPoint[];
+  /** The agreement revision the customer had signed when they booked. */
+  agreementVersion?: string;
+  agreementSignedAt?: string;
+  pickup: GeoPoint;
+  drop: GeoPoint;
+  vehicleClass: string;
+  /** Party size. Absent on bookings made before the field existed. */
+  passengers?: number;
+  /** Customer-initiated changes since the booking was made, oldest first. */
+  amendments?: {
+    field:
+      | "pickup"
+      | "drop"
+      | "vehicleClass"
+      | "scheduledAt"
+      | "stops"
+      | "flight"
+      | "occasion"
+      | "luggage"
+      | "passenger";
+    from: string;
+    to: string;
+    by: "customer" | "admin";
+    at: string;
+  }[];
+  tripType: TripType;
+  status: BookingStatus;
+  /** Present only once status is 'cancelled'. */
+  cancellation?: BookingCancellation;
+  /**
+   * Wallet credit the passenger asked to put towards this ride, chosen at booking.
+   * Not yet spent — it is applied when a chauffeur is assigned and a Trip exists.
+   */
+  walletCreditRequested?: number;
+  scheduledAt: string;
+  scheduledAtLocal?: string;
+  city?: string;
+  estimatedFare?: number;
+  /** What the fare was made of, when it was priced. Older bookings have no tip, discount or tax. */
+  fareBreakdown?: {
+    classFare: number;
+    primetimeSurcharge: number;
+    meetAndGreetFee: number;
+    stopFee: number;
+    subtotal?: number;
+    gratuityPct?: number;
+    gratuity?: number;
+    discountKind?: "welcome" | "loyalty";
+    discount?: number;
+    taxPct?: number;
+    tax?: number;
+  };
+  /** Present once the fare has been paid by card. */
+  payment?: {
+    amount: number;
+    status: "paid" | "partially_refunded" | "refunded";
+    brand?: string;
+    last4?: string;
+    refundedAmount: number;
+    paidAt: string;
+  };
+  /** Where the booking stands on the shared calendar; absent until it has been added. */
+  calendar?: { link?: string; syncedAt: string; removed?: boolean; hash: string };
+  /** The last "pay online" link an operator sent for this booking. */
+  paymentLink?: { url: string; amount: number; sentAt: string; expiresAt: string; emailed: boolean };
+  flightDetails?: { flightNumber: string; scheduledArrival?: string };
+  /** Which leg of a multi-leg journey this is. */
+  journey?: { index: number; count: number };
+  /** Every leg of that journey, in order (only on a single booking's own read). */
+  journeyLegs?: {
+    _id: string;
+    journey?: { index: number; count: number };
+    pickup: GeoPoint;
+    drop: GeoPoint;
+    scheduledAt: string;
+    status: string;
+    vehicleClass: string;
+    estimatedFare?: number;
+  }[];
+  favoriteDriverId?: string;
+  /** Hourly charters only. */
+  hours?: number;
+  meetAndGreet?: boolean;
+  carSeats?: number;
+  occasion?: string;
+  occasionDetails?: string;
+  carryOnBags?: number;
+  checkedBags?: number;
+  passengerName?: string;
+  passengerPhone?: string;
+  cruisePort?: "pier66" | "pier91";
+  cruiseShip?: string;
+  /** Meet and Greet, car seats, cruise meeting point — what the chauffeur is told. */
+  serviceNotes?: string[];
+  /** Mongoose `timestamps: true` puts both of these on every booking. */
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FareBreakdown {
+  city: string;
+  tripType: TripType;
+  baseFare: number;
+  peakMultiplier: number;
+  isPeak: boolean;
+  subscriber: boolean;
+  hours?: number;
+  fare: number;
+}
+
+export type TripStatus = "accepted" | "started" | "completed" | "cancelled";
+
+export interface Trip {
+  _id: string;
+  bookingId: string;
+  driverId: string;
+  status: TripStatus;
+  /** Absent for drivers — the API strips it (spec §8 rule 2). */
+  fareAmount?: number;
+  creditApplied?: number;
+  penaltyApplied: boolean;
+  /** Set once applyRevenueSplit has run; drives the "Collect fare" action. */
+  settled?: boolean;
+  /** The passenger never appeared; the trip was closed and is still charged. */
+  noShow?: boolean;
+  timestamps: {
+    requested?: string;
+    assigned?: string;
+    accepted?: string;
+    /** The chauffeur is on the way / at the pickup (the trip is still 'accepted'). */
+    confirmed?: string;
+    enroute?: string;
+    arrived?: string;
+    started?: string;
+    completed?: string;
+  };
+  cancellation?: {
+    reason?: string;
+    refundPct?: number;
+    refundedAt?: string;
+    /** "admin" is an operator ending the trip from the console. */
+    cancelledBy?: "customer" | "driver" | "admin";
+    /** The individual, not just the role. Name is snapshotted at cancellation time. */
+    cancelledByUserId?: string;
+    cancelledByName?: string;
+  };
+  lastLocation?: { lat: number; lng: number; updatedAt: string };
+  booking?: Booking;
+  /** Phone is masked to "Contact via app" for customers. */
+  driver?: { driverId: string; name: string | null; phone: string | null; vehicleClass: string; rating: number };
+  customer?: { customerId: string; name: string; phone: string };
+  scheduledAtLocal?: string;
+}
+
+export type TransactionType = "credit" | "debit" | "refund" | "withdrawal";
+
+export interface Transaction {
+  _id: string;
+  type: TransactionType;
+  amount: number;
+  feeApplied: number;
+  reason?: string | null;
+  meta?: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface Wallet {
+  walletId: string;
+  ownerType: "customer" | "driver" | "company" | "platform";
+  balance: number;
+  transactions: Paginated<Transaction>;
+}
+
+export interface Notification {
+  _id: string;
+  type: string;
+  payload: Record<string, unknown> & { message?: string };
+  read: boolean;
+  createdAt: string;
+}
+
+export interface Subscription {
+  _id: string;
+  plan: string;
+  price: number;
+  status: "active" | "cancelled" | "expired";
+  startDate: string;
+  renewalDate: string;
+}
+
+export interface ChatMessage {
+  _id: string;
+  tripId: string;
+  senderId: string | { _id: string; name: string; role: UserRole };
+  senderRole: UserRole;
+  message: string;
+  createdAt: string;
+}
