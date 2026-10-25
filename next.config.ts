@@ -13,6 +13,9 @@ const SECURITY_HEADERS = [
 ];
 
 const nextConfig: NextConfig = {
+  // A self-contained server (`node server.js`) with only the files it needs, so a release
+  // is a small upload instead of the whole node_modules tree.
+  output: "standalone",
   poweredByHeader: false,
   async rewrites() {
     if (process.env.NODE_ENV !== "development" || process.env.NEXT_PUBLIC_DEV_API_PROXY !== "1") return [];

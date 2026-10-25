@@ -1,0 +1,56 @@
+name: Deploy admin console
+
+# Push to main -> test -> build -> upload to the server -> restart -> health check.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-admin
+  cancel-in-progress: false
+
+env:
+  APP: abl-admin
+  PORT: "3012"
+  # Baked into the browser bundle at build time (public by design).
+  NEXT_PUBLIC_API_URL: https://api.allblacklimoseattle.com
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+      - name: Package release
+        run: |
+          cp -r .next/static .next/standalone/.next/static
+          [ -d public ] && cp -r public .next/standalone/public || true
+          tar -czf release.tgz -C .next/standalone .
+
+      - name: Install SSH key
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Upload and switch release
+        env:
+          TARGET: ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}
+          RELEASE: ${{ github.sha }}
+        run: |
+          SSH="ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes"
+          scp -i ~/.ssh/deploy_key -o IdentitiesOnly=yes release.tgz "$TARGET:/tmp/$APP-$RELEASE.tgz"
+          $SSH "$TARGET" "bash -s" -- "$RELEASE" "$APP" "$PORT" < scripts/deploy/remote-deploy.sh
