@@ -1,5 +1,6 @@
 "use client";
 
+import { ChevronDown } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { classesFor, GRATUITY_OPTIONS, MAX_CAR_SEATS, MAX_STOPS, OCCASIONS, SERVICE_LABEL, type Service, type TripForm } from "@/lib/newTrip";
 import type { PricingRule } from "@/lib/api/admin";
@@ -60,19 +61,19 @@ export function LegForm({
       <div className="mt-3 grid gap-4 sm:grid-cols-2">
         <div>
           <label className={label} htmlFor={id("svc")}>Service</label>
-          <select id={id("svc")} className={field} value={service} onChange={(e) => set("service", e.target.value as Service)}>
+          <div className="relative"><select id={id("svc")} className={`${field} appearance-none pr-10`} value={service} onChange={(e) => set("service", e.target.value as Service)}>
             {(Object.keys(SERVICE_LABEL) as Service[]).map((s) => (
               <option key={s} value={s}>{SERVICE_LABEL[s]}</option>
             ))}
-          </select>
+          </select><ChevronDown aria-hidden size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-fg-muted" /></div>
         </div>
         <div>
           <label className={label} htmlFor={id("city")}>City (sets the price)</label>
-          <select id={id("city")} className={field} value={form.city} onChange={(e) => set("city", e.target.value)}>
+          <div className="relative"><select id={id("city")} className={`${field} appearance-none pr-10`} value={form.city} onChange={(e) => set("city", e.target.value)}>
             {(cities.length ? cities.map((c) => c.city) : ["seattle"]).map((c) => (
               <option key={c} value={c.toLowerCase()}>{c.replace(/\b\w/g, (m) => m.toUpperCase())}</option>
             ))}
-          </select>
+          </select><ChevronDown aria-hidden size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-fg-muted" /></div>
         </div>
         <div className="sm:col-span-2">
           <label className={label} htmlFor={id("pickup")}>Pickup address</label>
@@ -143,14 +144,14 @@ export function LegForm({
       <div className="mt-3 grid gap-4 sm:grid-cols-2">
         <div className="sm:col-span-2">
           <label className={label} htmlFor={id("veh")}>Vehicle</label>
-          <select id={id("veh")} className={field} value={form.vehicleClass} onChange={(e) => set("vehicleClass", e.target.value)}>
+          <div className="relative"><select id={id("veh")} className={`${field} appearance-none pr-10`} value={form.vehicleClass} onChange={(e) => set("vehicleClass", e.target.value)}>
             <option value="">Choose a vehicle…</option>
             {offered.map((v) => (
               <option key={v.value} value={v.value}>
                 {v.label} — up to {v.seats} passengers, {v.bags} bags
               </option>
             ))}
-          </select>
+          </select><ChevronDown aria-hidden size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-fg-muted" /></div>
         </div>
         <div>
           <label className={label} htmlFor={id("pax")}>Passengers</label>
@@ -159,14 +160,19 @@ export function LegForm({
             <p className="mt-1 text-note font-bold text-danger">More than this vehicle seats ({chosenVehicle.seats}).</p>
           ) : null}
         </div>
+      </div>
+      <details className="mt-5 border-t border-border-subtle pt-4">
+        <summary className="cursor-pointer text-note font-bold text-accent">Additional requirements <span className="font-normal text-fg-muted">· optional</span></summary>
+        <p className="mt-2 text-label text-fg-muted">Luggage, child seats, meet and greet, gratuity, and passenger details.</p>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <div>
           <label className={label} htmlFor={id("occ")}>Occasion</label>
-          <select id={id("occ")} className={field} value={form.occasion} onChange={(e) => set("occasion", e.target.value)}>
+          <div className="relative"><select id={id("occ")} className={`${field} appearance-none pr-10`} value={form.occasion} onChange={(e) => set("occasion", e.target.value)}>
             <option value="">Not specified</option>
             {OCCASIONS.map((o) => (
               <option key={o} value={o}>{o}</option>
             ))}
-          </select>
+          </select><ChevronDown aria-hidden size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-fg-muted" /></div>
         </div>
         {form.occasion === "Other" ? (
           <div className="sm:col-span-2">
@@ -184,13 +190,13 @@ export function LegForm({
         </div>
         <div>
           <label className={label} htmlFor={id("tip")}>Tip for the chauffeur</label>
-          <select id={id("tip")} className={field} value={form.gratuity} onChange={(e) => set("gratuity", e.target.value)}>
+          <div className="relative"><select id={id("tip")} className={`${field} appearance-none pr-10`} value={form.gratuity} onChange={(e) => set("gratuity", e.target.value)}>
             {GRATUITY_OPTIONS.map((pct) => (
               <option key={pct} value={String(pct)}>
                 {pct === 0 ? "No tip" : `${pct}% of the trip price`}
               </option>
             ))}
-          </select>
+          </select><ChevronDown aria-hidden size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-fg-muted" /></div>
         </div>
         <div>
           <label className={label} htmlFor={id("seat")}>Child car seats</label>
@@ -209,6 +215,7 @@ export function LegForm({
           <input id={id("pp")} type="tel" className={field} value={form.passengerPhone} onChange={(e) => set("passengerPhone", e.target.value)} />
         </div>
       </div>
+      </details>
     </section>
 
 

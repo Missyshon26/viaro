@@ -152,8 +152,10 @@ export function ConsoleShell({
       <a href="#main-content" className="skip-link">Skip to content</a>
       {/* ------------------------------ desktop rail ------------------------- */}
       <aside
-        className={`workspace-rail sticky top-0 hidden h-dvh shrink-0 flex-col border-r border-border bg-bg transition-[width] duration-200 lg:flex ${
-          collapsed ? "w-[72px]" : "w-[256px]"
+        id="desktop-sidebar"
+        aria-label="Workspace sidebar"
+        className={`workspace-rail sticky top-0 z-40 hidden h-dvh shrink-0 flex-col border-r border-border bg-bg transition-[width] duration-200 lg:flex ${
+          collapsed ? "w-[76px]" : "w-[248px]"
         }`}
       >
         <div
@@ -161,12 +163,13 @@ export function ConsoleShell({
             collapsed ? "justify-center px-3" : "px-5"
           }`}
         >
-          <Link href="/" aria-label={title} className="min-w-0">
-            <Logo width={collapsed ? 40 : 64} />
+          <Link href="/" aria-label={title} className="flex min-w-0 items-center gap-3 rounded-lg">
+            <Logo width={collapsed ? 38 : 48} />
+            {!collapsed && <span className="border-l border-border pl-3"><span className="block text-meta font-bold tracking-tight text-fg">ABL Console</span><span className="mt-0.5 block text-[11px] text-fg-muted">Operations workspace</span></span>}
           </Link>
         </div>
 
-        <nav aria-label="Main navigation" className="min-h-0 flex-1 overflow-y-auto px-3 py-6">
+        <nav aria-label="Main navigation" className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4">
           <Navigation nav={nav} pathname={pathname} collapsed={collapsed} badges={badges} />
         </nav>
 
@@ -177,17 +180,7 @@ export function ConsoleShell({
             name={user?.name}
             email={user?.email}
           />
-          <button
-            type="button"
-            onClick={toggleCollapsed}
-            aria-label={collapsed ? "Expand the sidebar" : "Collapse the sidebar"}
-            className={`mt-1 flex h-9 w-full items-center gap-3 rounded-field text-meta font-bold text-fg-muted transition-colors hover:bg-surface hover:text-fg ${
-              collapsed ? "justify-center px-0" : "px-3"
-            }`}
-          >
-            <IconPanelLeft size={18} />
-            {collapsed ? null : "Collapse"}
-          </button>
+
         </div>
       </aside>
 
@@ -212,7 +205,7 @@ export function ConsoleShell({
                 <IconClose />
               </button>
             </div>
-            <nav aria-label="Main navigation" className="min-h-0 flex-1 overflow-y-auto px-3 py-6">
+            <nav aria-label="Main navigation" className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4">
               <Navigation nav={nav} pathname={pathname} collapsed={false} badges={badges} />
             </nav>
             <div className="shrink-0 border-t border-border-subtle p-3">
@@ -230,6 +223,9 @@ export function ConsoleShell({
       {/* --------------------------------- body ------------------------------ */}
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="workspace-topbar sticky top-0 z-30 flex h-[80px] shrink-0 items-center gap-2 border-b border-border bg-bg/85 px-4 backdrop-blur lg:gap-4 lg:px-7">
+          <button type="button" onClick={toggleCollapsed} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} title={collapsed ? "Expand sidebar" : "Collapse sidebar"} aria-expanded={!collapsed} aria-controls="desktop-sidebar" className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-field border border-border bg-surface-raised text-fg-muted transition-colors hover:border-accent/40 hover:bg-surface hover:text-accent lg:inline-flex">
+            <IconPanelLeft size={18} className={collapsed ? "rotate-180" : ""} />
+          </button>
           <button
             type="button"
             onClick={() => setDrawer(true)}
@@ -292,11 +288,13 @@ function Navigation({ nav, pathname, collapsed, badges }: { nav: NavItem[]; path
     { label: "Finance & insights", paths: ["/revenue", "/earnings", "/pricing", "/reports", "/penalties", "/cancellations"] },
     { label: "Management", paths: ["/users", "/clients", "/vehicles", "/documents", "/support", "/apply"] },
   ];
-  return <div className="space-y-5">{groups.map((group) => {
+  return <div className={collapsed ? "space-y-4" : "space-y-5"}>{groups.map((group, index) => {
     const items = nav.filter((item) => group.paths.includes(item.href));
     if (!items.length) return null;
-    const links = <ul className="space-y-1">{items.map((item) => <li key={item.href}><NavLink item={item} active={isActive(pathname, item.href)} collapsed={collapsed} badge={badges[item.href] ?? 0} /></li>)}</ul>;
-    return collapsed ? <div key={group.label}>{links}</div> : <details key={`${group.label}:${pathname}`} open className="group/nav"><summary className="mb-2 flex min-h-9 items-center justify-between px-3 text-[11px] font-bold uppercase tracking-widest text-fg-muted"><span>{group.label}</span><IconChevronDown size={12} className="transition-transform group-open/nav:rotate-180" /></summary>{links}</details>;
+    return <div key={group.label} role="group" aria-label={group.label}>
+      {collapsed ? (index > 0 && <div aria-hidden className="mx-3 mb-4 h-px bg-border-subtle" />) : <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-fg-muted">{group.label}</p>}
+      <ul className="space-y-1">{items.map((item) => <li key={item.href}><NavLink item={item} active={isActive(pathname, item.href)} collapsed={collapsed} badge={badges[item.href] ?? 0} /></li>)}</ul>
+    </div>;
   })}</div>;
 }
 
@@ -318,12 +316,12 @@ function NavLink({
       href={item.href}
       aria-current={active ? "page" : undefined}
       title={collapsed ? item.label : undefined}
-      className={`relative flex h-11 items-center gap-3 rounded-field text-meta font-bold transition-colors ${
+      className={`relative flex h-11 items-center gap-3 rounded-[10px] border text-meta font-medium transition-colors ${
         collapsed ? "justify-center px-0" : "px-3"
       } ${
         active
-          ? "bg-primary text-primary-fg shadow-sm"
-          : "text-fg-body hover:bg-surface hover:text-fg"
+          ? "border-accent/15 bg-accent-soft font-semibold text-accent-strong"
+          : "border-transparent text-fg-body hover:border-border-subtle hover:bg-surface hover:text-fg"
       }`}
     >
       {/* The active marker is a rail tick rather than a full-height bar, so a collapsed
@@ -331,10 +329,10 @@ function NavLink({
       {active ? (
         <span
           aria-hidden
-          className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r-full bg-accent"
+          className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-r-full bg-accent"
         />
       ) : null}
-      <Glyph size={18} />
+      <span className={`flex h-7 w-7 shrink-0 items-center justify-center ${active ? "text-accent" : "text-fg-muted"}`}><Glyph size={18} /></span>
       {collapsed ? <span className="sr-only">{item.label}</span> : item.label}
 
       {badge > 0 ? (
@@ -344,12 +342,12 @@ function NavLink({
           {collapsed ? (
             <span
               aria-hidden
-              className="absolute right-2 top-2 h-2 w-2 rounded-full bg-danger ring-2 ring-bg"
+              className="absolute right-2 top-2 h-2 w-2 rounded-full bg-accent ring-2 ring-bg"
             />
           ) : (
             <span
               aria-hidden
-              className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1.5 text-[0.625rem] font-bold text-white"
+              className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-md bg-accent-soft px-1.5 text-[10px] font-bold text-accent-strong"
             >
               {badge > 9 ? "9+" : badge}
             </span>
@@ -374,39 +372,7 @@ function UserBlock({
   email?: string;
   onLogout: () => Promise<void>;
 }) {
-  if (collapsed) {
-    return (
-      <button
-        type="button"
-        onClick={onLogout}
-        title={`Sign out${name ? ` — ${name}` : ""}`}
-        className="flex h-10 w-full items-center justify-center rounded-field text-fg-muted transition-colors hover:bg-surface hover:text-danger"
-      >
-        <IconLogout size={18} />
-        <span className="sr-only">Sign out</span>
-      </button>
-    );
-  }
-
-  return (
-    <div className="rounded-field bg-surface p-2.5">
-      <div className="flex min-w-0 items-center gap-2.5">
-        <Avatar name={name} size={32} />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-meta font-bold text-fg">{name ?? "—"}</p>
-          <p className="truncate text-label text-fg-muted">{email ?? ""}</p>
-        </div>
-      </div>
-      <button
-        type="button"
-        onClick={onLogout}
-        className="mt-2 flex h-8 w-full items-center justify-center gap-2 rounded-[0.6rem] bg-surface-raised text-label font-bold text-fg-body transition-colors hover:text-danger"
-      >
-        <IconLogout size={14} />
-        Sign out
-      </button>
-    </div>
-  );
+  return <ProfileMenu name={name} email={email} onLogout={onLogout} sidebar collapsed={collapsed} />;
 }
 
 /**
@@ -588,7 +554,11 @@ function ProfileMenu({
   email,
   role,
   onLogout,
+  sidebar = false,
+  collapsed = false,
 }: {
+  sidebar?: boolean;
+  collapsed?: boolean;
   name?: string;
   email?: string;
   role?: string | null;
@@ -596,24 +566,27 @@ function ProfileMenu({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
   const close = useCallback(() => setOpen(false), []);
   useDismiss(ref, close);
 
   return (
-    <div ref={ref} className="relative shrink-0">
+    <div ref={ref} className="relative shrink-0" onKeyDown={(event) => { if (event.key === "Escape" && open) { event.stopPropagation(); setOpen(false); trigger.current?.focus(); } }} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false); }}>
       <button
+        ref={trigger}
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-label="Account menu"
-        className="flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-full p-0.5 transition-colors hover:bg-surface"
+        className={sidebar ? `flex min-h-12 w-full items-center gap-2.5 rounded-field border border-transparent text-left transition-colors hover:border-border hover:bg-surface ${collapsed ? "justify-center p-1" : "bg-surface/60 p-2"}` : "flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-full p-0.5 transition-colors hover:bg-surface"}
       >
         <Avatar name={name} size={32} />
-        <IconChevronDown size={14} className="hidden text-fg-muted sm:block" />
+        {sidebar && !collapsed && <span className="min-w-0 flex-1"><span className="block truncate text-meta font-bold text-fg">{name ?? "Account"}</span><span className="mt-0.5 block truncate text-[11px] text-fg-muted">{email ?? "Manage your account"}</span></span>}
+        {(!sidebar || !collapsed) && <IconChevronDown size={14} className={`${sidebar ? "shrink-0 rotate-180" : "hidden sm:block"} text-fg-muted`} />}
       </button>
 
       {open ? (
-        <div className="absolute right-0 top-11 z-40 w-[15rem] overflow-hidden rounded-card border border-border bg-surface-raised shadow-[var(--shadow-raised)]">
+        <div className={`absolute z-40 w-[15rem] overflow-hidden rounded-card border border-border bg-surface-raised shadow-[var(--shadow-raised)] ${sidebar ? "bottom-full left-0 mb-2" : "right-0 top-12"}`}>
           <div className="flex items-center gap-2.5 border-b border-border-subtle px-4 py-3">
             <Avatar name={name} size={36} />
             <div className="min-w-0">

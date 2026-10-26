@@ -1,6 +1,9 @@
 "use client";
 
 import { use, useCallback, useEffect, useState, type ReactNode } from "react";
+import { stageOf, isOverdue } from "@/lib/trips/stage";
+import { AssignDriver } from "@/components/ops/AssignDriver";
+import { fetchAllPages } from "@/lib/api/admin";
 import { formatPhone } from "@/lib/format";
 import Link from "next/link";
 import { ConsolePage, formatDate, formatDateTime, money } from "@/components/ui/DataTable";
@@ -75,6 +78,7 @@ export default function BookingDetailPage({
   const [booking, setBooking] = useState<FullBooking | null>(null);
   const [trip, setTrip] = useState<Trip | null>(null);
   const [tripSearched, setTripSearched] = useState(false);
+  const [tripError, setTripError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   /**
@@ -90,6 +94,7 @@ export default function BookingDetailPage({
       const result = await getBooking(id);
       if (!isCurrent()) return;
       setBooking(result as FullBooking);
+      setError(null);
     } catch (err) {
       if (!isCurrent()) return;
       setError(errorText(err, "Could not load this booking"));
@@ -98,13 +103,14 @@ export default function BookingDetailPage({
 
     // Best effort: the booking is the page, the trip is extra context.
     try {
-      const page = await listMyTrips({ limit: 100 });
+      const page = await fetchAllPages((page, limit) => listMyTrips({ page, limit }));
       const match = (page.items ?? []).find((t) => String(t.bookingId) === id);
       const resolved = match ? await getTrip(match._id) : null;
       if (!isCurrent()) return;
       setTrip(resolved);
+      setTripError(null);
     } catch {
-      /* Leave the trip panel in its "none yet" state. */
+      if (isCurrent()) setTripError("Chauffeur and trip details could not be loaded.");
     } finally {
       if (isCurrent()) setTripSearched(true);
     }
@@ -165,6 +171,8 @@ export default function BookingDetailPage({
         }
       : undefined);
 
+  const stage = stageOf({ ...booking, trip: trip ?? undefined });
+  const stageLabel = { awaiting: "Awaiting dispatch", pool: "In the pool", assigned: "Chauffeur assigned", in_progress: "In progress", completed: "Completed", cancelled: "Cancelled" }[stage];
   const vehicle = findVehicleClass(booking.vehicleClass);
   const customer =
     booking.customerId && typeof booking.customerId === "object" ? booking.customerId : null;
@@ -210,14 +218,19 @@ export default function BookingDetailPage({
         <div className="flex flex-col items-start gap-2 sm:items-end">
           <div className="flex flex-wrap items-center gap-2">
             <DocumentDownloads bookingId={booking._id} />
-            <StatusBadge status={booking.status} />
+            <StatusBadge tone={stage === "completed" ? "good" : stage === "cancelled" ? "bad" : "info"}>{stageLabel}</StatusBadge>
           </div>
         </div>
       }
     >
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-4 rounded-card border border-border bg-surface px-5 py-4">
+        <div><p className="text-label font-bold uppercase tracking-wider text-accent">Journey overview</p><p className="mt-1 text-note text-fg-body">{stage === "awaiting" || stage === "pool" ? "Assign a chauffeur to prepare this journey for pickup." : stage === "completed" ? "Journey complete. Review payment and trip records below." : stage === "cancelled" ? "This journey has been cancelled. Review the cancellation details below." : "Monitor the pickup and keep the trip status up to date."}</p></div>
+        {isOverdue({ ...booking, trip: trip ?? undefined }) && <StatusBadge tone="bad">Pickup overdue</StatusBadge>}
+        {(stage === "awaiting" || stage === "pool") && tripSearched && !tripError && <AssignDriver bookingId={booking._id} reference={reference(booking._id)} onAssigned={() => void load()} />}
+      </div>
       {/* ------------------------------ headline strip ------------------------- */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Tile label="Estimated fare" value={money(booking.estimatedFare)} icon={<IconMoney size={16} />} />
+        <Tile label={trip?.fareAmount !== undefined ? "Trip fare" : "Estimated fare"} value={money(trip?.fareAmount ?? booking.estimatedFare)} icon={<IconMoney size={16} />} />
         <Tile
           label="Vehicle"
           value={vehicleLabel(booking.vehicleClass)}
@@ -232,9 +245,9 @@ export default function BookingDetailPage({
           tone={overCapacity ? "danger" : "default"}
         />
         <Tile
-          label="Trip"
-          value={trip ? reference(trip._id) : tripSearched ? "Not created" : "…"}
-          hint={trip ? trip.status : "No chauffeur assigned yet"}
+          label="Payment"
+          value={booking.payment ? ({ paid: "Paid", partially_refunded: "Part refunded", refunded: "Refunded" }[booking.payment.status]) : "Not recorded"}
+          hint={booking.payment ? `${money(booking.payment.amount)} card payment` : "No card payment recorded"}
           icon={<IconRoute size={16} />}
         />
       </div>
@@ -252,7 +265,7 @@ export default function BookingDetailPage({
         </p>
       ) : null}
 
-      <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
+      <div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1.5fr)_minmax(340px,1fr)]">
         {/* --------------------------------- left -------------------------------- */}
         <div className="space-y-5">
           <Section icon={<IconRoute size={14} />} title="Journey">
@@ -265,6 +278,7 @@ export default function BookingDetailPage({
                 lng={booking.pickup.lng}
                 tone="accent"
               />
+              {booking.stops?.map((stop, index) => <Leg key={index} label={`Stop ${index + 1}`} address={stop.address} lat={stop.lat} lng={stop.lng} tone="muted" />)}
               <Leg
                 label={booking.tripType === "hourly" ? "First stop" : "Drop-off"}
                 address={booking.drop.address}
@@ -273,10 +287,7 @@ export default function BookingDetailPage({
                 tone="muted"
               />
             </ol>
-            <p className="mt-4 text-note leading-relaxed text-fg-muted">
-              Coordinates are the city centre unless a geocoder is configured — the
-              addresses are what the passenger typed.
-            </p>
+            <a href={`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(booking.pickup.address)}&destination=${encodeURIComponent(booking.drop.address)}${booking.stops?.length ? `&waypoints=${encodeURIComponent(booking.stops.map((stop) => stop.address).join("|"))}` : ""}`} target="_blank" rel="noopener noreferrer" className="mt-5 inline-flex min-h-10 items-center gap-2 rounded-field border border-border px-3 text-note font-bold text-accent hover:bg-surface">Open route in maps ↗</a>
           </Section>
 
           <Section icon={<IconClock size={14} />} title="Timing">
@@ -293,6 +304,20 @@ export default function BookingDetailPage({
             <p className="mt-3 text-note text-fg-muted">
               All times are America/Los_Angeles, the platform standard.
             </p>
+          </Section>
+
+          <Section icon={<IconUsers size={14} />} title="Passenger & service requirements">
+            <dl className="grid gap-5 sm:grid-cols-2">
+              <Field label="Travelling passenger" value={booking.passengerName ?? customer?.name ?? "Not recorded"} strong />
+              <Field label="Passenger phone" value={formatPhone(booking.passengerPhone ?? customer?.phone) || "Not recorded"} />
+              <Field label="Carry-on bags" value={booking.carryOnBags === undefined ? "Not recorded" : String(booking.carryOnBags)} />
+              <Field label="Checked bags" value={booking.checkedBags === undefined ? "Not recorded" : String(booking.checkedBags)} />
+              <Field label="Child seats" value={booking.carSeats === undefined ? "Not recorded" : String(booking.carSeats)} />
+              <Field label="Meet & greet" value={booking.meetAndGreet === undefined ? "Not recorded" : booking.meetAndGreet ? "Requested" : "Not requested"} />
+              {booking.hours !== undefined && <Field label="Charter duration" value={`${booking.hours} hours`} />}
+              {booking.occasion && <Field label="Occasion" value={[booking.occasion, booking.occasionDetails].filter(Boolean).join(" · ")} />}
+              {booking.cruiseShip && <Field label="Cruise" value={`${booking.cruiseShip} · ${booking.cruisePort ?? "Port not recorded"}`} />}
+            </dl>
           </Section>
 
           {booking.serviceNotes?.length ? (
@@ -370,7 +395,7 @@ export default function BookingDetailPage({
             <Section icon={<IconPenalty size={14} />} title="Request">
               <RejectRequest
                 booking={booking}
-                clientName={typeof booking.customerId === "object" ? booking.customerId.name : undefined}
+                clientName={booking.customerId && typeof booking.customerId === "object" ? booking.customerId.name : undefined}
                 onChanged={() => void load()}
               />
             </Section>
@@ -380,14 +405,7 @@ export default function BookingDetailPage({
             <CalendarEntry booking={booking} onChanged={() => void load()} />
           </Section>
 
-          <Section icon={<IconMoney size={14} />} title="Payment">
-            <PaymentLink
-              booking={booking}
-              clientName={typeof booking.customerId === "object" ? booking.customerId.name : undefined}
-              clientEmail={typeof booking.customerId === "object" ? booking.customerId.email : undefined}
-              onChanged={() => void load()}
-            />
-          </Section>
+
 
           <Section icon={<IconCalendar size={14} />} title="Identifiers">
             <dl className="grid gap-x-6 gap-y-3">
@@ -404,6 +422,15 @@ export default function BookingDetailPage({
 
         {/* -------------------------------- right -------------------------------- */}
         <div className="space-y-5">
+          <Section icon={<IconMoney size={14} />} title="Payment">
+            <PaymentLink
+              booking={booking}
+              clientName={booking.customerId && typeof booking.customerId === "object" ? booking.customerId.name : undefined}
+              clientEmail={booking.customerId && typeof booking.customerId === "object" ? booking.customerId.email : undefined}
+              onChanged={() => void load()}
+            />
+          </Section>
+
           <Section icon={<IconUsers size={14} />} title="Customer">
             <div className="flex items-center gap-3">
               <Avatar name={customer?.name} size={40} />
@@ -443,7 +470,9 @@ export default function BookingDetailPage({
           </Section>
 
           <Section icon={<IconCar size={14} />} title="Chauffeur and trip">
-            {!tripSearched ? (
+            {tripError ? (
+              <div role="alert"><p className="text-note text-danger">{tripError}</p><button type="button" onClick={() => void load()} className="mt-2 min-h-11 text-note font-bold text-accent">Retry loading trip</button></div>
+            ) : !tripSearched ? (
               <Skeleton className="h-24" />
             ) : !trip ? (
               <NotAvailable
@@ -517,7 +546,7 @@ export default function BookingDetailPage({
                       tripId={trip._id}
                       tripStatus={trip.status}
                       noShow={trip.noShow}
-                      clientName={typeof booking.customerId === "object" ? booking.customerId.name : undefined}
+                      clientName={booking.customerId && typeof booking.customerId === "object" ? booking.customerId.name : undefined}
                       onChanged={load}
                     />
                   </div>
@@ -538,7 +567,7 @@ export default function BookingDetailPage({
                     ["enroute", "On the way"],
                     ["arrived", "Arrived"],
                     ["started", "Started"],
-                    ["completed", "Completed"],
+                    ["completed", trip.status === "cancelled" ? "Cancelled" : "Completed"],
                   ] as const
                 ).map(([key, label]) => {
                   const at = trip.timestamps?.[key];
@@ -674,14 +703,14 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <section>
-      <h3 className="flex items-center gap-2 text-small font-bold uppercase tracking-wider text-fg-body">
+    <section className="overflow-hidden rounded-card border border-border bg-surface-raised shadow-[var(--shadow-card)]">
+      <h3 className="flex items-center gap-2 border-b border-border-subtle bg-surface/60 px-5 py-4 text-action font-bold text-fg">
         <span aria-hidden className="text-accent">
           {icon}
         </span>
         {title}
       </h3>
-      <div className="mt-3 rounded-card border border-border bg-surface-raised p-5 shadow-[var(--shadow-card)]">
+      <div className="p-5">
         {children}
       </div>
     </section>
@@ -707,7 +736,7 @@ function Field({
     <div className="min-w-0">
       <dt className="text-note font-medium uppercase tracking-wider text-fg-muted">{label}</dt>
       <dd
-        className={`mt-1 truncate ${mono ? "font-mono text-[0.8125rem]" : "text-body"} ${
+        className={`mt-1 break-words ${mono ? "font-mono text-[0.8125rem]" : "text-body"} ${
           strong ? "font-bold text-fg" : muted ? "text-fg-muted" : "text-fg"
         } ${capitalize ? "capitalize" : ""}`}
         title={value}
@@ -721,8 +750,6 @@ function Field({
 function Leg({
   label,
   address,
-  lat,
-  lng,
   tone,
 }: {
   label: string;
@@ -744,9 +771,7 @@ function Leg({
         <IconPin size={15} className="mt-1 shrink-0 text-accent" />
         <span className="min-w-0">{address}</span>
       </p>
-      <p className="mt-1 font-mono text-small text-fg-muted">
-        {lat.toFixed(4)}, {lng.toFixed(4)}
-      </p>
+
     </li>
   );
 }

@@ -23,7 +23,11 @@ import {
   publishToPool,
 } from "@/lib/api/admin";
 import { listMyTrips } from "@/lib/api/driver";
-import { vehicleLabel } from "@/lib/vehicles";
+import { AddTripModal } from "@/components/trips/AddTripModal";
+import { FilterSelect } from "@/components/ui/FilterSelect";
+import { SlidersHorizontal, RotateCcw } from "lucide-react";
+import { emptyFilters, matchesTripFilters, pickupDay, type TripFilters } from "@/lib/trips/filters";
+import { vehicleLabel, TRIP_TYPE_LABEL } from "@/lib/vehicles";
 import { IconPlane } from "@/components/ui/Icons";
 import { buttonClass } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -93,6 +97,11 @@ const ORDER: Stage[] = [
 export default function TripsPage() {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [filter, setFilter] = useState<Stage | "all" | "overdue">("all");
+  const [filters, setFilters] = useState<TripFilters>({ ...emptyFilters });
+  const [datePreset, setDatePreset] = useState("all");
+  const [addingTrip, setAddingTrip] = useState(false);
+  const [createdTrip, setCreatedTrip] = useState<string | null>(null);
+  const [moreFilters, setMoreFilters] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   // The fare an operator is about to collect, held here until they confirm it.
@@ -175,10 +184,23 @@ export default function TripsPage() {
   }, [rows]);
 
   const visible = useMemo(() => {
-    if (filter === "all") return rows;
-    if (filter === "overdue") return (rows ?? []).filter((row) => isOverdue(row));
-    return (rows ?? []).filter((r) => stageOf(r) === filter);
-  }, [rows, filter]);
+    if (!rows) return null;
+    return rows.filter((row) => (filter === "all" || (filter === "overdue" ? isOverdue(row) : stageOf(row) === filter)) && matchesTripFilters(row, filters));
+  }, [rows, filter, filters]);
+  const activeCount = Object.values(filters).filter(Boolean).length + Number(filter !== "all");
+  const invalidDates = Boolean(filters.from && filters.to && filters.from > filters.to);
+  function resetFilters() { setFilter("all"); setFilters({ ...emptyFilters }); setDatePreset("all"); }
+  function updateFilter(key: keyof TripFilters, value: string) { setFilters((old) => ({ ...old, [key]: value })); }
+  function setPeriod(value: string) {
+    setDatePreset(value);
+    if (value === "custom") return;
+    const today = pickupDay(new Date().toISOString());
+    const end = new Date(`${today}T12:00:00Z`);
+    end.setUTCDate(end.getUTCDate() + (value === "tomorrow" ? 1 : value === "week" ? 6 : 0));
+    const to = end.toISOString().slice(0, 10);
+    setFilters((old) => ({ ...old, from: value === "all" ? "" : value === "tomorrow" ? to : today, to: value === "all" ? "" : to }));
+  }
+  const fieldClass = "h-12 w-full min-w-0 rounded-field border border-border bg-surface-raised px-3 text-meta text-fg";
 
   // typeof null is "object": a customer whose account was deleted is populated as null.
   const customerOf = (r: Row) =>
@@ -371,47 +393,54 @@ export default function TripsPage() {
       title="Trips"
       description="Every journey on the platform, from request through dispatch to settlement."
       action={
-        <Link href="/trips/new" className={buttonClass("accent")}>
+        <button type="button" onClick={() => setAddingTrip(true)} className={buttonClass("accent")}>
           Add a trip
-        </Link>
+        </button>
       }
     >
+      {addingTrip && <AddTripModal onClose={() => setAddingTrip(false)} onCreated={(id) => { setAddingTrip(false); setCreatedTrip(id); void load(); }} />}
+      {createdTrip && <div role="status" className="mb-4 flex flex-wrap items-center gap-3 rounded-field border border-success/30 bg-success/5 px-4 py-3 text-note"><span className="flex-1 text-fg">Trip saved. Review its details and dispatch status.</span><Link href={`/trips/${createdTrip}`} className="font-bold text-accent">View trip →</Link><button type="button" onClick={() => setCreatedTrip(null)} className="min-h-9 px-2 text-fg-muted">Dismiss</button></div>}
       {error ? (
         <p className="mb-4 rounded-field border border-danger/30 bg-danger/5 px-4 py-3 text-note font-bold text-danger">
           {error}
         </p>
       ) : null}
 
-      <label className="mb-4 flex items-center gap-3 text-note font-medium text-fg-muted sm:hidden">Trip stage
-        <select value={filter} onChange={(event) => setFilter(event.target.value as Stage | "all" | "overdue")} className="min-h-11 min-w-0 flex-1 rounded-field border border-border bg-surface-raised px-3 text-fg">
-          <option value="all">All journeys ({counts.all})</option>
-          <option value="overdue">Overdue ({counts.overdue ?? 0})</option>
-          {ORDER.map((stage) => <option key={stage} value={stage}>{STAGE[stage].label} ({counts[stage] ?? 0})</option>)}
-        </select>
-      </label>
-      <div className="mb-4 hidden flex-wrap gap-2 sm:flex">
-        <Chip
-          label="All"
-          count={counts.all}
-          active={filter === "all"}
-          onClick={() => setFilter("all")}
-        />
-        <Chip
-          label="Overdue"
-          count={counts.overdue ?? 0}
-          active={filter === "overdue"}
-          onClick={() => setFilter("overdue")}
-        />
-        {ORDER.map((stage) => (
-          <Chip
-            key={stage}
-            label={STAGE[stage].label}
-            count={counts[stage] ?? 0}
-            active={filter === stage}
-            onClick={() => setFilter(stage)}
-          />
+      <div className="mb-5 grid grid-cols-2 gap-3 xl:grid-cols-4">
+        {[{ label: "Total journeys", value: counts.all }, { label: "Awaiting dispatch", value: (counts.awaiting ?? 0) + (counts.pool ?? 0) }, { label: "On the road", value: counts.in_progress ?? 0 }, { label: "Overdue pickups", value: counts.overdue ?? 0 }].map((item) => (
+          <div key={item.label} className="rounded-card border border-border bg-surface p-4">
+            <p className="text-label font-medium text-fg-muted">{item.label}</p>
+            <p className={`mt-2 text-metric font-bold tabular-nums ${item.label === "Overdue pickups" && item.value ? "text-danger" : "text-fg"}`}>{rows ? item.value : "—"}</p>
+          </div>
         ))}
       </div>
+      <section aria-label="Trip filters" className="mb-4">
+        <div className="grid items-center gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
+          <FilterSelect label="Pickup period" value={datePreset} onChange={setPeriod} options={[{ value: "all", label: "All dates" }, { value: "today", label: "Today" }, { value: "tomorrow", label: "Tomorrow" }, { value: "week", label: "Next 7 days" }, { value: "custom", label: "Custom range" }]} />
+          <FilterSelect label="Trip stage" value={filter} onChange={(value) => setFilter(value as typeof filter)} options={[{ value: "all", label: "All stages" }, { value: "overdue", label: `Overdue (${counts.overdue})` }, ...ORDER.map((stage) => ({ value: stage, label: `${STAGE[stage].label} (${counts[stage] ?? 0})` }))]} />
+          <FilterSelect label="Vehicle class" value={filters.vehicle} onChange={(value) => updateFilter("vehicle", value)} options={[{ value: "", label: "All vehicles" }, ...Array.from(new Set((rows ?? []).map((r) => r.vehicleClass))).sort().map((value) => ({ value, label: vehicleLabel(value) }))]} />
+          <div className="flex items-center gap-2">
+          <button type="button" aria-expanded={moreFilters} aria-controls="additional-trip-filters" onClick={() => setMoreFilters((open) => !open)} className={`inline-flex h-12 items-center justify-center gap-2 whitespace-nowrap rounded-field border px-4 text-meta font-medium transition-colors ${moreFilters ? "border-accent bg-accent-soft text-accent-strong" : "border-border bg-surface-raised text-fg-body hover:bg-surface"}`}>
+            <SlidersHorizontal size={15} />More filters
+            {[filters.service, filters.city, filters.payment].filter(Boolean).length > 0 && <span className="rounded-full bg-accent-soft px-1.5 text-label text-accent-strong">{[filters.service, filters.city, filters.payment].filter(Boolean).length}</span>}
+          </button>
+          {activeCount > 0 || datePreset !== "all" ? <button type="button" onClick={resetFilters} className="inline-flex h-9 items-center justify-center gap-1.5 justify-self-start px-2 text-meta text-fg-muted hover:text-accent"><RotateCcw size={14} />Clear</button> : null}
+          </div>
+        </div>
+        {datePreset === "custom" && <div className="mt-3 grid items-end gap-3 rounded-field border border-border bg-surface p-3 sm:grid-cols-[1fr_1fr_auto]">
+            <label className="grid gap-1.5 text-label font-medium text-fg-muted">From date<input aria-invalid={invalidDates} type="date" className={fieldClass} value={filters.from} max={filters.to || undefined} onChange={(e) => { updateFilter("from", e.target.value); setDatePreset("custom"); }} /></label>
+            <label className="grid gap-1.5 text-label font-medium text-fg-muted">To date<input aria-invalid={invalidDates} type="date" className={fieldClass} value={filters.to} min={filters.from || undefined} onChange={(e) => { updateFilter("to", e.target.value); setDatePreset("custom"); }} /></label>
+            <p className="pb-3 text-label text-fg-muted">Pickup dates · Pacific time</p>
+          </div>}
+        <div id="additional-trip-filters" hidden={!moreFilters}>
+          <div className="mt-3 grid gap-3 rounded-field border border-border bg-surface p-3 sm:grid-cols-3">
+          <FilterSelect showLabel label="Service type" value={filters.service} onChange={(value) => updateFilter("service", value)} options={[{ value: "", label: "All services" }, ...Object.entries(TRIP_TYPE_LABEL).map(([value, label]) => ({ value, label }))]} />
+          <FilterSelect showLabel label="City" value={filters.city} onChange={(value) => updateFilter("city", value)} options={[{ value: "", label: "All cities" }, ...Array.from(new Set((rows ?? []).flatMap((r) => r.city ? [r.city] : []))).sort().map((value) => ({ value, label: value }))]} />
+          <FilterSelect showLabel label="Payment status" value={filters.payment} onChange={(value) => updateFilter("payment", value)} options={[{ value: "", label: "All payments" }, { value: "unpaid", label: "No card payment recorded" }, { value: "paid", label: "Paid" }, { value: "partially_refunded", label: "Partially refunded" }, { value: "refunded", label: "Refunded" }]} />
+          </div>
+        </div>
+        {invalidDates && <p role="alert" className="mt-2 text-note text-danger">Choose an end date on or after the start date.</p>}
+      </section>
 
       {moving?.trip ? (
         <TripStatusControl
@@ -427,6 +456,7 @@ export default function TripsPage() {
       ) : null}
 
       <DataTable
+        key={JSON.stringify([filter, filters])}
         rows={visible}
         columns={columns}
         rowKey={(r) => r._id}
@@ -444,12 +474,9 @@ export default function TripsPage() {
         searchPlaceholder="Search reference, customer, address…"
         rowHref={(r) => `/trips/${r._id}`}
         empty={{
-          title: filter === "all" ? "No journeys yet" : "Nothing at this stage",
-          action: filter !== "all" ? <button type="button" className="min-h-11 rounded-field border border-border px-4 text-note font-bold text-accent" onClick={() => setFilter("all")}>Show all journeys</button> : undefined,
-          description:
-            filter === "all"
-              ? "Bookings appear here as customers make them."
-              : "Try another stage, or clear the filter.",
+          title: activeCount ? "No journeys match these filters" : "No journeys yet",
+          action: activeCount ? <button type="button" className="min-h-11 rounded-field border border-border px-4 text-note font-bold text-accent" onClick={resetFilters}>Clear all filters</button> : undefined,
+          description: activeCount ? "Try a wider date range or reset the filters." : "Bookings appear here as customers make them.",
         }}
       />
 
@@ -470,39 +497,5 @@ export default function TripsPage() {
         <p>It cannot be undone from here, and pressing it twice will not charge twice.</p>
       </ConfirmDialog>
     </ConsolePage>
-  );
-}
-
-function Chip({
-  label,
-  count,
-  active,
-  onClick,
-}: {
-  label: string;
-  count: number;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={`inline-flex min-h-11 items-center gap-2 rounded-full border px-3.5 text-meta font-bold transition-colors ${
-        active
-          ? "border-accent bg-accent-soft text-accent-strong"
-          : "border-border bg-surface-raised text-fg-body hover:border-accent/50 hover:text-fg"
-      }`}
-    >
-      {label}
-      <span
-        className={`rounded-full px-1.5 text-label ${
-          active ? "bg-accent/15" : "bg-surface text-fg-muted"
-        }`}
-      >
-        {count}
-      </span>
-    </button>
   );
 }
