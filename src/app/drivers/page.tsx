@@ -19,6 +19,7 @@ import {
   type PlatformSettings,
 } from "@/lib/api/admin";
 import { errorText } from "@/lib/api/client";
+import { useLiveChanges } from "@/lib/live/useLiveChanges";
 
 const inputClass =
   "w-full rounded-field border border-border bg-surface-raised px-3 py-2 text-note text-fg outline-none";
@@ -67,6 +68,11 @@ export default function DriversPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // A chauffeur registering, going online or being penalised updates the roster.
+  useLiveChanges(["driver", "user"], (event) => {
+    if (event.action !== "reconnected") void load();
+  });
 
   // Name, email, phone, vehicle class or status.
   const shown = (drivers ?? []).filter((driver) =>

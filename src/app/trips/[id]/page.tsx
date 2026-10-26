@@ -206,7 +206,14 @@ export default function BookingDetailPage({
       description={`${TRIP_TYPE_LABEL[booking.tripType] ?? booking.tripType} · ${
         booking.scheduledAtLocal ?? formatDateTime(booking.scheduledAt)
       }`}
-      action={<StatusBadge status={booking.status} />}
+      action={
+        <div className="flex flex-col items-start gap-2 sm:items-end">
+          <div className="flex flex-wrap items-center gap-2">
+            <DocumentDownloads bookingId={booking._id} />
+            <StatusBadge status={booking.status} />
+          </div>
+        </div>
+      }
     >
       {/* ------------------------------ headline strip ------------------------- */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -380,10 +387,6 @@ export default function BookingDetailPage({
               clientEmail={typeof booking.customerId === "object" ? booking.customerId.email : undefined}
               onChanged={() => void load()}
             />
-          </Section>
-
-          <Section icon={<IconMoney size={14} />} title="Documents">
-            <DocumentDownloads bookingId={booking._id} />
           </Section>
 
           <Section icon={<IconCalendar size={14} />} title="Identifiers">
@@ -868,31 +871,27 @@ function DocumentDownloads({ bookingId }: { bookingId: string }) {
     }
   };
 
+  const buttonCls =
+    "inline-flex h-10 items-center rounded-field border border-border bg-surface-raised px-3.5 text-note font-bold text-fg transition-colors hover:border-accent disabled:opacity-60";
   return (
-    <div>
-      <div className="flex flex-wrap gap-2">
-        {(["invoice", "receipt"] as const).map((kind) => (
-          <button
-            key={kind}
-            type="button"
-            disabled={busy !== null}
-            onClick={() => get(kind)}
-            className="rounded-field border border-border px-3.5 py-2 text-note font-bold text-fg hover:border-accent disabled:opacity-60"
-          >
-            {busy === kind ? "Preparing…" : kind === "invoice" ? "Download invoice (PDF)" : "Download receipt (PDF)"}
-          </button>
-        ))}
-        <button
-          type="button"
-          disabled={busy !== null}
-          onClick={() => void email()}
-          className="rounded-field border border-border px-3.5 py-2 text-note font-bold text-fg hover:border-accent disabled:opacity-60"
-        >
-          {busy === "email" ? "Sending…" : "Email invoice to client"}
+    <>
+      {(["invoice", "receipt"] as const).map((kind) => (
+        <button key={kind} type="button" disabled={busy !== null} onClick={() => get(kind)} className={buttonCls}>
+          {busy === kind ? "Preparing…" : kind === "invoice" ? "Download invoice" : "Download receipt"}
         </button>
-      </div>
-      {emailed ? <p className="mt-2 text-note font-bold text-fg">{emailed}</p> : null}
-      {error ? <p className="mt-2 text-note text-danger">{error}</p> : null}
-    </div>
+      ))}
+      <button type="button" disabled={busy !== null} onClick={() => void email()} className={buttonCls}>
+        {busy === "email" ? "Sending…" : "Email invoice"}
+      </button>
+      {/* The result of the last action, as a pinned notice so it does not push the header around. */}
+      {emailed || error ? (
+        <p
+          role="status"
+          className={`basis-full text-note ${error ? "text-danger" : "font-bold text-fg"}`}
+        >
+          {error ?? emailed}
+        </p>
+      ) : null}
+    </>
   );
 }

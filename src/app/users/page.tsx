@@ -6,6 +6,7 @@ import { PersonCell, StatusBadge } from "@/components/ui/Dashboard";
 import { ConsolePage, DataTable, formatDate, type Column } from "@/components/ui/DataTable";
 import { getUsersDashboard } from "@/lib/api/admin";
 import { errorText } from "@/lib/api/client";
+import { useLiveChanges } from "@/lib/live/useLiveChanges";
 import type { User } from "@/lib/api/types";
 
 const ROLES = ["all", "customer", "driver", "admin", "company"] as const;
@@ -14,6 +15,12 @@ export default function UsersPage() {
   const [rows, setRows] = useState<User[] | null>(null);
   const [role, setRole] = useState<(typeof ROLES)[number]>("all");
   const [error, setError] = useState<string | null>(null);
+
+  const [reload, setReload] = useState(0);
+  // New sign-ups and account changes appear without a refresh.
+  useLiveChanges(["user"], (event) => {
+    if (event.action !== "reconnected") setReload((n) => n + 1);
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -26,7 +33,7 @@ export default function UsersPage() {
         setRows([]);
       });
     return () => { cancelled = true; };
-  }, []);
+  }, [reload]);
 
   const filtered = useMemo(
     () => (rows ?? []).filter((u) => role === "all" || u.role === role),

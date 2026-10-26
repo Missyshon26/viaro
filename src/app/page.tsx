@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useLiveChanges } from "@/lib/live/useLiveChanges";
 import Link from "next/link";
 import { ConsolePage } from "@/components/ui/DataTable";
 import {
@@ -102,6 +103,19 @@ export default function AdminDashboard() {
   const [range, setRange] = useState<RangeKey>("30d");
   const [ranged, setRanged] = useState<TripsCompletedReport | null>(null);
   const [rangeLoading, setRangeLoading] = useState(true);
+
+  /*
+   * Live: a booking, trip, user, chauffeur or payment changing anywhere refreshes the tiles
+   * a moment later, without blanking them (the load below only ever replaces data).
+   * "reconnected" is skipped because the first load has just happened.
+   */
+  const liveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useLiveChanges(["booking", "trip", "dispatch", "user", "driver", "wallet"], (event) => {
+    if (event.action === "reconnected") return;
+    clearTimeout(liveTimer.current);
+    liveTimer.current = setTimeout(() => setRetry((n) => n + 1), 800);
+  });
+  useEffect(() => () => clearTimeout(liveTimer.current), []);
 
   /* ---------------------------- one-off page load --------------------------- */
 
