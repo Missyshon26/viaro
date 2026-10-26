@@ -289,6 +289,7 @@ export const MATRIX: MatrixEntry[] = [
   { method: 'PATCH', path: '/admin/drivers/:id', allowed: ['admin', 'company'] },
   { method: 'GET', path: '/admin/drivers/penalties', allowed: ['admin', 'company'] },
   { method: 'GET', path: '/admin/dashboard/bookings', allowed: ['admin'] },
+  { method: 'GET', path: '/admin/dashboard/summary', allowed: ['admin'] },
   { method: 'GET', path: '/admin/dashboard/journeys', allowed: ['admin'] },
   { method: 'GET', path: '/admin/dashboard/users', allowed: ['admin'] },
   { method: 'GET', path: '/admin/users/:id/agreement', allowed: ['admin'] },

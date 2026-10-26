@@ -191,6 +191,21 @@ export async function listAllBookings(q: PaginationQuery) {
   );
 }
 
+/** The console's stageOf, as a Mongo expression over a booking joined to its `trips` array. */
+const journeyStageExpr = {
+  $switch: {
+    branches: [
+      { case: { $eq: ['$trip.status', 'completed'] }, then: 'completed' },
+      { case: { $or: [{ $eq: ['$trip.status', 'cancelled'] }, { $eq: ['$status', 'cancelled'] }] }, then: 'cancelled' },
+      { case: { $eq: ['$trip.status', 'started'] }, then: 'in_progress' },
+      { case: { $or: [{ $gt: [{ $size: '$trips' }, 0] }, { $eq: ['$status', 'assigned'] }] }, then: 'assigned' },
+      { case: { $eq: ['$status', 'dispatched'] }, then: 'pool' },
+    ],
+    default: 'awaiting',
+  },
+};
+
+
 const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
@@ -242,19 +257,6 @@ export async function listJourneys(q: JourneysQuery) {
     }
   }
 
-  const stageExpr = {
-    $switch: {
-      branches: [
-        { case: { $eq: ['$trip.status', 'completed'] }, then: 'completed' },
-        { case: { $or: [{ $eq: ['$trip.status', 'cancelled'] }, { $eq: ['$status', 'cancelled'] }] }, then: 'cancelled' },
-        { case: { $eq: ['$trip.status', 'started'] }, then: 'in_progress' },
-        { case: { $or: [{ $gt: [{ $size: '$trips' }, 0] }, { $eq: ['$status', 'assigned'] }] }, then: 'assigned' },
-        { case: { $eq: ['$status', 'dispatched'] }, then: 'pool' },
-      ],
-      default: 'awaiting',
-    },
-  };
-
   const overdue = {
     stage: { $nin: ['completed', 'cancelled'] },
     scheduledAt: { $lt: nowDate() },
@@ -274,7 +276,7 @@ export async function listJourneys(q: JourneysQuery) {
       },
     },
     { $addFields: { trip: { $arrayElemAt: ['$trips', 0] } } },
-    { $addFields: { stage: stageExpr } },
+    { $addFields: { stage: journeyStageExpr } },
     {
       $lookup: {
         from: 'users',
@@ -321,6 +323,70 @@ export async function listJourneys(q: JourneysQuery) {
     ...paginated(items, total, q),
     /** Per stage and overall, under the current filters but ignoring the stage filter itself. */
     counts: { all, overdue: (result.overdue[0]?.n as number | undefined) ?? 0, ...counts },
+  };
+}
+
+/**
+ * Everything the dashboard's headline tiles need, counted in the database. The home page used to
+ * download every booking, user, trip and chauffeur just to tally them in the browser.
+ */
+export async function dashboardSummary() {
+  const [stageRows, roleRows, driverRows, topDrivers, penalised] = await Promise.all([
+    Booking.aggregate<{ _id: string; n: number }>([
+      {
+        $lookup: {
+          from: 'trips',
+          localField: '_id',
+          foreignField: 'bookingId',
+          as: 'trips',
+          pipeline: [{ $project: { status: 1 } }],
+        },
+      },
+      { $addFields: { trip: { $arrayElemAt: ['$trips', 0] } } },
+      { $group: { _id: journeyStageExpr, n: { $sum: 1 } } },
+    ]),
+    User.aggregate<{ _id: string; n: number }>([{ $group: { _id: '$role', n: { $sum: 1 } } }]),
+    Driver.aggregate<{ _id: string; n: number }>([{ $group: { _id: '$status', n: { $sum: 1 } } }]),
+    Driver.find({ ratingCount: { $gt: 0 } })
+      .sort({ rating: -1, ratingCount: -1 })
+      .limit(5)
+      .populate({ path: 'userId', select: 'name email phone status' })
+      .lean(),
+    Driver.countDocuments({ penaltyCount: { $gt: 0 } }),
+  ]);
+
+  const tally = (rows: { _id: string; n: number }[]) =>
+    Object.fromEntries(rows.map((r) => [r._id, r.n])) as Record<string, number>;
+  const stages = tally(stageRows);
+  const roles = tally(roleRows);
+  const driverStatus = tally(driverRows);
+
+  return {
+    bookings: {
+      total: Object.values(stages).reduce((a, b) => a + b, 0),
+      stages: {
+        awaiting: stages.awaiting ?? 0,
+        pool: stages.pool ?? 0,
+        assigned: stages.assigned ?? 0,
+        in_progress: stages.in_progress ?? 0,
+        completed: stages.completed ?? 0,
+        cancelled: stages.cancelled ?? 0,
+      },
+    },
+    users: {
+      customer: roles.customer ?? 0,
+      driver: roles.driver ?? 0,
+      company: roles.company ?? 0,
+      admin: roles.admin ?? 0,
+    },
+    drivers: {
+      total: Object.values(driverStatus).reduce((a, b) => a + b, 0),
+      available: driverStatus.available ?? 0,
+      busy: driverStatus.busy ?? 0,
+      offline: driverStatus.offline ?? 0,
+      penalised,
+      top: topDrivers,
+    },
   };
 }
 

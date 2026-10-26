@@ -136,3 +136,23 @@ describe('GET /admin/dashboard/users', () => {
     expect((await users(admin.auth, 'q=' + encodeURIComponent('(.*'))).status).toBe(200);
   });
 });
+
+describe('GET /admin/dashboard/summary', () => {
+  it('counts bookings by stage, accounts by role and chauffeurs by status in the database', async () => {
+    const admin = await makeUser('admin');
+    const ann = await makeUser('customer');
+    const a = await book(admin.auth, ann.id);
+    await book(admin.auth, ann.id);
+    await Booking.updateOne({ _id: a }, { status: 'dispatched' });
+
+    const res = await request(server).get('/admin/dashboard/summary').set('Authorization', admin.auth);
+    expect(res.status).toBe(200);
+    expect(res.body.data.bookings.total).toBe(2);
+    expect(res.body.data.bookings.stages).toMatchObject({ awaiting: 1, pool: 1, completed: 0 });
+    expect(res.body.data.users).toMatchObject({ customer: 1, admin: 1, driver: 0 });
+    expect(res.body.data.drivers).toMatchObject({ total: 0, available: 0 });
+
+    const customer = await makeUser('customer');
+    expect((await request(server).get('/admin/dashboard/summary').set('Authorization', customer.auth)).status).toBe(403);
+  });
+});

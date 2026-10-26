@@ -57,6 +57,11 @@ export async function dashboardBookings(req: Request, res: Response): Promise<vo
   res.json({ success: true, data });
 }
 
+export async function dashboardSummary(_req: Request, res: Response): Promise<void> {
+  const data = await adminService.dashboardSummary();
+  res.json({ success: true, data });
+}
+
 export async function dashboardJourneys(req: Request, res: Response): Promise<void> {
   const data = await adminService.listJourneys(query<JourneysQuery>(req));
   res.json({ success: true, data });

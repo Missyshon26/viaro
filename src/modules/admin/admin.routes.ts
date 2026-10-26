@@ -90,6 +90,8 @@ router.get(
   asyncHandler(controller.dashboardBookings),
 );
 
+router.get('/dashboard/summary', roleGuard('admin'), asyncHandler(controller.dashboardSummary));
+
 router.get(
   '/dashboard/journeys',
   roleGuard('admin'),
