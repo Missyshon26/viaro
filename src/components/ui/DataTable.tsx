@@ -37,6 +37,7 @@ export function DataTable<T>({
   searchable,
   searchPlaceholder = "Search…",
   pageSize,
+  onPageSizeChange,
   toolbar,
   mobileCard,
   rowHref,
@@ -52,6 +53,7 @@ export function DataTable<T>({
   searchPlaceholder?: string;
   /** Rows per page. Omit to render every row. */
   pageSize?: number;
+  onPageSizeChange?: (size: number) => void;
   /** Filters or actions shown beside the search box. */
   toolbar?: ReactNode;
   /**
@@ -262,26 +264,28 @@ export function DataTable<T>({
             </table>
           </div>
 
-          {pageSize && pageCount > 1 ? (
+          {pageSize && (pageCount > 1 || onPageSizeChange) ? (
             <div className="flex flex-wrap items-center gap-3 border-t border-border-subtle px-4 py-3">
-              <p className="text-label text-fg-muted">
-                {(current - 1) * pageSize + 1}–{Math.min(current * pageSize, total)} of {total}
+              <p aria-live="polite" className="text-label text-fg-muted">
+                Showing {(current - 1) * pageSize + 1}–{Math.min(current * pageSize, total)} of {total} records
               </p>
-              <div className="ml-auto flex items-center gap-1.5">
+              {onPageSizeChange && <label className="flex items-center gap-2 text-label text-fg-muted">Rows per page<select aria-label="Rows per page" value={pageSize} onChange={(event) => { setPage(1); onPageSizeChange(Number(event.target.value)); }} className="h-10 rounded-field border border-border bg-surface-raised px-2 text-fg">{[10, 20, 50, 100].map((size) => <option key={size} value={size}>{size}</option>)}</select></label>}
+              <nav aria-label="Table pagination" className="ml-auto flex flex-wrap items-center gap-1.5">
+                {onPageSizeChange && <PageButton disabled={current === 1} onClick={() => setPage(1)} label="First" />}
                 <PageButton
                   disabled={current === 1}
                   onClick={() => setPage(current - 1)}
                   label="Previous"
                 />
-                <span className="px-1 text-label font-bold text-fg">
-                  {current} / {pageCount}
-                </span>
+                {onPageSizeChange ? <div className="hidden items-center gap-1 sm:flex">{Array.from({ length: Math.min(5, pageCount) }, (_, index) => Math.max(1, Math.min(current - 2, pageCount - 4)) + index).map((number) => <button key={number} type="button" aria-label={`Page ${number}`} aria-current={number === current ? "page" : undefined} onClick={() => setPage(number)} className={`h-10 min-w-10 rounded-field border px-2 text-label font-semibold ${number === current ? "border-accent/30 bg-accent-soft text-accent-strong" : "border-border text-fg-muted hover:bg-surface"}`}>{number}</button>)}</div> : null}
+                <span className={`px-1 text-label font-bold text-fg ${onPageSizeChange ? "sm:hidden" : ""}`}>{current} / {pageCount}</span>
                 <PageButton
                   disabled={current === pageCount}
                   onClick={() => setPage(current + 1)}
                   label="Next"
                 />
-              </div>
+                {onPageSizeChange && <PageButton disabled={current === pageCount} onClick={() => setPage(pageCount)} label="Last" />}
+              </nav>
             </div>
           ) : null}
         </>

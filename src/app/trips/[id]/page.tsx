@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useCallback, useEffect, useState, type ReactNode } from "react";
+import { TripDetailsGrid } from "@/components/trips/TripDetailsGrid";
 import { stageOf, isOverdue } from "@/lib/trips/stage";
 import { AssignDriver } from "@/components/ops/AssignDriver";
 import { fetchAllPages } from "@/lib/api/admin";
@@ -9,7 +10,6 @@ import Link from "next/link";
 import { ConsolePage, formatDate, formatDateTime, money } from "@/components/ui/DataTable";
 import {
   Avatar,
-  NotAvailable,
   StatusBadge,
   Skeleton,
   reference,
@@ -265,10 +265,9 @@ export default function BookingDetailPage({
         </p>
       ) : null}
 
-      <div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1.5fr)_minmax(340px,1fr)]">
-        {/* --------------------------------- left -------------------------------- */}
-        <div className="space-y-5">
-          <Section icon={<IconRoute size={14} />} title="Journey">
+      <div className="trip-details-layout mt-4">
+        <TripDetailsGrid>
+          <Section icon={<IconRoute size={14} />} title="Journey" wide={Boolean(booking.stops?.length || booking.pickup.address.length + booking.drop.address.length > 200)}>
             <ol className="relative space-y-5 pl-6">
               <span aria-hidden className="absolute bottom-2 left-[5px] top-2 w-px bg-border" />
               <Leg
@@ -290,6 +289,53 @@ export default function BookingDetailPage({
             <a href={`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(booking.pickup.address)}&destination=${encodeURIComponent(booking.drop.address)}${booking.stops?.length ? `&waypoints=${encodeURIComponent(booking.stops.map((stop) => stop.address).join("|"))}` : ""}`} target="_blank" rel="noopener noreferrer" className="mt-5 inline-flex min-h-10 items-center gap-2 rounded-field border border-border px-3 text-note font-bold text-accent hover:bg-surface">Open route in maps ↗</a>
           </Section>
 
+          <Section icon={<IconMoney size={14} />} title="Payment">
+            <PaymentLink
+              booking={booking}
+              clientName={booking.customerId && typeof booking.customerId === "object" ? booking.customerId.name : undefined}
+              clientEmail={booking.customerId && typeof booking.customerId === "object" ? booking.customerId.email : undefined}
+              onChanged={() => void load()}
+            />
+          </Section>
+
+          <Section icon={<IconUsers size={14} />} title="Customer">
+            <div className="flex items-center gap-3">
+              <Avatar name={customer?.name} size={40} />
+              <div className="min-w-0">
+                <p className="truncate text-action font-bold text-fg">
+                  {customer?.name ?? "—"}
+                  {booking.isGuest ? (
+                    <span className="ml-2 align-middle">
+                      <StatusBadge tone="info">Guest</StatusBadge>
+                    </span>
+                  ) : null}
+                  {booking.source === "admin" ? (
+                    <span className="ml-2 align-middle">
+                      <StatusBadge tone="neutral">Booked by operator</StatusBadge>
+                    </span>
+                  ) : null}
+                </p>
+                {customer?.email ? (
+                  <p className="truncate text-note text-fg-muted">{customer.email}</p>
+                ) : null}
+              </div>
+            </div>
+            <dl className="mt-4 grid gap-x-6 gap-y-3 sm:grid-cols-2">
+              <Field label="Phone" value={formatPhone(customer?.phone) || "—"} />
+              {booking.agreementSignedAt ? (
+                <Field
+                  label="Agreement signed"
+                  value={formatDate(booking.agreementSignedAt)}
+                />
+              ) : null}
+              <Field
+                label="Favourite chauffeur"
+                value={booking.favoriteDriverId ? "Requested" : "None"}
+                muted={!booking.favoriteDriverId}
+              />
+            </dl>
+          </Section>
+
           <Section icon={<IconClock size={14} />} title="Timing">
             <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
               <Field
@@ -302,12 +348,12 @@ export default function BookingDetailPage({
               <Field label="Last updated" value={formatDateTime(booking.updatedAt)} />
             </dl>
             <p className="mt-3 text-note text-fg-muted">
-              All times are America/Los_Angeles, the platform standard.
+              Times shown in Pacific time.
             </p>
           </Section>
 
           <Section icon={<IconUsers size={14} />} title="Passenger & service requirements">
-            <dl className="grid gap-5 sm:grid-cols-2">
+            <dl className="grid gap-x-4 gap-y-3 sm:grid-cols-2">
               <Field label="Travelling passenger" value={booking.passengerName ?? customer?.name ?? "Not recorded"} strong />
               <Field label="Passenger phone" value={formatPhone(booking.passengerPhone ?? customer?.phone) || "Not recorded"} />
               <Field label="Carry-on bags" value={booking.carryOnBags === undefined ? "Not recorded" : String(booking.carryOnBags)} />
@@ -359,11 +405,11 @@ export default function BookingDetailPage({
           ) : null}
 
           {booking.journeyLegs && booking.journeyLegs.length > 1 ? (
-            <Section icon={<IconRoute size={14} />} title="Journey">
+            <Section icon={<IconRoute size={14} />} title="Journey legs" wide>
               <p className="text-note text-fg-muted">
                 Leg {(booking.journey?.index ?? 0) + 1} of {booking.journeyLegs.length}, paid together.
               </p>
-              <ol className="mt-3 space-y-2">
+              <ol className="mt-3 grid gap-3 sm:grid-cols-2">
                 {booking.journeyLegs.map((leg, i) => (
                   <li key={leg._id} className="rounded-field border border-border px-3.5 py-2.5 text-note">
                     <div className="flex items-start justify-between gap-3">
@@ -372,7 +418,7 @@ export default function BookingDetailPage({
                           Leg {i + 1}
                           {leg.status === "cancelled" ? " · cancelled" : ""}
                         </p>
-                        <p className="truncate text-fg-body">
+                        <p className="break-words text-fg-body">
                           {leg.pickup.address} to {leg.drop.address}
                         </p>
                         <p className="text-fg-muted">{formatDateTime(leg.scheduledAt)}</p>
@@ -401,84 +447,23 @@ export default function BookingDetailPage({
             </Section>
           ) : null}
 
-          <Section icon={<IconCalendar size={14} />} title="Calendar">
-            <CalendarEntry booking={booking} onChanged={() => void load()} />
-          </Section>
+          <CalendarEntry
+            booking={booking}
+            onChanged={() => void load()}
+            renderSection={(content) => <Section icon={<IconCalendar size={14} />} title="Calendar">{content}</Section>}
+          />
 
 
 
-          <Section icon={<IconCalendar size={14} />} title="Identifiers">
-            <dl className="grid gap-x-6 gap-y-3">
-              <Field label="Booking id" value={booking._id} mono />
-              <Field
-                label="Customer id"
-                value={customer?._id ?? String(booking.customerId)}
-                mono
-              />
-              {trip ? <Field label="Trip id" value={trip._id} mono /> : null}
-            </dl>
-          </Section>
-        </div>
 
-        {/* -------------------------------- right -------------------------------- */}
-        <div className="space-y-5">
-          <Section icon={<IconMoney size={14} />} title="Payment">
-            <PaymentLink
-              booking={booking}
-              clientName={booking.customerId && typeof booking.customerId === "object" ? booking.customerId.name : undefined}
-              clientEmail={booking.customerId && typeof booking.customerId === "object" ? booking.customerId.email : undefined}
-              onChanged={() => void load()}
-            />
-          </Section>
 
-          <Section icon={<IconUsers size={14} />} title="Customer">
-            <div className="flex items-center gap-3">
-              <Avatar name={customer?.name} size={40} />
-              <div className="min-w-0">
-                <p className="truncate text-action font-bold text-fg">
-                  {customer?.name ?? "—"}
-                  {booking.isGuest ? (
-                    <span className="ml-2 align-middle">
-                      <StatusBadge tone="info">Guest</StatusBadge>
-                    </span>
-                  ) : null}
-                  {booking.source === "admin" ? (
-                    <span className="ml-2 align-middle">
-                      <StatusBadge tone="neutral">Booked by operator</StatusBadge>
-                    </span>
-                  ) : null}
-                </p>
-                {customer?.email ? (
-                  <p className="truncate text-note text-fg-muted">{customer.email}</p>
-                ) : null}
-              </div>
-            </div>
-            <dl className="mt-4 grid gap-x-6 gap-y-3 sm:grid-cols-2">
-              <Field label="Phone" value={formatPhone(customer?.phone) || "—"} />
-              {booking.agreementSignedAt ? (
-                <Field
-                  label="Agreement signed"
-                  value={formatDate(booking.agreementSignedAt)}
-                />
-              ) : null}
-              <Field
-                label="Favourite chauffeur"
-                value={booking.favoriteDriverId ? "Requested" : "None"}
-                muted={!booking.favoriteDriverId}
-              />
-            </dl>
-          </Section>
-
-          <Section icon={<IconCar size={14} />} title="Chauffeur and trip">
+          <Section icon={<IconCar size={14} />} title="Chauffeur and trip" wide={Boolean(trip)}>
             {tripError ? (
               <div role="alert"><p className="text-note text-danger">{tripError}</p><button type="button" onClick={() => void load()} className="mt-2 min-h-11 text-note font-bold text-accent">Retry loading trip</button></div>
             ) : !tripSearched ? (
               <Skeleton className="h-24" />
             ) : !trip ? (
-              <NotAvailable
-                title="No trip yet"
-                reason="A trip is created when dispatch assigns a chauffeur or one claims the booking from the pool. Until then there is nothing to show here beyond the booking itself."
-              />
+              <p className="text-note text-fg-muted">No chauffeur assigned yet. Assign a chauffeur from the journey overview above.</p>
             ) : (
               <>
                 <div className="flex items-center gap-3">
@@ -557,7 +542,7 @@ export default function BookingDetailPage({
 
           {trip ? (
             <Section icon={<IconCheck size={14} />} title="Trip timeline">
-              <ol className="space-y-3">
+              <ol className="grid gap-2">
                 {(
                   [
                     ["requested", "Requested"],
@@ -646,7 +631,18 @@ export default function BookingDetailPage({
               </dl>
             </Section>
           ) : null}
-        </div>
+          <Section icon={<IconCalendar size={14} />} title="Identifiers">
+            <dl className="grid gap-x-6 gap-y-3">
+              <Field label="Booking id" value={booking._id} mono />
+              <Field
+                label="Customer id"
+                value={customer?._id ?? String(booking.customerId)}
+                mono
+              />
+              {trip ? <Field label="Trip id" value={trip._id} mono /> : null}
+            </dl>
+          </Section>
+        </TripDetailsGrid>
       </div>
     </ConsolePage>
     </>
@@ -697,20 +693,22 @@ function Section({
   icon,
   title,
   children,
+  wide = false,
 }: {
   icon: ReactNode;
   title: string;
   children: ReactNode;
+  wide?: boolean;
 }) {
   return (
-    <section className="overflow-hidden rounded-card border border-border bg-surface-raised shadow-[var(--shadow-card)]">
-      <h3 className="flex items-center gap-2 border-b border-border-subtle bg-surface/60 px-5 py-4 text-action font-bold text-fg">
+    <section className={`overflow-hidden rounded-card border border-border bg-surface-raised shadow-[var(--shadow-card)] ${wide ? "trip-card-wide" : ""}`}>
+      <h3 className="flex items-center gap-2 border-b border-border-subtle bg-surface/60 px-4 py-3 text-action font-bold text-fg">
         <span aria-hidden className="text-accent">
           {icon}
         </span>
         {title}
       </h3>
-      <div className="p-5">
+      <div className="p-4">
         {children}
       </div>
     </section>
@@ -734,7 +732,7 @@ function Field({
 }) {
   return (
     <div className="min-w-0">
-      <dt className="text-note font-medium uppercase tracking-wider text-fg-muted">{label}</dt>
+      <dt className="text-label font-medium text-fg-muted">{label}</dt>
       <dd
         className={`mt-1 break-words ${mono ? "font-mono text-[0.8125rem]" : "text-body"} ${
           strong ? "font-bold text-fg" : muted ? "text-fg-muted" : "text-fg"

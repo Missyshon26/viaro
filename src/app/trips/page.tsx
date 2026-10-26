@@ -23,6 +23,7 @@ import {
   publishToPool,
 } from "@/lib/api/admin";
 import { listMyTrips } from "@/lib/api/driver";
+import { DatePicker } from "@/components/ui/DatePicker";
 import { AddTripModal } from "@/components/trips/AddTripModal";
 import { FilterSelect } from "@/components/ui/FilterSelect";
 import { SlidersHorizontal, RotateCcw } from "lucide-react";
@@ -200,7 +201,6 @@ export default function TripsPage() {
     const to = end.toISOString().slice(0, 10);
     setFilters((old) => ({ ...old, from: value === "all" ? "" : value === "tomorrow" ? to : today, to: value === "all" ? "" : to }));
   }
-  const fieldClass = "h-12 w-full min-w-0 rounded-field border border-border bg-surface-raised px-3 text-meta text-fg";
 
   // typeof null is "object": a customer whose account was deleted is populated as null.
   const customerOf = (r: Row) =>
@@ -428,8 +428,8 @@ export default function TripsPage() {
           </div>
         </div>
         {datePreset === "custom" && <div className="mt-3 grid items-end gap-3 rounded-field border border-border bg-surface p-3 sm:grid-cols-[1fr_1fr_auto]">
-            <label className="grid gap-1.5 text-label font-medium text-fg-muted">From date<input aria-invalid={invalidDates} type="date" className={fieldClass} value={filters.from} max={filters.to || undefined} onChange={(e) => { updateFilter("from", e.target.value); setDatePreset("custom"); }} /></label>
-            <label className="grid gap-1.5 text-label font-medium text-fg-muted">To date<input aria-invalid={invalidDates} type="date" className={fieldClass} value={filters.to} min={filters.from || undefined} onChange={(e) => { updateFilter("to", e.target.value); setDatePreset("custom"); }} /></label>
+            <div className="grid gap-1.5"><span className="text-label font-medium text-fg-muted">From date</span><DatePicker label="From date" invalid={invalidDates} value={filters.from} max={filters.to || undefined} onChange={(value) => { updateFilter("from", value); setDatePreset("custom"); }} /></div>
+            <div className="grid gap-1.5"><span className="text-label font-medium text-fg-muted">To date</span><DatePicker label="To date" invalid={invalidDates} value={filters.to} min={filters.from || undefined} onChange={(value) => { updateFilter("to", value); setDatePreset("custom"); }} /></div>
             <p className="pb-3 text-label text-fg-muted">Pickup dates · Pacific time</p>
           </div>}
         <div id="additional-trip-filters" hidden={!moreFilters}>

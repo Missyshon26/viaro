@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { DatePicker } from "@/components/ui/DatePicker";
 import { Card, Kicker } from "@/components/ui/Surfaces";
 import { Button } from "@/components/ui/Button";
 import { ConsolePage, DataTable, money, formatDateTime, type Column } from "@/components/ui/DataTable";
@@ -25,31 +26,36 @@ const TABS: { value: ReportType; label: string }[] = [
   { value: "cancellations-penalties", label: "Cancellations and penalties" },
 ];
 
-const inputClass =
-  "rounded-field border border-border bg-surface-raised px-3 py-2 text-note text-fg outline-none";
-
 /** All three reports, one date range, plus the async CSV/PDF export. */
 export default function ReportsPage() {
   const [tab, setTab] = useState<ReportType>("trips-completed");
+  const [pageSize, setPageSize] = useState(20);
   const [range, setRange] = useState<ReportRange>({});
   const [trips, setTrips] = useState<TripsCompletedReport | null>(null);
   const [earnings, setEarnings] = useState<EarningsPayoutReport | null>(null);
   const [cancels, setCancels] = useState<CancellationsReport | null>(null);
+  const latestRequest = useRef(0);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    const request = ++latestRequest.current;
+    setLoading(true);
     setError(null);
     try {
-      if (tab === "trips-completed") setTrips(await getTripsCompleted(range));
-      if (tab === "earnings-payout") setEarnings(await getEarningsPayout(range));
-      if (tab === "cancellations-penalties") setCancels(await getCancellations(range));
+      if (tab === "trips-completed") { const result = await getTripsCompleted(range); if (request === latestRequest.current) setTrips(result); }
+      if (tab === "earnings-payout") { const result = await getEarningsPayout(range); if (request === latestRequest.current) setEarnings(result); }
+      if (tab === "cancellations-penalties") { const result = await getCancellations(range); if (request === latestRequest.current) setCancels(result); }
     } catch (err) {
-      setError(errorText(err, "Could not run that report"));
+      if (request === latestRequest.current) setError(errorText(err, "Could not run that report"));
+    } finally {
+      if (request === latestRequest.current) setLoading(false);
     }
   }, [tab, range]);
 
   useEffect(() => {
     void load();
+    return () => { latestRequest.current += 1; };
   }, [load]);
 
   const tripColumns: Column<TripsCompletedReport["rows"][number]>[] = [
@@ -106,28 +112,8 @@ export default function ReportsPage() {
           ))}
         </div>
 
-        <label className="text-label font-bold text-fg-muted">
-          From
-          <input
-            type="date"
-            value={range.from ?? ""}
-            onChange={(event) =>
-              setRange((prev) => ({ ...prev, from: event.target.value || undefined }))
-            }
-            className={`${inputClass} ml-2`}
-          />
-        </label>
-        <label className="text-label font-bold text-fg-muted">
-          To
-          <input
-            type="date"
-            value={range.to ?? ""}
-            onChange={(event) =>
-              setRange((prev) => ({ ...prev, to: event.target.value || undefined }))
-            }
-            className={`${inputClass} ml-2`}
-          />
-        </label>
+        <div className="flex items-center gap-2"><span className="text-label font-medium text-fg-muted">From</span><DatePicker label="From date" value={range.from ?? ""} max={range.to} onChange={(value) => setRange((prev) => ({ ...prev, from: value || undefined }))} /></div>
+        <div className="flex items-center gap-2"><span className="text-label font-medium text-fg-muted">To</span><DatePicker label="To date" value={range.to ?? ""} min={range.from} onChange={(value) => setRange((prev) => ({ ...prev, to: value || undefined }))} /></div>
         {range.from || range.to ? (
           <Button variant="secondary" block={false} onClick={() => setRange({})}>
             Clear
@@ -145,7 +131,11 @@ export default function ReportsPage() {
               ]}
             />
             <DataTable
-              rows={trips?.rows ?? null}
+              key={`${tab}:${range.from ?? ""}:${range.to ?? ""}`}
+              loading={loading}
+              pageSize={pageSize}
+              onPageSizeChange={setPageSize}
+              rows={error ? [] : trips?.rows ?? null}
               columns={tripColumns}
               rowKey={(r) => r.tripId}
               minWidth="46rem"
@@ -163,7 +153,11 @@ export default function ReportsPage() {
               ]}
             />
             <DataTable
-              rows={earnings?.rows ?? null}
+              key={`${tab}:${range.from ?? ""}:${range.to ?? ""}`}
+              loading={loading}
+              pageSize={pageSize}
+              onPageSizeChange={setPageSize}
+              rows={error ? [] : earnings?.rows ?? null}
               columns={earningColumns}
               rowKey={(r) => r.transactionId}
               minWidth="46rem"
@@ -181,7 +175,11 @@ export default function ReportsPage() {
               ]}
             />
             <DataTable
-              rows={cancels?.cancellations ?? null}
+              key={`${tab}:${range.from ?? ""}:${range.to ?? ""}`}
+              loading={loading}
+              pageSize={pageSize}
+              onPageSizeChange={setPageSize}
+              rows={error ? [] : cancels?.cancellations ?? null}
               columns={cancelColumns}
               rowKey={(r) => r.tripId}
               minWidth="42rem"

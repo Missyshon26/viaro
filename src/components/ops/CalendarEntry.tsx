@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { formatDateTime } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/Dashboard";
 import { errorText } from "@/lib/api/client";
@@ -16,7 +16,12 @@ import type { Booking } from "@/lib/api/types";
  * and an operator wants to see it fixed. When Google refuses, its reason is shown in words
  * that name the fix, rather than a bare error.
  */
-export function CalendarEntry({ booking, onChanged }: { booking: Booking; onChanged: () => void }) {
+export function CalendarEntry({ booking, onChanged, renderSection }: {
+  booking: Booking;
+  onChanged: () => void;
+  /** Render the surrounding card only when calendar content is available. */
+  renderSection?: (content: ReactNode) => ReactNode;
+}) {
   const [state, setState] = useState<{ enabled: boolean; ok?: boolean; name?: string; error?: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -63,7 +68,7 @@ export function CalendarEntry({ booking, onChanged }: { booking: Booking; onChan
     }
   }
 
-  return (
+  const content = (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-3">
         {booking.status === "cancelled" ? (
@@ -101,4 +106,6 @@ export function CalendarEntry({ booking, onChanged }: { booking: Booking; onChan
       </button>
     </div>
   );
+
+  return renderSection ? renderSection(content) : content;
 }
