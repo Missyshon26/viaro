@@ -85,6 +85,8 @@ export function fareBreakdownFor(
     ...(fare.route ? { route: fare.route } : {}),
     ...(fare.hours !== undefined ? { hours: fare.hours } : {}),
     subtotal: fare.subtotal,
+    fuelSurchargePct: fare.fuelSurchargePct,
+    fuelSurcharge: fare.fuelSurcharge,
     gratuityPct: fare.gratuityPct,
     gratuity: fare.gratuity,
     ...(fare.discountKind ? { discountKind: fare.discountKind } : {}),
@@ -102,6 +104,7 @@ export function lockedAdjustments(booking: { fareBreakdown?: IFareBreakdown }) {
   const b = booking.fareBreakdown;
   return {
     gratuityPct: b?.gratuityPct ?? 0,
+    fuelPct: b?.fuelSurchargePct ?? 0,
     taxPct: b?.taxPct ?? 0,
     discount: b?.discountKind && b.discount ? { kind: b.discountKind, amount: b.discount } : null,
   };

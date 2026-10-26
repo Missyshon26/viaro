@@ -12,6 +12,7 @@ import { DRIVER_PAYOUT_MODES, type DriverPayoutMode } from './Driver';
  *   withdrawalFeePct    fee on a chauffeur/company withdrawal to a bank
  *   supportInboxEmail   where quote requests, contact messages and support cases go
  *   taxPct              sales tax added to every fare (on the fare plus gratuity, after any discount)
+ *   fuelSurchargePct    automatic surcharge on every trip price (old ABL: 8), shown as its own line
  *   welcomeDiscount     dollars off a customer's very first trip
  *   loyaltyDiscount     dollars off every Nth trip after that (see loyaltyEveryNth)
  *   loyaltyEveryNth     which trips earn the loyalty discount: every 4th, 8th, 12th… by default
@@ -27,6 +28,7 @@ export interface IPlatformSettings {
   withdrawalFeePct?: number;
   supportInboxEmail?: string;
   taxPct?: number;
+  fuelSurchargePct?: number;
   welcomeDiscount?: number;
   loyaltyDiscount?: number;
   loyaltyEveryNth?: number;
@@ -46,6 +48,7 @@ const platformSettingsSchema = new Schema<IPlatformSettings>(
     withdrawalFeePct: { type: Number, min: 0, max: 100 },
     supportInboxEmail: { type: String, trim: true, lowercase: true },
     taxPct: { type: Number, min: 0, max: 30 },
+    fuelSurchargePct: { type: Number, min: 0, max: 30 },
     welcomeDiscount: { type: Number, min: 0, max: 1000 },
     loyaltyDiscount: { type: Number, min: 0, max: 1000 },
     loyaltyEveryNth: { type: Number, min: 2, max: 50 },

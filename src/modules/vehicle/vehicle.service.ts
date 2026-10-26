@@ -214,6 +214,8 @@ export interface ClassRates {
   /** Per-mile pricing for a flat transfer: miles the flat rate covers, and the charge per mile after. */
   baseMiles: number | null;
   perMileRate: number | null;
+  /** The longest trip in miles, or null for no limit. */
+  maxMiles: number | null;
   label?: string;
 }
 
@@ -225,7 +227,7 @@ export interface ClassRates {
  * as multiplierFor — collection, then shipped defaults, then nothing.
  */
 export async function ratesFor(value?: string | null, tripType?: TripType): Promise<ClassRates> {
-  if (!value) return { multiplier: 1, fixedRate: null, minimumFare: null, stopFee: 0, baseMiles: null, perMileRate: null };
+  if (!value) return { multiplier: 1, fixedRate: null, minimumFare: null, stopFee: 0, baseMiles: null, perMileRate: null, maxMiles: null };
 
   const hourly = tripType === 'hourly';
   const stored = await repo.findByValue(value);
@@ -237,6 +239,7 @@ export async function ratesFor(value?: string | null, tripType?: TripType): Prom
       stopFee: stored.stopFee ?? 0,
       baseMiles: stored.baseMiles ?? null,
       perMileRate: stored.perMileRate ?? null,
+      maxMiles: stored.maxMiles ?? null,
       label: stored.label,
     };
   }
@@ -249,6 +252,7 @@ export async function ratesFor(value?: string | null, tripType?: TripType): Prom
     stopFee: 0,
     baseMiles: null,
     perMileRate: null,
+    maxMiles: null,
     label: fallback?.label,
   };
 }

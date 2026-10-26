@@ -35,7 +35,7 @@ beforeEach(async () => {
   await resetData();
   miles.mockReset();
   // sedan: $129 covers 18 miles, then $3 a mile (the old Executive Sedan's terms)
-  await VehicleClass.updateOne({ value: 'sedan' }, { $set: { flatRate: 129, baseMiles: 18, perMileRate: 3, stopFee: 40 } });
+  await VehicleClass.updateOne({ value: 'sedan' }, { $set: { flatRate: 129, baseMiles: 18, perMileRate: 3, stopFee: 40, maxMiles: null } });
 });
 
 const estimate = (over: Record<string, unknown> = {}) =>
@@ -75,6 +75,28 @@ describe('pricing by the mile', () => {
     miles.mockResolvedValue(null);
     const res = await estimate();
     expect(res.body.data).toMatchObject({ fare: 129, distanceFee: 0, distanceUnknown: true });
+  });
+
+  it('a class with a longest trip refuses a longer one, and takes one up to that length', async () => {
+    await VehicleClass.updateOne({ value: 'sedan' }, { $set: { maxMiles: 60 } });
+    miles.mockResolvedValue(60);
+    expect((await estimate()).status).toBe(200);
+    miles.mockResolvedValue(60.4);
+    const res = await estimate();
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/not available for trips over 60 miles/);
+    expect(res.body.details).toMatchObject({ code: 'TOO_FAR', maxMiles: 60 });
+    // Another class is not held to it.
+    await VehicleClass.updateOne({ value: 'suv' }, { $set: { flatRate: 199 } });
+    expect((await estimate({ vehicleClass: 'suv' })).status).toBe(200);
+  });
+
+  it('the limit does not apply when the route cannot be measured, nor to an hourly charter', async () => {
+    await VehicleClass.updateOne({ value: 'sedan' }, { $set: { maxMiles: 60 } });
+    miles.mockResolvedValue(null);
+    expect((await estimate()).status).toBe(200);
+    miles.mockResolvedValue(200);
+    expect((await estimate({ tripType: 'hourly', hours: 3 })).status).toBe(200);
   });
 
   it('an hourly charter is priced by the hour, never by the mile', async () => {

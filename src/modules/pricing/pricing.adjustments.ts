@@ -9,9 +9,10 @@ import { getSettingsValues } from '../admin/settings.service';
  * small function that can be tested on its own, and the rules below are written once.
  *
  *     trip price (class fare + primetime + meet & greet + stops)      = subtotal
+ *   + fuel         subtotal × the fuel surcharge %, rounded UP to a whole dollar (as old ABL did)
  *   + gratuity     subtotal × the customer's chosen %
- *   − discount     a flat amount, never more than subtotal + gratuity
- *   + tax          (subtotal + gratuity − discount) × the tax %
+ *   − discount     a flat amount, never more than subtotal + fuel + gratuity
+ *   + tax          (subtotal + fuel + gratuity − discount) × the tax %
  *   = total        what is charged
  *
  * Tax is worked out AFTER the discount: a discount lowers the price, so it lowers the
@@ -27,18 +28,21 @@ export interface Discount {
 }
 
 export interface Adjustments {
+  fuelSurchargePct: number;
+  fuelSurcharge: number;
   gratuityPct: number;
   gratuity: number;
   discountKind?: DiscountKind;
   discount: number;
   taxPct: number;
   tax: number;
-  /** subtotal + gratuity − discount + tax */
+  /** subtotal + fuel + gratuity − discount + tax */
   total: number;
 }
 
 export function applyAdjustments(input: {
   subtotal: number;
+  fuelPct?: number;
   gratuityPct?: number;
   discount?: Discount | null;
   taxPct?: number;
@@ -46,13 +50,18 @@ export function applyAdjustments(input: {
   const gratuityPct = Math.min(Math.max(input.gratuityPct ?? 0, 0), MAX_GRATUITY_PCT);
   const taxPct = Math.max(input.taxPct ?? 0, 0);
 
+  const fuelSurchargePct = Math.min(Math.max(input.fuelPct ?? 0, 0), 30);
+  // Whole dollars, rounded up: the old site's rule, kept so a customer sees the same figure.
+  const fuelSurcharge = fuelSurchargePct > 0 ? Math.ceil(round2((input.subtotal * fuelSurchargePct) / 100)) : 0;
   const gratuity = round2((input.subtotal * gratuityPct) / 100);
-  const gross = round2(input.subtotal + gratuity);
+  const gross = round2(input.subtotal + fuelSurcharge + gratuity);
   const discount = round2(Math.min(Math.max(input.discount?.amount ?? 0, 0), gross));
   const taxable = round2(gross - discount);
   const tax = round2((taxable * taxPct) / 100);
 
   return {
+    fuelSurchargePct,
+    fuelSurcharge,
     gratuityPct,
     gratuity,
     ...(discount > 0 && input.discount ? { discountKind: input.discount.kind } : {}),

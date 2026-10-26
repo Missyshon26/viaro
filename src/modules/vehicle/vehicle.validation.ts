@@ -38,6 +38,8 @@ export const createVehicleClassSchema = z.object({
   stopFee: z.coerce.number().min(0).max(100_000).nullable().optional(),
   /** A flat transfer rate covers this many miles; null clears per-mile pricing. */
   baseMiles: z.coerce.number().min(0).max(1000).nullable().optional(),
+  /** The longest trip this class takes, in miles; null clears the limit. */
+  maxMiles: z.coerce.number().min(1).max(5000).nullable().optional(),
   /** Charge for each mile beyond `baseMiles`; null clears per-mile pricing. */
   perMileRate: z.coerce.number().min(0).max(1000).nullable().optional(),
   images: z.array(imageSchema).max(10).optional(),

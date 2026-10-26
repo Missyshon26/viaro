@@ -32,7 +32,7 @@ beforeEach(async () => {
   await resetData();
   admin = await makeUser('admin');
   // The settings are cached for a moment; saving clears it, so each test starts from zero.
-  const reset = await setSettings({ taxPct: 0, welcomeDiscount: 0, loyaltyDiscount: 0, loyaltyEveryNth: 4 });
+  const reset = await setSettings({ taxPct: 0, fuelSurchargePct: 0, welcomeDiscount: 0, loyaltyDiscount: 0, loyaltyEveryNth: 4 });
   expect(reset.status).toBe(200);
 });
 
@@ -103,6 +103,22 @@ describe('gratuity and tax in a quote', () => {
     const client = await makeUser('customer');
     const q = await quote(client.id, { gratuityPct: 10 });
     expect(q).toMatchObject({ subtotal: 140, gratuity: 14, taxPct: 8.5, tax: 13.09, fare: 167.09 });
+  });
+
+  it('adds the fuel surcharge as its own line, whole dollars rounded up, before tax', async () => {
+    await setSettings({ fuelSurchargePct: 8, taxPct: 10 });
+    const client = await makeUser('customer');
+    const q = await quote(client.id);
+    // 140 × 8% = 11.20 → 12; (140 + 12) × 10% = 15.20
+    expect(q).toMatchObject({ subtotal: 140, fuelSurchargePct: 8, fuelSurcharge: 12, taxPct: 10, tax: 15.2, fare: 167.2 });
+    const booked = await book(client.id);
+    expect(booked.fareBreakdown).toMatchObject({ fuelSurchargePct: 8, fuelSurcharge: 12 });
+    expect(booked.estimatedFare).toBe(167.2);
+  });
+
+  it('refuses a fuel surcharge that is almost certainly a typo', async () => {
+    expect((await setSettings({ fuelSurchargePct: 31 })).status).toBe(400);
+    expect((await setSettings({ fuelSurchargePct: -1 })).status).toBe(400);
   });
 
   it('refuses a tip above the limit', async () => {

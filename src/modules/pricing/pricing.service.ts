@@ -105,6 +105,9 @@ export interface FareBreakdown {
   distanceUnknown?: boolean;
   /** The trip price: classFare + distanceFee + primetimeSurcharge + meetAndGreetFee + stopFee. */
   subtotal: number;
+  /** The automatic fuel surcharge (a percentage of the subtotal, rounded up to whole dollars). */
+  fuelSurchargePct: number;
+  fuelSurcharge: number;
   /** The tip the customer chose (a percentage of the subtotal), and what it comes to. */
   gratuityPct: number;
   gratuity: number;
@@ -114,7 +117,7 @@ export interface FareBreakdown {
   /** Sales tax on subtotal + gratuity − discount. */
   taxPct: number;
   tax: number;
-  /** What is charged: subtotal + gratuity − discount + tax. */
+  /** What is charged: subtotal + fuel surcharge + gratuity − discount + tax. */
   fare: number;
 }
 
@@ -150,7 +153,7 @@ export async function calculateFare(opts: {
    * given, instead of looking them up again. Today's settings, or the customer's trip
    * count, must not change what an amendment costs.
    */
-  locked?: { gratuityPct: number; taxPct: number; discount?: Discount | null };
+  locked?: { gratuityPct: number; taxPct: number; fuelPct?: number; discount?: Discount | null };
 }): Promise<FareBreakdown> {
   const rule = await PricingRule.findOne({ city: opts.city.toLowerCase() }).lean();
   if (!rule) throw ApiError.notFound(`No pricing rule configured for city '${opts.city}'`);
@@ -214,26 +217,32 @@ export async function calculateFare(opts: {
    */
   let distance: { miles: number; included: number; extra: number; rate: number; fee: number } | null = null;
   let distanceUnknown = false;
-  if (
-    pricingModel === 'flat' &&
-    rates.perMileRate !== null &&
-    rates.perMileRate > 0 &&
-    rates.baseMiles !== null &&
-    opts.pickupAddress &&
-    opts.dropAddress
-  ) {
+  const perMile =
+    pricingModel === 'flat' && rates.perMileRate !== null && rates.perMileRate > 0 && rates.baseMiles !== null;
+  const limited = rates.maxMiles !== null && opts.tripType !== 'hourly';
+  if ((perMile || limited) && opts.pickupAddress && opts.dropAddress) {
     const miles = await routeMiles(opts.pickupAddress, opts.dropAddress, opts.stopAddresses ?? []);
     if (miles === null) {
+      // Could not be measured: the flat rate stands, and the limit cannot be checked either.
       distanceUnknown = true;
     } else {
-      const extra = Math.ceil(Math.max(0, miles - rates.baseMiles));
-      distance = {
-        miles: Math.round(miles * 10) / 10,
-        included: rates.baseMiles,
-        extra,
-        rate: rates.perMileRate,
-        fee: round2(extra * rates.perMileRate),
-      };
+      if (limited && miles > (rates.maxMiles as number)) {
+        throw new ApiError(
+          400,
+          `${rates.label ?? 'This vehicle'} is not available for trips over ${rates.maxMiles} miles. Please choose another vehicle.`,
+          { code: 'TOO_FAR', maxMiles: rates.maxMiles, miles: Math.round(miles * 10) / 10 },
+        );
+      }
+      if (perMile) {
+        const extra = Math.ceil(Math.max(0, miles - (rates.baseMiles as number)));
+        distance = {
+          miles: Math.round(miles * 10) / 10,
+          included: rates.baseMiles as number,
+          extra,
+          rate: rates.perMileRate as number,
+          fee: round2(extra * (rates.perMileRate as number)),
+        };
+      }
     }
   }
   const distanceFee = distance?.fee ?? 0;
@@ -243,6 +252,7 @@ export async function calculateFare(opts: {
   const locked = opts.locked;
   const adjustments = applyAdjustments({
     subtotal,
+    fuelPct: locked ? (locked.fuelPct ?? 0) : (await getSettingsValues()).fuelSurchargePct,
     gratuityPct: locked ? locked.gratuityPct : opts.gratuityPct,
     taxPct: locked ? locked.taxPct : (await getSettingsValues()).taxPct,
     discount: locked
@@ -278,6 +288,8 @@ export async function calculateFare(opts: {
     distanceFee,
     ...(distanceUnknown ? { distanceUnknown: true } : {}),
     subtotal,
+    fuelSurchargePct: adjustments.fuelSurchargePct,
+    fuelSurcharge: adjustments.fuelSurcharge,
     gratuityPct: adjustments.gratuityPct,
     gratuity: adjustments.gratuity,
     ...(adjustments.discountKind ? { discountKind: adjustments.discountKind } : {}),

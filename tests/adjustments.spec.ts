@@ -4,6 +4,8 @@ import { applyAdjustments } from '../src/modules/pricing/pricing.adjustments';
 describe('applyAdjustments', () => {
   it('changes nothing when there is no tip, discount or tax', () => {
     expect(applyAdjustments({ subtotal: 140 })).toEqual({
+      fuelSurchargePct: 0,
+      fuelSurcharge: 0,
       gratuityPct: 0,
       gratuity: 0,
       discount: 0,
@@ -11,6 +13,22 @@ describe('applyAdjustments', () => {
       tax: 0,
       total: 140,
     });
+  });
+
+  it('adds the fuel surcharge as a percentage of the trip price, rounded up to a whole dollar', () => {
+    const r = applyAdjustments({ subtotal: 129, fuelPct: 8 });
+    expect(r.fuelSurchargePct).toBe(8);
+    expect(r.fuelSurcharge).toBe(11); // 10.32 → 11, as old ABL's Math.ceil did
+    expect(r.total).toBe(140);
+  });
+
+  it('puts the fuel surcharge inside the taxable amount, beside the tip, before the discount', () => {
+    const r = applyAdjustments({ subtotal: 100, fuelPct: 8, gratuityPct: 10, taxPct: 10, discount: { kind: 'welcome', amount: 18 } });
+    // 100 + 8 + 10 = 118, less 18 = 100, tax 10
+    expect(r.fuelSurcharge).toBe(8);
+    expect(r.gratuity).toBe(10);
+    expect(r.tax).toBe(10);
+    expect(r.total).toBe(110);
   });
 
   it('adds the tip as a percentage of the trip price', () => {

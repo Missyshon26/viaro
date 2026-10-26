@@ -16,6 +16,7 @@ export const DEFAULT_SETTINGS: Settings = {
   supportInboxEmail: 'reservations@allblacklimoseattle.com',
   // Off until operations set them: a fare gains no tax or discount by default.
   taxPct: 0,
+  fuelSurchargePct: 0,
   welcomeDiscount: 0,
   loyaltyDiscount: 0,
   loyaltyEveryNth: 4,
@@ -39,6 +40,8 @@ export interface Settings {
   supportInboxEmail: string;
   /** Sales tax, as a percentage of fare plus gratuity less any discount. */
   taxPct: number;
+  /** Automatic fuel surcharge, as a percentage of the trip price. 0 = none. */
+  fuelSurchargePct: number;
   /** Dollars off a customer's first trip. 0 = no welcome discount. */
   welcomeDiscount: number;
   /** Dollars off every Nth trip after the first. 0 = no loyalty discount. */
@@ -65,6 +68,7 @@ async function load() {
     withdrawalFeePct: doc?.withdrawalFeePct ?? DEFAULT_SETTINGS.withdrawalFeePct,
     supportInboxEmail: doc?.supportInboxEmail || DEFAULT_SETTINGS.supportInboxEmail,
     taxPct: doc?.taxPct ?? DEFAULT_SETTINGS.taxPct,
+    fuelSurchargePct: doc?.fuelSurchargePct ?? DEFAULT_SETTINGS.fuelSurchargePct,
     welcomeDiscount: doc?.welcomeDiscount ?? DEFAULT_SETTINGS.welcomeDiscount,
     loyaltyDiscount: doc?.loyaltyDiscount ?? DEFAULT_SETTINGS.loyaltyDiscount,
     loyaltyEveryNth: doc?.loyaltyEveryNth ?? DEFAULT_SETTINGS.loyaltyEveryNth,
@@ -104,6 +108,7 @@ export interface SettingsUpdate {
   withdrawalFeePct?: number;
   supportInboxEmail?: string;
   taxPct?: number;
+  fuelSurchargePct?: number;
   welcomeDiscount?: number;
   loyaltyDiscount?: number;
   loyaltyEveryNth?: number;
@@ -119,6 +124,7 @@ export async function updateSettings(adminId: string, input: SettingsUpdate) {
   if (input.withdrawalFeePct !== undefined) $set.withdrawalFeePct = input.withdrawalFeePct;
   if (input.supportInboxEmail !== undefined) $set.supportInboxEmail = input.supportInboxEmail;
   if (input.taxPct !== undefined) $set.taxPct = input.taxPct;
+  if (input.fuelSurchargePct !== undefined) $set.fuelSurchargePct = input.fuelSurchargePct;
   if (input.welcomeDiscount !== undefined) $set.welcomeDiscount = input.welcomeDiscount;
   if (input.loyaltyDiscount !== undefined) $set.loyaltyDiscount = input.loyaltyDiscount;
   if (input.loyaltyEveryNth !== undefined) $set.loyaltyEveryNth = input.loyaltyEveryNth;

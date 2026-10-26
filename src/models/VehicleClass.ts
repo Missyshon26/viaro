@@ -71,6 +71,12 @@ export interface IVehicleClass {
    */
   baseMiles?: number | null;
   perMileRate?: number | null;
+  /**
+   * The longest trip this class will take, in miles (a transfer, measured through its stops).
+   * Quoting or booking a longer one is refused. Unset = no limit. Old ABL kept its Executive
+   * Sedan and Executive MPV to 60 miles.
+   */
+  maxMiles?: number | null;
   images: IVehicleImage[];
   /**
    * Retiring a class rather than deleting it. An inactive class disappears from the
@@ -113,6 +119,7 @@ const vehicleClassSchema = new Schema<IVehicleClass>(
     stopFee: { type: Number, min: 0, max: 100_000, default: null },
     baseMiles: { type: Number, min: 0, max: 1000, default: null },
     perMileRate: { type: Number, min: 0, max: 1000, default: null },
+    maxMiles: { type: Number, min: 1, max: 5000, default: null },
     images: { type: [imageSchema], default: [] },
     active: { type: Boolean, default: true, index: true },
     sortOrder: { type: Number, default: 0 },

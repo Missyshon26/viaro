@@ -102,6 +102,7 @@ export const settingsUpdateSchema = z
     withdrawalFeePct: z.coerce.number().min(0).max(50).optional(),
     supportInboxEmail: z.string().trim().toLowerCase().email().optional(),
     taxPct: z.coerce.number().min(0, 'Tax cannot be negative').max(30, 'Tax above 30% is probably a typo').optional(),
+    fuelSurchargePct: z.coerce.number().min(0, 'The surcharge cannot be negative').max(30, 'A surcharge above 30% is probably a typo').optional(),
     welcomeDiscount: z.coerce.number().min(0).max(1000).optional(),
     loyaltyDiscount: z.coerce.number().min(0).max(1000).optional(),
     loyaltyEveryNth: z.coerce.number().int().min(2, 'At least every 2nd trip').max(50).optional(),

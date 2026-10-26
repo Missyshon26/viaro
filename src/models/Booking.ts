@@ -167,6 +167,8 @@ export interface IFareBreakdown {
    * re-pricing one keeps it free of tip and tax rather than adding them after the fact.
    */
   subtotal?: number;
+  fuelSurchargePct?: number;
+  fuelSurcharge?: number;
   gratuityPct?: number;
   gratuity?: number;
   /** 'welcome' (first trip) or 'loyalty' (every Nth trip), when a discount applied. */
@@ -493,6 +495,8 @@ const bookingSchema = new Schema<IBooking>(
           route: { type: String },
           hours: { type: Number },
           subtotal: { type: Number, min: 0 },
+          fuelSurchargePct: { type: Number, min: 0 },
+          fuelSurcharge: { type: Number, min: 0 },
           gratuityPct: { type: Number, min: 0 },
           gratuity: { type: Number, min: 0 },
           discountKind: { type: String, enum: ['welcome', 'loyalty'] },
