@@ -229,6 +229,15 @@ describe('the PDF', () => {
     expect(pdf.subarray(-6).toString()).toContain('%%EOF');
   });
 
+  it('calls an imported booking\'s old fuel charge a fuel surcharge, not a gratuity', () => {
+    const doc = buildDocument(
+      'invoice',
+      input(baseBooking({ legacy: { tripId: 1, legIndex: 0 }, fareBreakdown: { classFare: 140, subtotal: 140, gratuityPct: 8, gratuity: 11, primetimeSurcharge: 0, meetAndGreetFee: 0, stopFee: 0, stopCount: 0 }, estimatedFare: 151 })),
+    );
+    expect(doc.lines.map((l) => l.label)).toContain('Fuel surcharge (8%)');
+    expect(doc.lines.map((l) => l.label).join()).not.toContain('Gratuity');
+  });
+
   it('says what the data says', async () => {
     const data = buildDocument('receipt', input(baseBooking({ payment: card(), stops: [{ lat: 1, lng: 1, address: 'Pike Place' }] })));
     const text = textOf(await renderDocumentPdf(data, { compress: false }));

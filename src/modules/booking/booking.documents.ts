@@ -151,7 +151,13 @@ function linesFor(booking: IBooking, vehicle: string, total: number): DocumentLi
   }
   // The rest of the bill, only when it applied: a booking from before these existed has none.
   if (b.fuelSurcharge) lines.push({ label: `Fuel surcharge (${b.fuelSurchargePct}%)`, amount: b.fuelSurcharge });
-  if (b.gratuity) lines.push({ label: `Gratuity (${b.gratuityPct}%)`, amount: b.gratuity });
+  // An imported booking's "gratuity" is the old system's fuel charge (it was never a tip there).
+  if (b.gratuity) {
+    lines.push({
+      label: booking.legacy ? `Fuel surcharge (${b.gratuityPct}%)` : `Gratuity (${b.gratuityPct}%)`,
+      amount: b.gratuity,
+    });
+  }
   if (b.discount) {
     lines.push({ label: b.discountKind === 'welcome' ? 'Welcome discount' : 'Loyalty discount', amount: -b.discount });
   }
