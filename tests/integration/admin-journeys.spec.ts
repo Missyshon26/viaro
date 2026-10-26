@@ -125,12 +125,13 @@ describe('GET /admin/dashboard/users', () => {
     const admin = await makeUser('admin');
     await makeUser('customer', { name: 'Ann Rider' });
     await makeUser('customer', { name: 'Bob Traveller' });
-    await makeUser('driver', { name: 'Dee Driver' });
+    await makeUser('admin', { name: 'Dee Admin' });
 
     const all = await users(admin.auth, 'limit=2');
     expect(all.body.data.total).toBe(4);
     expect(all.body.data.items).toHaveLength(2);
     expect((await users(admin.auth, 'role=customer')).body.data.total).toBe(2);
+    expect((await users(admin.auth, 'role=admin')).body.data.total).toBe(2);
     expect((await users(admin.auth, 'role=customer&q=traveller')).body.data.total).toBe(1);
     expect((await users(admin.auth, 'q=' + encodeURIComponent('(.*'))).status).toBe(200);
   });
