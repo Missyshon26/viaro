@@ -50,6 +50,31 @@ export type IdParam = z.infer<typeof idParamSchema>;
 
 export const listQuerySchema = paginationSchema;
 
+/** GET /admin/dashboard/users — a page of accounts, optionally one role and/or a text search. */
+export const usersQuerySchema = paginationSchema.extend({
+  role: z.enum(['customer', 'driver', 'admin', 'company']).optional(),
+  q: z.string().trim().max(120).optional(),
+});
+export type UsersQuery = z.infer<typeof usersQuerySchema>;
+
+export const JOURNEY_STAGES = ['awaiting', 'pool', 'assigned', 'in_progress', 'completed', 'cancelled'] as const;
+const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use yyyy-mm-dd');
+const text = z.string().trim().max(120);
+
+/** GET /admin/dashboard/journeys — one page of bookings with their trip, filtered in the database. */
+export const journeysQuerySchema = paginationSchema.extend({
+  stage: z.enum([...JOURNEY_STAGES, 'overdue']).optional(),
+  q: text.optional(),
+  from: day.optional(),
+  to: day.optional(),
+  vehicle: text.optional(),
+  service: text.optional(),
+  city: text.optional(),
+  payment: text.optional(),
+});
+
+export type JourneysQuery = z.infer<typeof journeysQuerySchema>;
+
 /** PATCH /admin/settings/payout — the default rate for chauffeurs with none of their own. */
 export const payoutDefaultsSchema = z
   .object({

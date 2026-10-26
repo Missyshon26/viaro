@@ -8,11 +8,11 @@ import { PenaltyEvent } from '../../models/PenaltyEvent';
 import { ApiError } from '../../utils/ApiError';
 import type { AuthUser } from '../../middlewares/authGuard';
 import { paginated, toSkipLimit, type PaginationQuery } from '../../utils/pagination';
-import { format, nowDate } from '../../config/timezone';
+import { format, nowDate, toAppTime } from '../../config/timezone';
 import { round2 } from '../../utils/money';
 import { getOrCreateWallet } from '../wallet/wallet.service';
 import { driverRosterOwner } from '../../utils/roster';
-import type { CreateDriverInput, UpdateDriverInput } from './admin.validation';
+import type { CreateDriverInput, JourneysQuery, UpdateDriverInput } from './admin.validation';
 
 const BCRYPT_ROUNDS = 12;
 
@@ -191,11 +191,150 @@ export async function listAllBookings(q: PaginationQuery) {
   );
 }
 
-export async function listAllUsers(q: PaginationQuery) {
+const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * One page of the operations pipeline: bookings, each with its trip and customer, filtered,
+ * searched and counted in the database.
+ *
+ * The console used to download every booking and every trip and join them in the browser, which
+ * took minutes at a few thousand bookings. A page is now one query. The stage is worked out here
+ * with the same rules as the console's stageOf (a booking never reaches 'completed' on its own;
+ * the trip decides), so the counts the filter chips show agree with the rows they select.
+ */
+export async function listJourneys(q: JourneysQuery) {
   const { skip, limit } = toSkipLimit(q);
+
+  /* Filters that only need the booking come first, so the join below runs on fewer documents. */
+  const base: Record<string, unknown> = {};
+  if (q.vehicle) base.vehicleClass = q.vehicle;
+  if (q.service) base.tripType = q.service;
+  if (q.city) base.city = q.city;
+  if (q.payment) {
+    if (q.payment === 'unpaid') base.payment = { $exists: false };
+    else base['payment.status'] = q.payment;
+  }
+  if (q.from || q.to) {
+    const range: Record<string, Date> = {};
+    if (q.from) range.$gte = toAppTime(q.from).startOf('day').toJSDate();
+    if (q.to) range.$lte = toAppTime(q.to).endOf('day').toJSDate();
+    base.scheduledAt = range;
+  }
+
+  const search: Record<string, unknown>[] = [];
+  if (q.q) {
+    const pattern = new RegExp(escapeRegex(q.q), 'i');
+    const hex = q.q.replace(/^abl-?/i, '');
+    search.push(
+      { 'customer.name': pattern },
+      { 'customer.email': pattern },
+      { 'pickup.address': pattern },
+      { 'drop.address': pattern },
+      { city: pattern },
+      { vehicleClass: pattern },
+      { 'flightDetails.flightNumber': pattern },
+    );
+    // "ABL-7849B0": the reference is the tail of the booking id.
+    if (/^[0-9a-f]{3,24}$/i.test(hex)) {
+      search.push({
+        $expr: { $regexMatch: { input: { $toString: '$_id' }, regex: `${escapeRegex(hex)}$`, options: 'i' } },
+      });
+    }
+  }
+
+  const stageExpr = {
+    $switch: {
+      branches: [
+        { case: { $eq: ['$trip.status', 'completed'] }, then: 'completed' },
+        { case: { $or: [{ $eq: ['$trip.status', 'cancelled'] }, { $eq: ['$status', 'cancelled'] }] }, then: 'cancelled' },
+        { case: { $eq: ['$trip.status', 'started'] }, then: 'in_progress' },
+        { case: { $or: [{ $gt: [{ $size: '$trips' }, 0] }, { $eq: ['$status', 'assigned'] }] }, then: 'assigned' },
+        { case: { $eq: ['$status', 'dispatched'] }, then: 'pool' },
+      ],
+      default: 'awaiting',
+    },
+  };
+
+  const overdue = {
+    stage: { $nin: ['completed', 'cancelled'] },
+    scheduledAt: { $lt: nowDate() },
+  };
+  const stageMatch =
+    q.stage === 'overdue' ? overdue : q.stage ? { stage: q.stage } : {};
+
+  const [result] = await Booking.aggregate([
+    { $match: base },
+    {
+      $lookup: {
+        from: 'trips',
+        localField: '_id',
+        foreignField: 'bookingId',
+        as: 'trips',
+        pipeline: [{ $project: { status: 1, fareAmount: 1, settled: 1, driverId: 1 } }],
+      },
+    },
+    { $addFields: { trip: { $arrayElemAt: ['$trips', 0] } } },
+    { $addFields: { stage: stageExpr } },
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'customerId',
+        foreignField: '_id',
+        as: 'customer',
+        pipeline: [{ $project: { name: 1, email: 1, phone: 1 } }],
+      },
+    },
+    { $addFields: { customer: { $first: '$customer' } } },
+    ...(search.length ? [{ $match: { $or: search } }] : []),
+    {
+      $facet: {
+        items: [
+          { $match: stageMatch },
+          { $sort: { createdAt: -1, _id: -1 } },
+          { $skip: skip },
+          { $limit: limit },
+          // The shape the console already reads: customerId populated, or null for a deleted account.
+          { $addFields: { customerId: { $ifNull: ['$customer', null] } } },
+          { $project: { customer: 0, stage: 0, trips: 0 } },
+        ],
+        total: [{ $match: stageMatch }, { $count: 'n' }],
+        stages: [{ $group: { _id: '$stage', n: { $sum: 1 } } }],
+        overdue: [{ $match: overdue }, { $count: 'n' }],
+      },
+    },
+  ]);
+
+  const counts: Record<string, number> = {};
+  let all = 0;
+  for (const row of result.stages as { _id: string; n: number }[]) {
+    counts[row._id] = row.n;
+    all += row.n;
+  }
+
+  const items = (result.items as (Record<string, unknown> & { scheduledAt: Date })[]).map((b) => ({
+    ...b,
+    scheduledAtLocal: format(b.scheduledAt),
+  }));
+  const total = (result.total[0]?.n as number | undefined) ?? 0;
+
+  return {
+    ...paginated(items, total, q),
+    /** Per stage and overall, under the current filters but ignoring the stage filter itself. */
+    counts: { all, overdue: (result.overdue[0]?.n as number | undefined) ?? 0, ...counts },
+  };
+}
+
+export async function listAllUsers(q: PaginationQuery & { role?: string; q?: string }) {
+  const { skip, limit } = toSkipLimit(q);
+  const filter: Record<string, unknown> = {};
+  if (q.role) filter.role = q.role;
+  if (q.q) {
+    const pattern = new RegExp(escapeRegex(q.q), 'i');
+    filter.$or = [{ name: pattern }, { email: pattern }, { phone: pattern }, { username: pattern }];
+  }
   const [items, total] = await Promise.all([
-    User.find().sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
-    User.countDocuments(),
+    User.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+    User.countDocuments(filter),
   ]);
 
   return paginated(items, total, q);

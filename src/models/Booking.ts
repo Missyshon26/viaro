@@ -523,4 +523,10 @@ bookingSchema.index(
   { unique: true, partialFilterExpression: { 'legacy.tripId': { $exists: true } } },
 );
 
+/**
+ * The admin lists read newest-first, a page at a time. Without this every page re-sorted the
+ * whole collection in memory, which at a few thousand bookings made each page take seconds.
+ */
+bookingSchema.index({ createdAt: -1 });
+
 export const Booking = model<IBooking>('Booking', bookingSchema);

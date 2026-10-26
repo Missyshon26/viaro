@@ -149,4 +149,8 @@ userSchema.set('toJSON', {
   },
 });
 
+// The console's Users page reads newest-first, a page at a time, optionally for one role.
+userSchema.index({ createdAt: -1 });
+userSchema.index({ role: 1, createdAt: -1 });
+
 export const User = model<IUser>('User', userSchema);

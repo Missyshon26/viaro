@@ -8,10 +8,12 @@ import {
   adminTripSchema,
   createDriverSchema,
   idParamSchema,
+  journeysQuerySchema,
   listQuerySchema,
   payoutDefaultsSchema,
   settingsUpdateSchema,
   updateDriverSchema,
+  usersQuerySchema,
 } from './admin.validation';
 import {
   createCustomerSchema,
@@ -89,9 +91,16 @@ router.get(
 );
 
 router.get(
+  '/dashboard/journeys',
+  roleGuard('admin'),
+  validate({ query: journeysQuerySchema }),
+  asyncHandler(controller.dashboardJourneys),
+);
+
+router.get(
   '/dashboard/users',
   roleGuard('admin'),
-  validate({ query: listQuerySchema }),
+  validate({ query: usersQuerySchema }),
   asyncHandler(controller.dashboardUsers),
 );
 

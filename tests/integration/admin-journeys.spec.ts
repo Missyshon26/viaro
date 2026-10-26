@@ -1,0 +1,137 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import request from 'supertest';
+import app from '../../src/app';
+import { Booking } from '../../src/models/Booking';
+import { listen, makeUser, pickupIn, point, resetData, seedCatalogue, startDatabase, stopDatabase } from './harness';
+
+vi.mock('../../src/jobs/cancellationWindow.job', () => ({
+  scheduleCancellationWindowCheck: vi.fn(async () => undefined),
+}));
+vi.mock('../../src/modules/dispatch/dispatch.service', () => ({
+  receiveBookingRequest: vi.fn(async () => undefined),
+}));
+
+const http = listen(app);
+const server = http.server;
+
+beforeAll(async () => {
+  await startDatabase();
+  await seedCatalogue();
+});
+afterAll(async () => {
+  await http.close();
+  await stopDatabase();
+});
+beforeEach(async () => {
+  await resetData();
+});
+
+const trip = (over: Record<string, unknown> = {}) => ({
+  pickup: point('Sea-Tac Airport'),
+  drop: point('Hotel Andra, Seattle'),
+  vehicleClass: 'sedan',
+  tripType: 'point2point',
+  city: 'seattle',
+  scheduledAt: pickupIn(5),
+  passengers: 2,
+  ...over,
+});
+
+async function book(adminAuth: string, customerId: string, over: Record<string, unknown> = {}) {
+  const res = await request(server).post('/admin/bookings').set('Authorization', adminAuth).send({ customerId, trip: trip(over) });
+  expect(res.status).toBe(201);
+  return res.body.data.booking._id as string;
+}
+
+const get = (auth: string, query: string) =>
+  request(server).get(`/admin/dashboard/journeys?${query}`).set('Authorization', auth);
+
+describe('GET /admin/dashboard/journeys', () => {
+  it('pages the pipeline with each booking\'s customer, newest first, and counts by stage', async () => {
+    const admin = await makeUser('admin');
+    const ann = await makeUser('customer', { name: 'Ann Rider' });
+    const bob = await makeUser('customer', { name: 'Bob Traveller' });
+    const first = await book(admin.auth, ann.id);
+    const second = await book(admin.auth, bob.id, { vehicleClass: 'suv', drop: point('Bellevue Square') });
+    await book(admin.auth, bob.id);
+    await Booking.updateOne({ _id: second }, { status: 'dispatched' });
+    await Booking.updateOne({ _id: first }, { status: 'cancelled' });
+
+    const res = await get(admin.auth, 'limit=2');
+    expect(res.status).toBe(200);
+    expect(res.body.data.total).toBe(3);
+    expect(res.body.data.totalPages).toBe(2);
+    expect(res.body.data.items).toHaveLength(2);
+    // Newest first, with the customer filled in the way the console reads it.
+    expect(res.body.data.items[0].customerId.name).toBe('Bob Traveller');
+    expect(res.body.data.items[0].scheduledAtLocal).toBeTruthy();
+    expect(res.body.data.counts).toMatchObject({ all: 3, awaiting: 1, pool: 1, cancelled: 1 });
+
+    const page2 = await get(admin.auth, 'limit=2&page=2');
+    expect(page2.body.data.items).toHaveLength(1);
+  });
+
+  it('filters by stage, and the counts ignore the stage filter so the chips stay honest', async () => {
+    const admin = await makeUser('admin');
+    const ann = await makeUser('customer', { name: 'Ann Rider' });
+    const a = await book(admin.auth, ann.id);
+    await book(admin.auth, ann.id);
+    await Booking.updateOne({ _id: a }, { status: 'dispatched' });
+
+    const res = await get(admin.auth, 'stage=pool');
+    expect(res.body.data.total).toBe(1);
+    expect(String(res.body.data.items[0]._id)).toBe(a);
+    expect(res.body.data.counts).toMatchObject({ all: 2, pool: 1, awaiting: 1 });
+  });
+
+  it('searches the customer, an address, and the booking reference', async () => {
+    const admin = await makeUser('admin');
+    const ann = await makeUser('customer', { name: 'Ann Rider' });
+    const bob = await makeUser('customer', { name: 'Bob Traveller' });
+    await book(admin.auth, ann.id);
+    const bobs = await book(admin.auth, bob.id, { drop: point('Bellevue Square') });
+
+    expect((await get(admin.auth, 'q=traveller')).body.data.total).toBe(1);
+    expect((await get(admin.auth, 'q=bellevue')).body.data.total).toBe(1);
+    const ref = `ABL-${bobs.slice(-6).toUpperCase()}`;
+    const byRef = await get(admin.auth, `q=${ref}`);
+    expect(byRef.body.data.total).toBe(1);
+    expect(String(byRef.body.data.items[0]._id)).toBe(bobs);
+    // Characters that mean something in a regex are just text.
+    expect((await get(admin.auth, 'q=' + encodeURIComponent('(.*'))).status).toBe(200);
+  });
+
+  it('filters by vehicle and by pickup day', async () => {
+    const admin = await makeUser('admin');
+    const ann = await makeUser('customer');
+    await book(admin.auth, ann.id, { vehicleClass: 'suv' });
+    await book(admin.auth, ann.id);
+    expect((await get(admin.auth, 'vehicle=suv')).body.data.total).toBe(1);
+    expect((await get(admin.auth, 'from=2000-01-01&to=2000-01-02')).body.data.total).toBe(0);
+    expect((await get(admin.auth, 'from=2000-01-01&to=2100-01-01')).body.data.total).toBe(2);
+  });
+
+  it('is for admins only', async () => {
+    const customer = await makeUser('customer');
+    expect((await get(customer.auth, '')).status).toBe(403);
+  });
+});
+
+describe('GET /admin/dashboard/users', () => {
+  const users = (auth: string, query: string) =>
+    request(server).get(`/admin/dashboard/users?${query}`).set('Authorization', auth);
+
+  it('pages accounts and filters by role and search text', async () => {
+    const admin = await makeUser('admin');
+    await makeUser('customer', { name: 'Ann Rider' });
+    await makeUser('customer', { name: 'Bob Traveller' });
+    await makeUser('driver', { name: 'Dee Driver' });
+
+    const all = await users(admin.auth, 'limit=2');
+    expect(all.body.data.total).toBe(4);
+    expect(all.body.data.items).toHaveLength(2);
+    expect((await users(admin.auth, 'role=customer')).body.data.total).toBe(2);
+    expect((await users(admin.auth, 'role=customer&q=traveller')).body.data.total).toBe(1);
+    expect((await users(admin.auth, 'q=' + encodeURIComponent('(.*'))).status).toBe(200);
+  });
+});

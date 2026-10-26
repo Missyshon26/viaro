@@ -26,9 +26,11 @@ import type {
   AdminTripInput,
   CreateDriverInput,
   IdParam,
+  JourneysQuery,
   PayoutDefaultsInput,
   SettingsUpdateInput,
   UpdateDriverInput,
+  UsersQuery,
 } from './admin.validation';
 
 export async function createDriver(req: Request, res: Response): Promise<void> {
@@ -55,8 +57,13 @@ export async function dashboardBookings(req: Request, res: Response): Promise<vo
   res.json({ success: true, data });
 }
 
+export async function dashboardJourneys(req: Request, res: Response): Promise<void> {
+  const data = await adminService.listJourneys(query<JourneysQuery>(req));
+  res.json({ success: true, data });
+}
+
 export async function dashboardUsers(req: Request, res: Response): Promise<void> {
-  const data = await adminService.listAllUsers(query<PaginationQuery>(req));
+  const data = await adminService.listAllUsers(query<UsersQuery>(req));
   res.json({ success: true, data });
 }
 

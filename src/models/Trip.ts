@@ -98,5 +98,7 @@ const tripSchema = new Schema<ITrip>(
 );
 
 tripSchema.index({ status: 1, 'timestamps.completed': -1 });
+// The trip list's own sort order (newest assignment first), so a page does not sort the collection.
+tripSchema.index({ 'timestamps.assigned': -1, createdAt: -1 });
 
 export const Trip = model<ITrip>('Trip', tripSchema);
