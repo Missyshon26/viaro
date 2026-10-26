@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import * as adminService from './admin.service';
+import { autocompletePlaces } from '../../integrations/placesAutocomplete';
 import { body, params, query } from '../../utils/validate';
 import type { PaginationQuery } from '../../utils/pagination';
 import * as settingsService from './settings.service';
@@ -55,6 +56,11 @@ export async function updateDriver(req: Request, res: Response): Promise<void> {
 export async function dashboardBookings(req: Request, res: Response): Promise<void> {
   const data = await adminService.listAllBookings(query<PaginationQuery>(req));
   res.json({ success: true, data });
+}
+
+export async function placeSuggestions(req: Request, res: Response): Promise<void> {
+  const input = typeof req.query.input === 'string' ? req.query.input : '';
+  res.json({ success: true, data: { suggestions: await autocompletePlaces(input) } });
 }
 
 export async function dashboardSummary(_req: Request, res: Response): Promise<void> {

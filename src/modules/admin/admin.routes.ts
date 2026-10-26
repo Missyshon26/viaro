@@ -92,6 +92,8 @@ router.get(
 
 router.get('/dashboard/summary', roleGuard('admin'), asyncHandler(controller.dashboardSummary));
 
+router.get('/places/autocomplete', roleGuard('admin'), asyncHandler(controller.placeSuggestions));
+
 router.get(
   '/dashboard/journeys',
   roleGuard('admin'),
