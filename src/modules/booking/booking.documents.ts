@@ -4,10 +4,11 @@ import PDFDocument from 'pdfkit';
 import type { BookingDocument, IBooking, IFareBreakdown } from '../../models/Booking';
 import type { ITrip } from '../../models/Trip';
 import { CONTACT_EMAIL, CONTACT_PHONE } from '../../config/constants';
-import { format, toDate, now } from '../../config/timezone';
+import { format, toDate, now, toAppTime } from '../../config/timezone';
 import { ApiError } from '../../utils/ApiError';
 import { round2 } from '../../utils/money';
 import { formatAddress, type Address } from '../../utils/profile';
+import { renderInvoicePdf } from './booking.invoicePdf';
 
 /**
  * Invoices and receipts for a booking, as PDFs.
@@ -48,8 +49,17 @@ export interface DocumentData {
     passengers?: number;
     flight?: string;
     leg?: string;
+    /** Pickup day as MM-DD-YYYY and time as h:mm AM/PM, Pacific, as the old invoice printed them. */
+    date: string;
+    time: string;
+    bags: number;
+    /** What the passenger asked for ("need a wheelchair"), if anything. */
+    notes?: string;
   };
   lines: DocumentLine[];
+  /** The discount taken off and the tax added, in dollars (0 when none), for the invoice's totals. */
+  discount: number;
+  tax: number;
   total: number;
   creditApplied: number;
   /** What has actually been paid (by card at booking, or collected after the trip). */
@@ -212,8 +222,14 @@ export function buildDocument(kind: DocumentKind, input: DocumentInput): Documen
       ...(booking.passengers ? { passengers: booking.passengers } : {}),
       ...(booking.flightDetails?.flightNumber ? { flight: booking.flightDetails.flightNumber } : {}),
       ...(booking.journey ? { leg: `Leg ${booking.journey.index + 1} of ${booking.journey.count}` } : {}),
+      date: toAppTime(booking.scheduledAt).toFormat('LL-dd-yyyy'),
+      time: toAppTime(booking.scheduledAt).toFormat('h:mm a'),
+      bags: (booking.checkedBags ?? 0) + (booking.carryOnBags ?? 0),
+      ...(booking.description?.trim() ? { notes: booking.description.trim() } : {}),
     },
     lines: linesFor(booking, vehicleLabel, total),
+    discount: round2(booking.fareBreakdown?.discount ?? 0),
+    tax: round2(booking.fareBreakdown?.tax ?? 0),
     total,
     creditApplied: credit,
     amountPaid,
@@ -260,6 +276,8 @@ export function renderDocumentPdf(
   /** `compress: false` keeps the page content readable, for tests. */
   options: { compress?: boolean } = {},
 ): Promise<Buffer> {
+  // The invoice keeps the old ABL layout, so a customer sees the same document as before.
+  if (data.kind === 'invoice') return renderInvoicePdf(data, options);
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({
       margin: 50,
