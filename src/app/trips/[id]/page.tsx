@@ -33,6 +33,7 @@ import { getFlight, type FlightDetails } from "@/lib/api/admin";
 import { Amendments } from "@/components/ops/Amendments";
 import { ReleaseCredit } from "@/components/ops/ReleaseCredit";
 import { PaymentLink } from "@/components/ops/PaymentLink";
+import { bookedBy, paymentSummary } from "@/lib/trips/origin";
 import { RejectRequest } from "@/components/ops/RejectRequest";
 import { NoShowButton } from "@/components/ops/NoShowButton";
 import { CalendarEntry } from "@/components/ops/CalendarEntry";
@@ -176,6 +177,7 @@ export default function BookingDetailPage({
   const vehicle = findVehicleClass(booking.vehicleClass);
   const customer =
     booking.customerId && typeof booking.customerId === "object" ? booking.customerId : null;
+  const payment = paymentSummary(booking);
   const overCapacity =
     booking.passengers !== undefined &&
     vehicle !== undefined &&
@@ -246,9 +248,10 @@ export default function BookingDetailPage({
         />
         <Tile
           label="Payment"
-          value={booking.payment ? ({ paid: "Paid", partially_refunded: "Part refunded", refunded: "Refunded" }[booking.payment.status]) : "Not recorded"}
-          hint={booking.payment ? `${money(booking.payment.amount)} card payment` : "No card payment recorded"}
+          value={payment.label}
+          hint={payment.hint}
           icon={<IconRoute size={16} />}
+          tone={payment.tone}
         />
       </div>
 
@@ -345,7 +348,17 @@ export default function BookingDetailPage({
               />
               <Field label="City" value={booking.city ?? "—"} capitalize />
               <Field label="Booked" value={formatDateTime(booking.createdAt)} />
+              <Field label="Created by" value={bookedBy(booking).label} strong />
               <Field label="Last updated" value={formatDateTime(booking.updatedAt)} />
+              {(booking.tripType === "airport" || booking.flightDetails) && (
+                <Field
+                  label="Flight"
+                  value={booking.flightDetails?.flightNumber ?? "Not supplied"}
+                  mono={Boolean(booking.flightDetails)}
+                  strong={Boolean(booking.flightDetails)}
+                  muted={!booking.flightDetails}
+                />
+              )}
             </dl>
             <p className="mt-3 text-note text-fg-muted">
               Times shown in Pacific time.
@@ -662,24 +675,24 @@ function Tile({
   value: string;
   hint?: string;
   icon: ReactNode;
-  tone?: "default" | "danger";
+  tone?: "default" | "danger" | "success" | "warn" | "neutral";
 }) {
+  // Paid reads green, failed or owed reads red, refunded and not-yet-paid read amber.
+  const ink = { danger: "text-danger", success: "text-success", warn: "text-chart-warn", default: "", neutral: "" }[tone];
+  const edge = { danger: "border-danger/40", success: "border-success/40", warn: "border-chart-warn/40", default: "border-border", neutral: "border-border" }[tone];
+  const wash = { danger: "bg-danger/5", success: "bg-success/5", warn: "bg-chart-warn/5", default: "", neutral: "" }[tone];
   return (
     <div
-      className={`rounded-card border bg-surface-raised p-4 shadow-[var(--shadow-card)] ${
-        tone === "danger" ? "border-danger/40" : "border-border"
-      }`}
+      className={`rounded-card border bg-surface-raised p-4 shadow-[var(--shadow-card)] ${edge} ${wash}`}
     >
       <p className="flex items-center gap-2 text-note font-bold uppercase tracking-wider text-fg-body">
-        <span aria-hidden className={tone === "danger" ? "text-danger" : "text-accent"}>
+        <span aria-hidden className={ink || "text-accent"}>
           {icon}
         </span>
         {label}
       </p>
       <p
-        className={`mt-2.5 truncate text-[1.375rem] font-bold tracking-tight ${
-          tone === "danger" ? "text-danger" : "text-fg"
-        }`}
+        className={`mt-2.5 truncate text-[1.375rem] font-bold tracking-tight ${ink || "text-fg"}`}
         title={value}
       >
         {value}

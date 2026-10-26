@@ -16,11 +16,9 @@ export function RequireRole({ children }: { children: ReactNode }) {
   const { user, loading, logout } = useAuth();
 
   if (loading) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center">
-        <p className="text-note text-fg-muted">Checking your session…</p>
-      </div>
-    );
+    // Blank on purpose: someone already signed in gets the console itself from the cache
+    // straight away, and a text screen here only showed for a moment on every reload.
+    return <div className="min-h-dvh bg-bg" aria-busy="true" />;
   }
 
   if (!user) return <AuthWelcome />;

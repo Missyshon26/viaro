@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ConsolePage, DataTable, money, type Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/Dashboard";
 import { IconCar, IconCheck, IconClose, IconMoney } from "@/components/ui/Icons";
@@ -42,6 +42,8 @@ export default function VehiclesPage() {
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<VehicleClass | "new" | null>(null);
   const [confirmRetire, setConfirmRetire] = useState<string | null>(null);
+  // Active first: the inactive legacy and default classes are clutter until someone wants one back.
+  const [show, setShow] = useState<"active" | "inactive" | "all">("active");
 
   const load = useCallback(async () => {
     try {
@@ -57,6 +59,15 @@ export default function VehiclesPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const counts = useMemo(() => {
+    const active = (rows ?? []).filter((r) => r.active).length;
+    return { all: rows?.length ?? 0, active, inactive: (rows?.length ?? 0) - active };
+  }, [rows]);
+  const visible = useMemo(
+    () => (rows === null ? null : show === "all" ? rows : rows.filter((r) => r.active === (show === "active"))),
+    [rows, show],
+  );
 
   async function toggleActive(row: VehicleClass) {
     try {
@@ -144,7 +155,7 @@ export default function VehiclesPage() {
       header: "Status",
       cell: (r) => (
         <StatusBadge tone={r.active ? "good" : "neutral"}>
-          {r.active ? "Bookable" : "Retired"}
+          {r.active ? "Active" : "Inactive"}
         </StatusBadge>
       ),
       sortValue: (r) => (r.active ? 0 : 1),
@@ -167,7 +178,7 @@ export default function VehiclesPage() {
               }}
               className="h-8 rounded-field bg-danger px-3 text-label font-bold text-white"
             >
-              Retire
+              Deactivate
             </button>
             <button
               type="button"
@@ -191,7 +202,7 @@ export default function VehiclesPage() {
               onClick={() => (r.active ? setConfirmRetire(r._id) : void toggleActive(r))}
               className="h-8 rounded-field border border-border bg-surface-raised px-3 text-label font-bold text-fg-body transition-colors hover:border-accent hover:text-fg"
             >
-              {r.active ? "Retire…" : "Restore"}
+              {r.active ? "Deactivate…" : "Activate"}
             </button>
           </span>
         ),
@@ -226,16 +237,46 @@ export default function VehiclesPage() {
         between 10pm and 7am add a $20 primetime surcharge to every class.
       </p>
 
+      <div role="group" aria-label="Show vehicles" className="mb-4 flex flex-wrap gap-2">
+        {(
+          [
+            ["active", "Active", counts.active],
+            ["inactive", "Inactive", counts.inactive],
+            ["all", "All", counts.all],
+          ] as const
+        ).map(([key, label, count]) => (
+          <button
+            key={key}
+            type="button"
+            aria-pressed={show === key}
+            onClick={() => setShow(key)}
+            className={`inline-flex min-h-11 items-center gap-2 rounded-full border px-3.5 text-meta font-bold transition-colors ${
+              show === key
+                ? "border-accent bg-accent-soft text-accent-strong"
+                : "border-border bg-surface-raised text-fg-body hover:border-accent/50 hover:text-fg"
+            }`}
+          >
+            {label}
+            <span className={`rounded-full px-1.5 text-label ${show === key ? "bg-accent/15" : "bg-surface text-fg-muted"}`}>
+              {count}
+            </span>
+          </button>
+        ))}
+      </div>
+
       <DataTable
-        rows={rows}
+        rows={visible}
         columns={columns}
         rowKey={(r) => r._id}
         minWidth="52rem"
         searchable={(r) => [r.label, r.value, r.detail]}
         searchPlaceholder="Search classes…"
         empty={{
-          title: "No vehicle classes",
-          description: "Add one to make it bookable on the passenger site.",
+          title: show === "all" ? "No vehicle classes" : `No ${show === "active" ? "active" : "inactive"} vehicles`,
+          description:
+            show === "all"
+              ? "Add one to make it bookable on the passenger site."
+              : "Try another filter above.",
         }}
       />
 
@@ -285,6 +326,7 @@ function VehicleDialog({
     stopFee: vehicle?.stopFee ?? null,
     baseMiles: vehicle?.baseMiles ?? null,
     perMileRate: vehicle?.perMileRate ?? null,
+    maxMiles: vehicle?.maxMiles ?? null,
     sortOrder: vehicle?.sortOrder ?? 0,
     active: vehicle?.active ?? true,
   });
@@ -319,6 +361,7 @@ function VehicleDialog({
       // By the mile only makes sense for a flat transfer rate, and needs both numbers.
       baseMiles: form.usage === "hourly" || !form.flatRate || !form.perMileRate ? null : (form.baseMiles ?? null),
       perMileRate: form.usage === "hourly" || !form.flatRate || !form.baseMiles ? null : (form.perMileRate ?? null),
+      maxMiles: form.usage === "hourly" ? null : (form.maxMiles ?? null),
     };
     try {
       if (isNew) {
@@ -594,6 +637,13 @@ function VehicleDialog({
               >
                 <RateInput value={form.perMileRate} onChange={(v) => set("perMileRate", v)} />
               </Field>
+
+              <Field
+                label="Longest trip (miles)"
+                hint="Trips longer than this are refused for this class, and its card says so. Old ABL used 60 for the Executive Sedan and MPV. Leave blank for no limit."
+              >
+                <RateInput value={form.maxMiles} onChange={(v) => set("maxMiles", v)} />
+              </Field>
             </>
           ) : null}
 
@@ -612,7 +662,7 @@ function VehicleDialog({
               onChange={(e) => set("active", e.target.checked)}
               className="h-4 w-4 accent-[var(--accent)]"
             />
-            <span className="text-meta text-fg">Bookable on the passenger site</span>
+            <span className="text-meta text-fg">Active (bookable on the passenger site)</span>
           </label>
 
           {!isNew ? (

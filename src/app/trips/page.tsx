@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ConsolePage,
@@ -18,17 +18,19 @@ import {
 import { errorText } from "@/lib/api/client";
 import {
   collectPayment,
-  fetchAllPages,
+  getJourneys,
+  listPricingRules,
   getBookingsDashboard,
   publishToPool,
 } from "@/lib/api/admin";
-import { listMyTrips } from "@/lib/api/driver";
+import { listVehicleClasses } from "@/lib/api/vehicles";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { AddTripModal } from "@/components/trips/AddTripModal";
 import { FilterSelect } from "@/components/ui/FilterSelect";
 import { SlidersHorizontal, RotateCcw } from "lucide-react";
-import { emptyFilters, matchesTripFilters, pickupDay, type TripFilters } from "@/lib/trips/filters";
+import { emptyFilters, pickupDay, type TripFilters } from "@/lib/trips/filters";
 import { vehicleLabel, TRIP_TYPE_LABEL } from "@/lib/vehicles";
+import { bookedBy } from "@/lib/trips/origin";
 import { IconPlane } from "@/components/ui/Icons";
 import { buttonClass } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -55,6 +57,8 @@ import { useLiveChanges } from "@/lib/live/useLiveChanges";
  * takes a trip id and nothing maps a booking to its trip — hence two full reads and a
  * client-side join on bookingId.
  */
+
+const PAGE_SIZE = 20;
 
 type Row = Booking & {
   customerId: string | { _id: string; name: string; email?: string };
@@ -96,7 +100,13 @@ const ORDER: Stage[] = [
  * flag says how urgent it is. Collapsing them into one column would lose the first.
  */
 export default function TripsPage() {
-  const [rows, setRows] = useState<Row[] | null>(null);
+  /** The current page, as the API returned it. Filtering, search and paging all happen there. */
+  const [data, setData] = useState<{ items: Row[]; total: number; counts: Record<string, number> } | null>(null);
+  const rows = data?.items ?? null;
+  const [searchText, setSearchText] = useState("");
+  const [search, setSearch] = useState("");
+  const [vehicleOptions, setVehicleOptions] = useState<{ value: string; label: string }[]>([]);
+  const [cityOptions, setCityOptions] = useState<string[]>([]);
   const [filter, setFilter] = useState<Stage | "all" | "overdue">("all");
   const [filters, setFilters] = useState<TripFilters>({ ...emptyFilters });
   const [datePreset, setDatePreset] = useState("all");
@@ -110,32 +120,61 @@ export default function TripsPage() {
   /** The row whose stage badge was clicked, if any. */
   const [moving, setMoving] = useState<Row | null>(null);
 
+  /*
+   * The page number belongs to one combination of filters: change any of them and it is page 1
+   * again. Keeping the key beside the number does that without an effect that resets it.
+   */
+  const fetchKey = JSON.stringify([filter, filters, search]);
+  const [pageState, setPageState] = useState({ key: fetchKey, page: 1 });
+  const page = pageState.key === fetchKey ? pageState.page : 1;
+  const [loading, setLoading] = useState(true);
+  const latest = useRef(0);
+
   const load = useCallback(async () => {
+    const ticket = ++latest.current;
+    setLoading(true);
     try {
-      const [bookingPages, tripPages] = await Promise.all([
-        fetchAllPages((page, limit) => getBookingsDashboard(page, limit)),
-        fetchAllPages((page, limit) => listMyTrips({ page, limit })),
-      ]);
-
-      const tripByBooking = new Map<string, Trip>();
-      for (const trip of tripPages.items) tripByBooking.set(String(trip.bookingId), trip);
-
-      setRows(
-        (bookingPages.items as Row[]).map((booking) => ({
-          ...booking,
-          trip: tripByBooking.get(booking._id),
-        })),
-      );
+      const result = await getJourneys(page, PAGE_SIZE, {
+        stage: filter === "all" ? undefined : filter,
+        q: search.trim(),
+        ...filters,
+      });
+      // A newer request was sent while this one was away: its answer is the one to show.
+      if (ticket !== latest.current) return;
+      setData({ items: result.items as Row[], total: result.total, counts: result.counts });
       setError(null);
     } catch (err) {
+      if (ticket !== latest.current) return;
       setError(errorText(err, "Could not load the pipeline"));
-      setRows([]);
+      setData((current) => current ?? { items: [], total: 0, counts: {} });
+    } finally {
+      if (ticket === latest.current) setLoading(false);
     }
-  }, []);
+  }, [page, filter, filters, search]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Typing in the search box asks the API once the typing pauses, not on every key.
+  useEffect(() => {
+    const timer = setTimeout(() => setSearch(searchText), 350);
+    return () => clearTimeout(timer);
+  }, [searchText]);
+
+  // The vehicle and city filters list what exists, not just what happens to be on this page.
+  useEffect(() => {
+    let live = true;
+    listVehicleClasses(true)
+      .then((list) => live && setVehicleOptions(list.map((v) => ({ value: v.value, label: v.label }))))
+      .catch(() => undefined);
+    listPricingRules()
+      .then((rules) => live && setCityOptions(rules.map((r) => r.city)))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, []);
 
   // Someone else assigning, publishing or moving a trip changes this list under the operator looking at it.
   useLiveChanges(["booking", "trip", "dispatch"], () => void load());
@@ -174,23 +213,11 @@ export default function TripsPage() {
     }
   }
 
-  const counts = useMemo(() => {
-    const tally: Record<string, number> = { all: rows?.length ?? 0, overdue: 0 };
-    for (const row of rows ?? []) {
-      const stage = stageOf(row);
-      tally[stage] = (tally[stage] ?? 0) + 1;
-      if (isOverdue(row)) tally.overdue += 1;
-    }
-    return tally;
-  }, [rows]);
+  const counts = data?.counts ?? { all: 0, overdue: 0 };
 
-  const visible = useMemo(() => {
-    if (!rows) return null;
-    return rows.filter((row) => (filter === "all" || (filter === "overdue" ? isOverdue(row) : stageOf(row) === filter)) && matchesTripFilters(row, filters));
-  }, [rows, filter, filters]);
-  const activeCount = Object.values(filters).filter(Boolean).length + Number(filter !== "all");
+  const activeCount = Object.values(filters).filter(Boolean).length + Number(filter !== "all") + Number(Boolean(search.trim()));
   const invalidDates = Boolean(filters.from && filters.to && filters.from > filters.to);
-  function resetFilters() { setFilter("all"); setFilters({ ...emptyFilters }); setDatePreset("all"); }
+  function resetFilters() { setFilter("all"); setFilters({ ...emptyFilters }); setDatePreset("all"); setSearchText(""); setSearch(""); }
   function updateFilter(key: keyof TripFilters, value: string) { setFilters((old) => ({ ...old, [key]: value })); }
   function setPeriod(value: string) {
     setDatePreset(value);
@@ -224,9 +251,10 @@ export default function TripsPage() {
           >
             {reference(r._id)}
           </Link>
+          {/* Who made it: an operator, the passenger on the website, or the old system. */}
+          <span className="ml-2 text-label text-fg-muted">· {bookedBy(r).label}</span>
         </div>
       ),
-      sortValue: (r) => customerName(r),
     },
     {
       key: "route",
@@ -258,13 +286,11 @@ export default function TripsPage() {
           {r.scheduledAtLocal ?? formatDateTime(r.scheduledAt)}
         </span>
       ),
-      sortValue: (r) => r.scheduledAt,
     },
     {
       key: "vehicle",
       header: "Vehicle",
       cell: (r) => <span className="text-fg-body">{vehicleLabel(r.vehicleClass)}</span>,
-      sortValue: (r) => vehicleLabel(r.vehicleClass),
     },
     {
       key: "stage",
@@ -317,7 +343,6 @@ export default function TripsPage() {
           </span>
         );
       },
-      sortValue: (r) => ORDER.indexOf(stageOf(r)),
     },
     {
       key: "fare",
@@ -328,7 +353,6 @@ export default function TripsPage() {
           {money(r.trip?.fareAmount ?? r.estimatedFare)}
         </span>
       ),
-      sortValue: (r) => r.trip?.fareAmount ?? r.estimatedFare ?? 0,
     },
     {
       key: "actions",
@@ -410,7 +434,7 @@ export default function TripsPage() {
         {[{ label: "Total journeys", value: counts.all }, { label: "Awaiting dispatch", value: (counts.awaiting ?? 0) + (counts.pool ?? 0) }, { label: "On the road", value: counts.in_progress ?? 0 }, { label: "Overdue pickups", value: counts.overdue ?? 0 }].map((item) => (
           <div key={item.label} className="rounded-card border border-border bg-surface p-4">
             <p className="text-label font-medium text-fg-muted">{item.label}</p>
-            <p className={`mt-2 text-metric font-bold tabular-nums ${item.label === "Overdue pickups" && item.value ? "text-danger" : "text-fg"}`}>{rows ? item.value : "—"}</p>
+            <p className={`mt-2 text-metric font-bold tabular-nums ${item.label === "Overdue pickups" && item.value ? "text-danger" : "text-fg"}`}>{data ? item.value : "—"}</p>
           </div>
         ))}
       </div>
@@ -418,7 +442,7 @@ export default function TripsPage() {
         <div className="grid items-center gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
           <FilterSelect label="Pickup period" value={datePreset} onChange={setPeriod} options={[{ value: "all", label: "All dates" }, { value: "today", label: "Today" }, { value: "tomorrow", label: "Tomorrow" }, { value: "week", label: "Next 7 days" }, { value: "custom", label: "Custom range" }]} />
           <FilterSelect label="Trip stage" value={filter} onChange={(value) => setFilter(value as typeof filter)} options={[{ value: "all", label: "All stages" }, { value: "overdue", label: `Overdue (${counts.overdue})` }, ...ORDER.map((stage) => ({ value: stage, label: `${STAGE[stage].label} (${counts[stage] ?? 0})` }))]} />
-          <FilterSelect label="Vehicle class" value={filters.vehicle} onChange={(value) => updateFilter("vehicle", value)} options={[{ value: "", label: "All vehicles" }, ...Array.from(new Set((rows ?? []).map((r) => r.vehicleClass))).sort().map((value) => ({ value, label: vehicleLabel(value) }))]} />
+          <FilterSelect label="Vehicle class" value={filters.vehicle} onChange={(value) => updateFilter("vehicle", value)} options={[{ value: "", label: "All vehicles" }, ...vehicleOptions]} />
           <div className="flex items-center gap-2">
           <button type="button" aria-expanded={moreFilters} aria-controls="additional-trip-filters" onClick={() => setMoreFilters((open) => !open)} className={`inline-flex h-12 items-center justify-center gap-2 whitespace-nowrap rounded-field border px-4 text-meta font-medium transition-colors ${moreFilters ? "border-accent bg-accent-soft text-accent-strong" : "border-border bg-surface-raised text-fg-body hover:bg-surface"}`}>
             <SlidersHorizontal size={15} />More filters
@@ -435,7 +459,7 @@ export default function TripsPage() {
         <div id="additional-trip-filters" hidden={!moreFilters}>
           <div className="mt-3 grid gap-3 rounded-field border border-border bg-surface p-3 sm:grid-cols-3">
           <FilterSelect showLabel label="Service type" value={filters.service} onChange={(value) => updateFilter("service", value)} options={[{ value: "", label: "All services" }, ...Object.entries(TRIP_TYPE_LABEL).map(([value, label]) => ({ value, label }))]} />
-          <FilterSelect showLabel label="City" value={filters.city} onChange={(value) => updateFilter("city", value)} options={[{ value: "", label: "All cities" }, ...Array.from(new Set((rows ?? []).flatMap((r) => r.city ? [r.city] : []))).sort().map((value) => ({ value, label: value }))]} />
+          <FilterSelect showLabel label="City" value={filters.city} onChange={(value) => updateFilter("city", value)} options={[{ value: "", label: "All cities" }, ...cityOptions.map((value) => ({ value, label: value.replace(/\b\w/g, (m) => m.toUpperCase()) }))]} />
           <FilterSelect showLabel label="Payment status" value={filters.payment} onChange={(value) => updateFilter("payment", value)} options={[{ value: "", label: "All payments" }, { value: "unpaid", label: "No card payment recorded" }, { value: "paid", label: "Paid" }, { value: "partially_refunded", label: "Partially refunded" }, { value: "refunded", label: "Refunded" }]} />
           </div>
         </div>
@@ -455,22 +479,22 @@ export default function TripsPage() {
         />
       ) : null}
 
+      <div aria-busy={loading} className={loading && data ? "opacity-60 transition-opacity" : "transition-opacity"}>
       <DataTable
-        key={JSON.stringify([filter, filters])}
-        rows={visible}
+        rows={rows}
+        loading={loading && !data}
         columns={columns}
         rowKey={(r) => r._id}
         minWidth="72rem"
-        pageSize={20}
-        searchable={(r) => [
-          reference(r._id),
-          customerName(r),
-          r.pickup.address,
-          r.drop.address,
-          r.city,
-          vehicleLabel(r.vehicleClass),
-          r.flightDetails?.flightNumber,
-        ]}
+        pageSize={PAGE_SIZE}
+        remote={{
+          query: searchText,
+          onQuery: setSearchText,
+          page,
+          total: counts && data ? data.total : 0,
+          onPage: (next) => setPageState({ key: fetchKey, page: next }),
+        }}
+        searchable={() => []}
         searchPlaceholder="Search reference, customer, address…"
         rowHref={(r) => `/trips/${r._id}`}
         empty={{
@@ -479,6 +503,7 @@ export default function TripsPage() {
           description: activeCount ? "Try a wider date range or reset the filters." : "Bookings appear here as customers make them.",
         }}
       />
+      </div>
 
       {/* Collecting charges the customer's card, so it is confirmed first and names the amount. */}
       <ConfirmDialog

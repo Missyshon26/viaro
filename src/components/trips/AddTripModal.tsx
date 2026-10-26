@@ -155,6 +155,7 @@ export function AddTripModal({ onClose, onCreated }: { onClose: () => void; onCr
             fare: q.fare,
             isPeak: q.isPeak,
             extras: [
+              ...(q.fuelSurcharge ? [{ label: `Fuel surcharge (${q.fuelSurchargePct}%)`, amount: q.fuelSurcharge }] : []),
               ...(q.gratuity ? [{ label: `Tip (${q.gratuityPct}%)`, amount: q.gratuity }] : []),
               ...(q.discount
                 ? [{ label: q.discountKind === "welcome" ? "Welcome discount" : "Loyalty discount", amount: -q.discount }]

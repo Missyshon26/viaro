@@ -48,8 +48,29 @@ interface RequestOptions extends Omit<RequestInit, "body"> {
   query?: Record<string, string | number | boolean | undefined>;
 }
 
+/**
+ * A page can paint, and start asking for its data, before the access token (memory only) has
+ * been restored from the refresh cookie. The first request that finds no token waits for that
+ * one restore instead of going out unauthenticated, getting a 401 and retrying — and every
+ * other request in flight shares the same wait.
+ */
+let restoreAttempted = false;
+
+async function waitForSession(): Promise<void> {
+  if (accessToken) return;
+  if (!restoreAttempted) {
+    restoreAttempted = true;
+    await refreshSession();
+  } else if (refreshInFlight) {
+    await refreshInFlight;
+  }
+}
+
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { body, query, retryOnUnauthorized = true, headers, ...init } = options;
+
+  // The refresh route itself must not wait on itself.
+  if (retryOnUnauthorized) await waitForSession();
 
   const url = new URL(path.startsWith("http") ? path : `${API_BASE_URL}${path}`);
   if (query) {

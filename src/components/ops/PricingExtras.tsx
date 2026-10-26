@@ -22,6 +22,7 @@ const inputClass =
   "w-full rounded-field border border-border bg-surface-raised px-3 py-2 text-note text-fg outline-none focus:border-accent";
 
 const toForm = (s: PlatformSettings): ExtrasForm => ({
+  fuelSurchargePct: String(s.fuelSurchargePct ?? 0),
   taxPct: String(s.taxPct),
   welcomeDiscount: String(s.welcomeDiscount),
   loyaltyDiscount: String(s.loyaltyDiscount),
@@ -136,7 +137,8 @@ export function PricingExtras() {
           setStaged(result.payload);
         }}
       >
-        {field("taxPct", "Sales tax", "Charged on the price plus tip, after any discount. 0 for no tax.", "%")}
+        {field("fuelSurchargePct", "Fuel surcharge", "Added automatically to every trip price (rounded up to a whole dollar) and shown as its own line. The old site used 8. 0 for none.", "%")}
+        {field("taxPct", "Sales tax", "Charged on the price plus fuel surcharge, after any discount. 0 for no tax.", "%")}
         {field("welcomeDiscount", "Welcome discount", "Off a customer's first trip. 0 for none.", "$")}
         {field("loyaltyDiscount", "Loyalty discount", "Off every Nth trip after that. 0 for none.", "$")}
         {field(
@@ -170,6 +172,7 @@ export function PricingExtras() {
           <>
             <p>Every new quote and booking is priced with these:</p>
             <ul className="list-disc pl-5">
+              <li>Fuel surcharge: {staged.fuelSurchargePct}%</li>
               <li>Tax: {staged.taxPct}%</li>
               <li>Welcome discount: {staged.welcomeDiscount > 0 ? `$${staged.welcomeDiscount.toFixed(2)} off a first trip` : "none"}</li>
               <li>

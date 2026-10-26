@@ -99,6 +99,8 @@ export interface Booking {
   isGuest?: boolean;
   /** `admin` = an operator booked it for the client from the console (unpaid until collected). */
   source?: "customer" | "admin";
+  /** Present on bookings carried over from the old system. */
+  legacy?: { tripNo?: string; status?: string; paymentStatus?: string; paymentMethod?: string; bookingSource?: string };
   /** Intermediate stops, in order. */
   stops?: GeoPoint[];
   /** The agreement revision the customer had signed when they booked. */
@@ -146,6 +148,8 @@ export interface Booking {
     meetAndGreetFee: number;
     stopFee: number;
     subtotal?: number;
+    fuelSurchargePct?: number;
+    fuelSurcharge?: number;
     gratuityPct?: number;
     gratuity?: number;
     discountKind?: "welcome" | "loyalty";

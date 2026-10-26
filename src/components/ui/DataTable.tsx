@@ -37,6 +37,7 @@ export function DataTable<T>({
   searchable,
   searchPlaceholder = "Search…",
   pageSize,
+  remote,
   onPageSizeChange,
   toolbar,
   mobileCard,
@@ -53,6 +54,12 @@ export function DataTable<T>({
   searchPlaceholder?: string;
   /** Rows per page. Omit to render every row. */
   pageSize?: number;
+  /**
+   * Server-driven mode: `rows` is already ONE page, filtered and searched by the API, so the
+   * table neither filters, sorts nor slices it. Search text and the page number live with the
+   * caller, which refetches when they change.
+   */
+  remote?: { query: string; onQuery: (query: string) => void; page: number; total: number; onPage: (page: number) => void };
   onPageSizeChange?: (size: number) => void;
   /** Filters or actions shown beside the search box. */
   toolbar?: ReactNode;
@@ -69,19 +76,23 @@ export function DataTable<T>({
    */
   rowHref?: (row: T) => string;
 }) {
-  const [query, setQuery] = useState("");
+  const [localQuery, setLocalQuery] = useState("");
+  const query = remote ? remote.query : localQuery;
+  const setQuery = (value: string) => (remote ? remote.onQuery(value) : setLocalQuery(value));
   const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | null>(null);
-  const [page, setPage] = useState(1);
+  const [localPage, setLocalPage] = useState(1);
+  const setPage = (value: number) => (remote ? remote.onPage(value) : setLocalPage(value));
   const router = useRouter();
 
   const filtered = useMemo(() => {
     if (!rows) return null;
+    if (remote) return rows;
     if (!searchable || !query.trim()) return rows;
     const needle = query.trim().toLowerCase();
     return rows.filter((row) =>
       searchable(row).some((field) => String(field ?? "").toLowerCase().includes(needle)),
     );
-  }, [rows, searchable, query]);
+  }, [rows, searchable, query, remote]);
 
   const sorted = useMemo(() => {
     if (!filtered || !sort) return filtered;
@@ -96,15 +107,15 @@ export function DataTable<T>({
     });
   }, [filtered, sort, columns]);
 
-  const total = sorted?.length ?? 0;
+  const total = remote ? remote.total : (sorted?.length ?? 0);
   const pageCount = pageSize ? Math.max(1, Math.ceil(total / pageSize)) : 1;
-  const current = Math.min(page, pageCount);
+  const current = Math.min(remote ? remote.page : localPage, pageCount);
   const visible = useMemo(() => {
     if (!sorted) return null;
-    if (!pageSize) return sorted;
+    if (!pageSize || remote) return sorted;
     const start = (current - 1) * pageSize;
     return sorted.slice(start, start + pageSize);
-  }, [sorted, pageSize, current]);
+  }, [sorted, pageSize, current, remote]);
 
   function toggleSort(key: string) {
     setPage(1);

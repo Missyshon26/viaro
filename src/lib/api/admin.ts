@@ -1,5 +1,5 @@
 import { api } from "./client";
-import type { Booking, Driver, Paginated, User } from "./types";
+import type { Booking, Driver, Paginated, Trip, User } from "./types";
 
 /**
  * Admin + company management endpoints.
@@ -39,10 +39,16 @@ export async function fetchAllPages<T>(
   const totalPages = first.totalPages ?? 1;
   const pages = Math.min(totalPages, maxPages);
 
-  for (let page = 2; page <= pages; page += 1) {
-    const next = await read(page, PAGE_LIMIT);
-    if (Array.isArray(next)) items.push(...next);
-    else items.push(...(next.items ?? []));
+  // The first page said how many there are, so the rest can be asked for together (a few at a
+  // time, to be kind to the API) instead of one after another: every page costs a full round trip.
+  const remaining = Array.from({ length: Math.max(0, pages - 1) }, (_, i) => i + 2);
+  const CONCURRENCY = 5;
+  for (let i = 0; i < remaining.length; i += CONCURRENCY) {
+    const batch = await Promise.all(remaining.slice(i, i + CONCURRENCY).map((page) => read(page, PAGE_LIMIT)));
+    for (const next of batch) {
+      if (Array.isArray(next)) items.push(...next);
+      else items.push(...(next.items ?? []));
+    }
   }
 
   return { items, total: first.total ?? items.length, complete: pages >= totalPages };
@@ -105,8 +111,38 @@ export const listPenalties = () => api.get<PenaltiesReport>("/admin/drivers/pena
 export const getBookingsDashboard = (page = 1, limit = 20) =>
   api.get<Paginated<Booking>>("/admin/dashboard/bookings", { query: { page, limit } });
 
-export const getUsersDashboard = (page = 1, limit = 20) =>
-  api.get<Paginated<User>>("/admin/dashboard/users", { query: { page, limit } });
+/** One page of the pipeline: bookings with their trip and customer, filtered and counted by the API. */
+export interface JourneyFilters {
+  stage?: string;
+  q?: string;
+  from?: string;
+  to?: string;
+  vehicle?: string;
+  service?: string;
+  city?: string;
+  payment?: string;
+}
+export type JourneysPage = Paginated<Booking & { trip?: Trip }> & { counts: Record<string, number> };
+
+export const getJourneys = (page: number, limit: number, filters: JourneyFilters, signal?: AbortSignal) => {
+  const query: Record<string, string | number> = { page, limit };
+  for (const [key, value] of Object.entries(filters)) if (value) query[key] = value;
+  return api.get<JourneysPage>("/admin/dashboard/journeys", { query, signal });
+};
+
+/** Headline counts, worked out by the API so the dashboard never downloads whole collections. */
+export interface DashboardSummary {
+  bookings: {
+    total: number;
+    stages: { awaiting: number; pool: number; assigned: number; in_progress: number; completed: number; cancelled: number };
+  };
+  users: { customer: number; driver: number; company: number; admin: number };
+  drivers: { total: number; available: number; busy: number; offline: number; penalised: number; top: RosterDriver[] };
+}
+export const getDashboardSummary = () => api.get<DashboardSummary>("/admin/dashboard/summary");
+
+export const getUsersDashboard = (page = 1, limit = 20, filters: { role?: string; q?: string } = {}) =>
+  api.get<Paginated<User>>("/admin/dashboard/users", { query: { page, limit, ...filters } });
 
 export interface SubscriptionRevenue {
   months: { year: number; month: number; activeSubscriptions: number; revenue: number }[];
@@ -400,6 +436,8 @@ export interface PlatformSettings {
   supportInboxEmail: string;
   /** Sales tax added to every fare (on the price plus tip, after any discount). */
   taxPct: number;
+  /** Automatic fuel surcharge on every trip price. 0 = none. */
+  fuelSurchargePct: number;
   /** Dollars off a customer's first trip. 0 = none. */
   welcomeDiscount: number;
   /** Dollars off every Nth trip after the first. 0 = none. */
@@ -417,6 +455,7 @@ export const updatePlatformSettings = (
       | "withdrawalFeePct"
       | "supportInboxEmail"
       | "taxPct"
+      | "fuelSurchargePct"
       | "welcomeDiscount"
       | "loyaltyDiscount"
       | "loyaltyEveryNth"
@@ -530,6 +569,8 @@ export const quoteTripForClient = (body: AdminTripBody) =>
     isPeak: boolean;
     peakMultiplier: number;
     subtotal: number;
+    fuelSurchargePct?: number;
+    fuelSurcharge?: number;
     gratuityPct: number;
     gratuity: number;
     discountKind?: "welcome" | "loyalty";

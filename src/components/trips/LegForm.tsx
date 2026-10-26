@@ -4,6 +4,9 @@ import { ChevronDown } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { classesFor, GRATUITY_OPTIONS, MAX_CAR_SEATS, MAX_STOPS, OCCASIONS, SERVICE_LABEL, type Service, type TripForm } from "@/lib/newTrip";
 import type { PricingRule } from "@/lib/api/admin";
+import { AddressInput } from "@/components/ui/AddressInput";
+
+const GRATUITY_ENABLED = false;
 import type { VehicleClass } from "@/lib/api/vehicles";
 
 const field =
@@ -77,7 +80,7 @@ export function LegForm({
         </div>
         <div className="sm:col-span-2">
           <label className={label} htmlFor={id("pickup")}>Pickup address</label>
-          <input id={id("pickup")} className={field} value={form.pickup} onChange={(e) => set("pickup", e.target.value)} />
+          <AddressInput id={id("pickup")} className={field} value={form.pickup} onChange={(value) => set("pickup", value)} />
         </div>
 
         {service !== "hourly"
@@ -85,11 +88,11 @@ export function LegForm({
               <div key={i} className="sm:col-span-2">
                 <label className={label} htmlFor={id(`stop-${i}`)}>Stop {i + 1}</label>
                 <div className="flex gap-2">
-                  <input
+                  <AddressInput
                     id={id(`stop-${i}`)}
                     className={field}
                     value={stop}
-                    onChange={(e) => set("stops", form.stops.map((s, j) => (j === i ? e.target.value : s)))}
+                    onChange={(value) => set("stops", form.stops.map((s, j) => (j === i ? value : s)))}
                   />
                   <button
                     type="button"
@@ -116,7 +119,7 @@ export function LegForm({
 
         <div className="sm:col-span-2">
           <label className={label} htmlFor={id("drop")}>{service === "hourly" ? "Where the charter ends" : "Drop-off address"}</label>
-          <input id={id("drop")} className={field} value={form.drop} onChange={(e) => set("drop", e.target.value)} />
+          <AddressInput id={id("drop")} className={field} value={form.drop} onChange={(value) => set("drop", value)} />
         </div>
 
         <div>
@@ -163,7 +166,7 @@ export function LegForm({
       </div>
       <details className="mt-5 border-t border-border-subtle pt-4">
         <summary className="cursor-pointer text-note font-bold text-accent">Additional requirements <span className="font-normal text-fg-muted">· optional</span></summary>
-        <p className="mt-2 text-label text-fg-muted">Luggage, child seats, meet and greet, gratuity, and passenger details.</p>
+        <p className="mt-2 text-label text-fg-muted">Luggage, child seats, meet and greet, and passenger details.</p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <div>
           <label className={label} htmlFor={id("occ")}>Occasion</label>
@@ -188,6 +191,8 @@ export function LegForm({
           <label className={label} htmlFor={id("cry")}>Carry-on bags</label>
           <input id={id("cry")} type="number" min={0} className={field} value={form.carryOnBags} onChange={(e) => set("carryOnBags", e.target.value)} />
         </div>
+        {/* The tip is switched off (the fuel surcharge replaces it); flip this flag to bring it back. */}
+        {GRATUITY_ENABLED ? (
         <div>
           <label className={label} htmlFor={id("tip")}>Tip for the chauffeur</label>
           <div className="relative"><select id={id("tip")} className={`${field} appearance-none pr-10`} value={form.gratuity} onChange={(e) => set("gratuity", e.target.value)}>
@@ -198,6 +203,7 @@ export function LegForm({
             ))}
           </select><ChevronDown aria-hidden size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-fg-muted" /></div>
         </div>
+        ) : null}
         <div>
           <label className={label} htmlFor={id("seat")}>Child car seats</label>
           <input id={id("seat")} type="number" min={0} max={MAX_CAR_SEATS} className={field} value={form.carSeats} onChange={(e) => set("carSeats", e.target.value)} />

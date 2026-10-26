@@ -7,6 +7,7 @@
  * because an empty field was read as 0. "No discount" is typed as 0.
  */
 export interface ExtrasForm {
+  fuelSurchargePct: string;
   taxPct: string;
   welcomeDiscount: string;
   loyaltyDiscount: string;
@@ -14,6 +15,7 @@ export interface ExtrasForm {
 }
 
 export interface ExtrasPayload {
+  fuelSurchargePct: number;
   taxPct: number;
   welcomeDiscount: number;
   loyaltyDiscount: number;
@@ -37,6 +39,9 @@ function amount(text: string, max: number, what: string): { value?: number; erro
 
 export function parseExtras(form: ExtrasForm): ExtrasResult {
   const errors: Partial<Record<keyof ExtrasForm, string>> = {};
+
+  const fuel = amount(form.fuelSurchargePct, 30, "the fuel surcharge percentage");
+  if (fuel.error) errors.fuelSurchargePct = fuel.error.replace("the 30 allowed", "the 30% allowed");
 
   const tax = amount(form.taxPct, 30, "the tax percentage");
   if (tax.error) errors.taxPct = tax.error.replace("the 30 allowed", "the 30% allowed");
@@ -62,6 +67,7 @@ export function parseExtras(form: ExtrasForm): ExtrasResult {
   return {
     ok: true,
     payload: {
+      fuelSurchargePct: fuel.value as number,
       taxPct: tax.value as number,
       welcomeDiscount: welcome.value as number,
       loyaltyDiscount: loyalty.value as number,

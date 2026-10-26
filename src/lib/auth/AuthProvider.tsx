@@ -28,6 +28,37 @@ const AuthContext = createContext<AuthState | null>(null);
 const CONSOLE_ROLES: UserRole[] = ["admin"];
 const BAD_LOGIN = "Incorrect email or password.";
 
+/**
+ * The last signed-in person, kept only so the console can draw itself at once on a refresh
+ * instead of showing a "checking your session" screen while the cookie is exchanged. It is a
+ * hint for the screen, never proof: no token is stored, and every API call is checked by the
+ * server regardless.
+ */
+const CACHE_KEY = "abl-console-user";
+
+function readCachedUser(): User | null {
+  try {
+    const raw = window.localStorage.getItem(CACHE_KEY);
+    const user = raw ? (JSON.parse(raw) as User) : null;
+    return user && CONSOLE_ROLES.includes(user.role) ? user : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedUser(user: User | null) {
+  try {
+    if (!user) {
+      window.localStorage.removeItem(CACHE_KEY);
+      return;
+    }
+    const { _id, name, email, role } = user;
+    window.localStorage.setItem(CACHE_KEY, JSON.stringify({ _id, name, email, role }));
+  } catch {
+    /* Storage blocked: the console just shows its brief loading state instead. */
+  }
+}
+
 /** Ends a session the console should never have started, so no cookie is left behind. */
 async function endSession(token: string | null) {
   await fetch("/api/auth/logout", {
@@ -35,6 +66,7 @@ async function endSession(token: string | null) {
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   }).catch(() => undefined);
   setAccessToken(null);
+  writeCachedUser(null);
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -51,8 +83,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       setUser(profile);
+      writeCachedUser(profile);
     } catch {
       setUser(null);
+      writeCachedUser(null);
     }
   }, []);
 
@@ -61,9 +95,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
 
+    // Someone who was signed in a moment ago sees the console immediately; the session is
+    // confirmed behind it, and a failed restore sends them to the sign-in screen.
+    const cached = readCachedUser();
+    if (cached) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reading browser storage after mount
+      setUser(cached);
+      setLoading(false);
+    }
+
     (async () => {
       const restored = await refreshSession();
       if (!cancelled && restored) await loadProfile();
+      else if (!cancelled) {
+        setUser(null);
+        writeCachedUser(null);
+      }
       if (!cancelled) setLoading(false);
     })();
 
@@ -90,6 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setAccessToken(data.accessToken);
     setUser(data.user);
+    writeCachedUser(data.user);
     return data.user as User;
   }, []);
 
@@ -102,6 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setAccessToken(null);
     setUser(null);
+    writeCachedUser(null);
   }, []);
 
   const value = useMemo<AuthState>(

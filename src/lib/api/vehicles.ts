@@ -40,6 +40,8 @@ export interface VehicleClass {
   /** The flat transfer rate covers this many miles; each mile beyond costs `perMileRate`. Both unset = flat however far. */
   baseMiles?: number | null;
   perMileRate?: number | null;
+  /** The longest trip this class takes, in miles. Unset = no limit. */
+  maxMiles?: number | null;
   images: VehicleImage[];
   active: boolean;
   sortOrder: number;
@@ -76,6 +78,8 @@ export interface VehicleClassInput {
   stopFee?: number | null;
   baseMiles?: number | null;
   perMileRate?: number | null;
+  /** The longest trip this class takes, in miles. Unset = no limit. */
+  maxMiles?: number | null;
   active?: boolean;
   sortOrder?: number;
   images?: VehicleImage[];

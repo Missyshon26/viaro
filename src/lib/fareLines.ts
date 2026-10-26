@@ -17,6 +17,8 @@ export function fareLines(
   breakdown:
     | {
         subtotal?: number;
+        fuelSurchargePct?: number;
+        fuelSurcharge?: number;
         gratuityPct?: number;
         gratuity?: number;
         discountKind?: "welcome" | "loyalty";
@@ -29,9 +31,10 @@ export function fareLines(
 ): FareLine[] {
   // Nothing was added, or it predates the split: the total says everything there is to say.
   if (!breakdown || breakdown.subtotal === undefined || total === undefined) return [];
-  if (!breakdown.gratuity && !breakdown.discount && !breakdown.tax) return [];
+  if (!breakdown.fuelSurcharge && !breakdown.gratuity && !breakdown.discount && !breakdown.tax) return [];
 
   const lines: FareLine[] = [{ label: "Trip price", amount: breakdown.subtotal }];
+  if (breakdown.fuelSurcharge) lines.push({ label: `Fuel surcharge (${breakdown.fuelSurchargePct}%)`, amount: breakdown.fuelSurcharge });
   if (breakdown.gratuity) lines.push({ label: `Tip (${breakdown.gratuityPct}%)`, amount: breakdown.gratuity });
   if (breakdown.discount) {
     lines.push({

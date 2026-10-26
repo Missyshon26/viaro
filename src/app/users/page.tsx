@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { PersonCell, StatusBadge } from "@/components/ui/Dashboard";
 import { ConsolePage, DataTable, formatDate, type Column } from "@/components/ui/DataTable";
@@ -11,34 +11,53 @@ import type { User } from "@/lib/api/types";
 
 const ROLES = ["all", "customer", "driver", "admin", "company"] as const;
 
-export default function UsersPage() {
-  const [rows, setRows] = useState<User[] | null>(null);
-  const [role, setRole] = useState<(typeof ROLES)[number]>("all");
-  const [error, setError] = useState<string | null>(null);
+const PAGE_SIZE = 20;
 
-  const [reload, setReload] = useState(0);
-  // New sign-ups and account changes appear without a refresh.
-  useLiveChanges(["user"], (event) => {
-    if (event.action !== "reconnected") setReload((n) => n + 1);
-  });
+export default function UsersPage() {
+  const [data, setData] = useState<{ items: User[]; total: number } | null>(null);
+  const [role, setRole] = useState<(typeof ROLES)[number]>("customer");
+  const [searchText, setSearchText] = useState("");
+  const [search, setSearch] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const latest = useRef(0);
+
+  // The page number belongs to one role + search: changing either is page 1 again.
+  const fetchKey = JSON.stringify([role, search]);
+  const [pageState, setPageState] = useState({ key: fetchKey, page: 1 });
+  const page = pageState.key === fetchKey ? pageState.page : 1;
+
+  const load = useCallback(async () => {
+    const ticket = ++latest.current;
+    setLoading(true);
+    try {
+      // One page from the API, filtered there: a few thousand accounts are never downloaded together.
+      const result = await getUsersDashboard(page, PAGE_SIZE, { role: role === "all" ? undefined : role, q: search.trim() });
+      if (ticket !== latest.current) return;
+      setData({ items: result.items, total: result.total });
+      setError(null);
+    } catch (err) {
+      if (ticket !== latest.current) return;
+      setError(errorText(err, "Could not load users"));
+      setData((current) => current ?? { items: [], total: 0 });
+    } finally {
+      if (ticket === latest.current) setLoading(false);
+    }
+  }, [page, role, search]);
 
   useEffect(() => {
-    let cancelled = false;
-    // 100 is the API's maximum page size; asking for more is a 400..
-    getUsersDashboard(1, 100)
-      .then((page) => { if (!cancelled) setRows(page.items); })
-      .catch((err) => {
-        if (cancelled) return;
-        setError(errorText(err, "Could not load users"));
-        setRows([]);
-      });
-    return () => { cancelled = true; };
-  }, [reload]);
+    void load();
+  }, [load]);
 
-  const filtered = useMemo(
-    () => (rows ?? []).filter((u) => role === "all" || u.role === role),
-    [rows, role],
-  );
+  useEffect(() => {
+    const timer = setTimeout(() => setSearch(searchText), 350);
+    return () => clearTimeout(timer);
+  }, [searchText]);
+
+  // New sign-ups and account changes appear without a refresh.
+  useLiveChanges(["user"], (event) => {
+    if (event.action !== "reconnected") void load();
+  });
 
   const columns: Column<User>[] = [
     {
@@ -50,19 +69,16 @@ export default function UsersPage() {
           {u.isGuest ? <StatusBadge tone="info">Guest</StatusBadge> : null}
         </Link>
       ),
-      sortValue: (u) => u.name,
     },
     {
       key: "role",
       header: "Role",
       cell: (u) => <StatusBadge tone="info">{u.role}</StatusBadge>,
-      sortValue: (u) => u.role,
     },
     {
       key: "status",
       header: "Status",
       cell: (u) => <StatusBadge status={u.status} />,
-      sortValue: (u) => u.status,
     },
     { key: "phone", header: "Phone", cell: (u) => u.phone, secondary: true },
     {
@@ -70,7 +86,6 @@ export default function UsersPage() {
       header: "Joined",
       align: "right",
       cell: (u) => formatDate(u.createdAt),
-      sortValue: (u) => u.createdAt,
     },
   ];
 
@@ -97,17 +112,26 @@ export default function UsersPage() {
       }
     >
       {error ? <p className="mb-4 text-note font-bold text-danger">{error}</p> : null}
+      <div aria-busy={loading} className={loading && data ? "opacity-60 transition-opacity" : "transition-opacity"}>
       <DataTable
-        rows={rows === null ? null : filtered}
+        rows={data?.items ?? null}
         columns={columns}
         rowKey={(u) => u._id}
         minWidth="52rem"
-        pageSize={20}
-        searchable={(u) => [u.name, u.email, u.phone, u.role]}
+        pageSize={PAGE_SIZE}
+        remote={{
+          query: searchText,
+          onQuery: setSearchText,
+          page,
+          total: data?.total ?? 0,
+          onPage: (next) => setPageState({ key: fetchKey, page: next }),
+        }}
+        searchable={() => []}
         searchPlaceholder="Search name, email, phone…"
         rowHref={(u) => `/users/${u._id}`}
         empty={{ title: "No users", description: "Nobody matches that filter." }}
       />
+      </div>
     </ConsolePage>
   );
 }

@@ -40,22 +40,16 @@ import {
   IconUsers,
 } from "@/components/ui/Icons";
 import {
-  fetchAllPages,
-  getBookingsDashboard,
   getCancellations,
-  getDispatchPool,
+  getDashboardSummary,
   getSubscriptionRevenue,
   getTripsCompleted,
-  getUsersDashboard,
-  listDrivers,
   type CancellationsReport,
+  type DashboardSummary,
   type RosterDriver,
   type SubscriptionRevenue,
   type TripsCompletedReport,
 } from "@/lib/api/admin";
-import { listMyTrips } from "@/lib/api/driver";
-import { stageOf } from "@/lib/trips/stage";
-import type { Booking, Trip, User } from "@/lib/api/types";
 
 /**
  * Platform overview.
@@ -81,21 +75,9 @@ const driverName = (driver: RosterDriver) =>
   driver.userId && typeof driver.userId === "object" ? driver.userId.name : "Chauffeur";
 
 export default function AdminDashboard() {
-  const [journeys, setJourneys] = useState<Trip[]>([]);
-  const [bookings, setBookings] = useState<{
-    total: number;
-    items: Booking[];
-    complete: boolean;
-  } | null>(null);
-  const [users, setUsers] = useState<{
-    total: number;
-    items: User[];
-    complete: boolean;
-  } | null>(null);
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [revenue, setRevenue] = useState<SubscriptionRevenue | null>(null);
-  const [pool, setPool] = useState<number | null>(null);
   const [cancels, setCancels] = useState<CancellationsReport | null>(null);
-  const [drivers, setDrivers] = useState<RosterDriver[] | null>(null);
   const [completed, setCompleted] = useState<TripsCompletedReport | null>(null);
   const [retry, setRetry] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -123,32 +105,25 @@ export default function AdminDashboard() {
     let cancelled = false;
 
     (async () => {
-      // Each tile has its own source; one failure must not blank the dashboard.
-      // The list endpoints cap `limit` at 100, so these walk the pages rather than
-      // asking for one huge page — which the API rejects outright.
-      const [b, u, r, p, c, d, t, j] = await Promise.allSettled([
-        fetchAllPages((page, limit) => getBookingsDashboard(page, limit)),
-        fetchAllPages((page, limit) => getUsersDashboard(page, limit)),
-        getSubscriptionRevenue(),
-        getDispatchPool(),
-        getCancellations(),
-        fetchAllPages((page, limit) => listDrivers(page, limit)),
-        getTripsCompleted(),
-        fetchAllPages((page, limit) => listMyTrips({ page, limit })),
+      // Each tile has its own source; one failure must not blank the dashboard, and each
+      // fills the moment its own answer lands rather than waiting for the slowest.
+      let failed = false;
+      const settle = <T,>(request: Promise<T>, apply: (value: T) => void) =>
+        request.then(
+          (value) => {
+            if (!cancelled) apply(value);
+          },
+          () => {
+            failed = true;
+          },
+        );
+      await Promise.all([
+        settle(getDashboardSummary(), setSummary),
+        settle(getSubscriptionRevenue(), setRevenue),
+        settle(getCancellations(), setCancels),
+        settle(getTripsCompleted(), setCompleted),
       ]);
-      if (cancelled) return;
-
-      if (j.status === "fulfilled") setJourneys(j.value.items);
-      if (b.status === "fulfilled") setBookings(b.value);
-      if (u.status === "fulfilled") setUsers(u.value);
-      if (r.status === "fulfilled") setRevenue(r.value);
-      if (p.status === "fulfilled") {
-        setPool(Array.isArray(p.value) ? p.value.length : (p.value.items?.length ?? 0));
-      }
-      if (c.status === "fulfilled") setCancels(c.value);
-      if (d.status === "fulfilled") setDrivers(d.value.items);
-      if (t.status === "fulfilled") setCompleted(t.value);
-      if ([b, u, r, p, c, d, t, j].some((result) => result.status === "rejected")) setError("Some dashboard data could not be loaded.");
+      if (!cancelled && failed) setError("Some dashboard data could not be loaded.");
     })();
 
     return () => {
@@ -183,37 +158,12 @@ export default function AdminDashboard() {
 
   /* -------------------------------- derived -------------------------------- */
 
-  const byRole = useMemo(() => {
-    const tally = { customer: 0, driver: 0, company: 0, admin: 0 };
-    for (const user of users?.items ?? []) {
-      if (user.role in tally) tally[user.role as keyof typeof tally] += 1;
-    }
-    return tally;
-  }, [users]);
-
-  const bookingStatus = useMemo(() => {
-    const tally = { awaiting: 0, pool: 0, assigned: 0, in_progress: 0, completed: 0, cancelled: 0 };
-    const byBooking = new Map(journeys.map((trip) => [String(trip.bookingId), trip]));
-    for (const booking of bookings?.items ?? []) tally[stageOf({ ...booking, trip: byBooking.get(booking._id) })] += 1;
-    return tally;
-  }, [bookings, journeys]);
-
-  const driverStatus = useMemo(() => {
-    const tally = { available: 0, busy: 0, offline: 0 };
-    for (const driver of drivers ?? []) {
-      if (driver.status in tally) tally[driver.status] += 1;
-    }
-    return tally;
-  }, [drivers]);
-
-  const topDrivers = useMemo(
-    () =>
-      [...(drivers ?? [])]
-        .filter((d) => d.ratingCount > 0)
-        .sort((a, b) => b.rating - a.rating || b.ratingCount - a.ratingCount)
-        .slice(0, 5),
-    [drivers],
-  );
+  const byRole = summary?.users ?? { customer: 0, driver: 0, company: 0, admin: 0 };
+  const bookingStatus = summary?.bookings.stages ?? { awaiting: 0, pool: 0, assigned: 0, in_progress: 0, completed: 0, cancelled: 0 };
+  const driverStatus = summary?.drivers ?? { total: 0, available: 0, busy: 0, offline: 0, penalised: 0, top: [] as RosterDriver[] };
+  const topDrivers = driverStatus.top;
+  const bookings = summary ? { total: summary.bookings.total } : null;
+  const pool = summary ? summary.bookings.stages.pool : null;
 
   const days = RANGES.find((r) => r.key === range)?.days ?? 30;
   const tripSeries = useMemo(
@@ -234,7 +184,7 @@ export default function AdminDashboard() {
   const avgTrip = rangedCount > 0 ? rangedFare / rangedCount : 0;
 
   const activeTrips = bookingStatus.in_progress + bookingStatus.assigned;
-  const loadingCore = bookings === null && users === null;
+  const loadingCore = summary === null;
 
   const subscriptionSeries = useMemo(
     () =>
@@ -245,7 +195,7 @@ export default function AdminDashboard() {
     [revenue],
   );
 
-  if (error) return <ConsolePage title="Platform operations"><LoadError onRetry={() => { setError(null); setBookings(null); setUsers(null); setRetry((value) => value + 1); }} /></ConsolePage>;
+  if (error) return <ConsolePage title="Platform operations"><LoadError onRetry={() => { setError(null); setSummary(null); setRetry((value) => value + 1); }} /></ConsolePage>;
 
   return (
     <ConsolePage
@@ -319,7 +269,7 @@ export default function AdminDashboard() {
             />
             <StatCard
               label="Chauffeurs"
-              value={count(drivers?.length ?? byRole.driver)}
+              value={count(summary ? driverStatus.total : byRole.driver)}
               hint={`${driverStatus.available} online now`}
               icon={<IconCar size={18} />}
               href="/drivers"
@@ -342,12 +292,6 @@ export default function AdminDashboard() {
         )}
       </div>
 
-      {users && !users.complete ? (
-        <p className="mt-3 text-label text-fg-muted">
-          Role counts are tallied from the first {users.items.length} of {users.total}{" "}
-          accounts. Open Users to browse the full directory.
-        </p>
-      ) : null}
 
       {/* ------------------------------- analytics ------------------------------ */}
       <div className="mt-6 grid gap-4 xl:grid-cols-2">
@@ -414,28 +358,28 @@ export default function AdminDashboard() {
 
         <ChartCard
           title="Chauffeur availability"
-          subtitle={`${drivers?.length ?? 0} on the platform`}
-          loading={drivers === null}
+          subtitle={`${driverStatus.total} on the platform`}
+          loading={summary === null}
         >
           <div className="space-y-4">
             <ProgressBar
               label="Online"
               value={driverStatus.available}
-              max={drivers?.length || 1}
+              max={driverStatus.total || 1}
               display={String(driverStatus.available)}
               tone="good"
             />
             <ProgressBar
               label="On a trip"
               value={driverStatus.busy}
-              max={drivers?.length || 1}
+              max={driverStatus.total || 1}
               display={String(driverStatus.busy)}
               tone="warn"
             />
             <ProgressBar
               label="Offline"
               value={driverStatus.offline}
-              max={drivers?.length || 1}
+              max={driverStatus.total || 1}
               display={String(driverStatus.offline)}
             />
             <Link
@@ -476,7 +420,7 @@ export default function AdminDashboard() {
           }
           bodyClassName="px-5 pb-5"
         >
-          {drivers === null ? (
+          {summary === null ? (
             <p className="py-6 text-note text-fg-muted">Loading…</p>
           ) : topDrivers.length === 0 ? (
             <p className="py-6 text-note text-fg-muted">
@@ -526,7 +470,7 @@ export default function AdminDashboard() {
                 Penalised chauffeurs
               </p>
               <p className="mt-2 text-[1.5rem] font-bold tracking-tight text-fg">
-                {count((drivers ?? []).filter((d) => d.penaltyCount > 0).length)}
+                {count(driverStatus.penalised)}
               </p>
             </div>
           </div>
