@@ -37,7 +37,7 @@ jobs:
       - name: Package release
         run: |
           mkdir -p release
-          cp -r dist package.json package-lock.json release/
+          cp -r dist assets public package.json package-lock.json release/
           tar -czf release.tgz -C release .
 
       - name: Install SSH key
