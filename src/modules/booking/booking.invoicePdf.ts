@@ -74,13 +74,14 @@ const BANNER: Partial<Record<DocumentData['status'], string>> = {
 };
 
 export function renderInvoicePdf(data: DocumentData, options: { compress?: boolean } = {}): Promise<Buffer> {
+  const isReceipt = data.kind === 'receipt';
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({
       margin: 50,
       size: 'A4',
       bufferPages: true,
       compress: options.compress ?? true,
-      info: { Title: `Invoice ${data.number}` },
+      info: { Title: `${isReceipt ? 'Receipt' : 'Invoice'} ${data.number}` },
     });
     const chunks: Buffer[] = [];
     doc.on('data', (c: Buffer) => chunks.push(c));
@@ -97,7 +98,7 @@ export function renderInvoicePdf(data: DocumentData, options: { compress?: boole
     doc.text('Gig Harbor, WA 98335', 370, 70);
     doc.text(CONTACT_EMAIL, 370, 85);
     doc.text('206-672-8281', 370, 100);
-    doc.fillColor('#000000').fontSize(20).text('INVOICE', 50, 130, { align: 'center' });
+    doc.fillColor('#000000').fontSize(20).text(isReceipt ? 'PAYMENT RECEIPT' : 'INVOICE', 50, 130, { align: 'center' });
     hr(155);
 
     /* ------------------------------ details ------------------------------- */
@@ -110,14 +111,15 @@ export function renderInvoicePdf(data: DocumentData, options: { compress?: boole
       doc.font(bold ? 'Helvetica-Bold' : 'Helvetica').text(safe(value), 150, leftY, { width: 140 });
       leftY += Math.max(rowHeight, doc.heightOfString(safe(value), { width: 140 }));
     };
-    left('Invoice no:', data.number, true);
-    left('Invoice Date:', format(data.issuedAt, 'LLL dd, yyyy'));
+    left(isReceipt ? 'Receipt no:' : 'Invoice no:', data.number, true);
+    left(isReceipt ? 'Payment Date:' : 'Invoice Date:', format(isReceipt ? (data.payment?.paidAt ?? data.issuedAt) : data.issuedAt, 'LLL dd, yyyy'));
+    if (isReceipt) left('Payment Method:', data.payment?.method ?? 'Card');
     left('Vehicle:', j.vehicle);
     left('Passengers:', String(j.passengers ?? ''));
     left('Bags:', String(j.bags));
 
     let rightY = 165;
-    doc.font('Helvetica').text('Bill to:', 300, rightY);
+    doc.font('Helvetica').text(isReceipt ? 'Billed to:' : 'Bill to:', 300, rightY);
     doc.font('Helvetica-Bold').text(safe(data.customer.name), 350, rightY, { width: 200 });
     rightY += rowHeight;
     doc.font('Helvetica');
@@ -195,7 +197,7 @@ export function renderInvoicePdf(data: DocumentData, options: { compress?: boole
     }
     total('Balance due', usd(data.balanceDue), tail, data.balanceDue > 0);
     tail += 15;
-    if (data.payment) {
+    if (data.payment && !isReceipt) {
       doc.font('Helvetica').fontSize(9).fillColor('#555555');
       doc.text(
         safe(`Paid with ${data.payment.method}${data.payment.paidAt ? ` on ${format(data.payment.paidAt)}` : ''}.`),
@@ -207,8 +209,17 @@ export function renderInvoicePdf(data: DocumentData, options: { compress?: boole
     }
     doc.y = tail + 20;
 
-    /* --------------------------- terms and conditions --------------------- */
-    termsAndConditions(doc);
+    if (isReceipt) {
+      // The old receipt closed with a line of thanks and carried no terms.
+      doc.font('Helvetica-Bold').fontSize(12).fillColor('black');
+      doc.text('Thank you for your payment. Your reservation is now fully paid and confirmed.', 50, doc.y, {
+        width: 495,
+        align: 'center',
+      });
+    } else {
+      /* ------------------------- terms and conditions ------------------- */
+      termsAndConditions(doc);
+    }
 
     doc.end();
   });

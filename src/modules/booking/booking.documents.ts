@@ -282,8 +282,8 @@ export function renderDocumentPdf(
   /** `compress: false` keeps the page content readable, for tests. */
   options: { compress?: boolean } = {},
 ): Promise<Buffer> {
-  // The invoice keeps the old ABL layout, so a customer sees the same document as before.
-  if (data.kind === 'invoice') return renderInvoicePdf(data, options);
+  // Invoice and receipt both keep the old ABL layout, so a customer sees the documents they knew.
+  if (data.kind === 'invoice' || data.kind === 'receipt') return renderInvoicePdf(data, options);
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({
       margin: 50,
