@@ -24,6 +24,19 @@ interface AuthState {
 
 const AuthContext = createContext<AuthState | null>(null);
 
+/** Who may use this console. Anyone else is treated as a failed sign-in, not shown a screen. */
+const CONSOLE_ROLES: UserRole[] = ["admin"];
+const BAD_LOGIN = "Incorrect email or password.";
+
+/** Ends a session the console should never have started, so no cookie is left behind. */
+async function endSession(token: string | null) {
+  await fetch("/api/auth/logout", {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  }).catch(() => undefined);
+  setAccessToken(null);
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -31,6 +44,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loadProfile = useCallback(async () => {
     try {
       const profile = await api.get<User>("/users/me");
+      if (!CONSOLE_ROLES.includes(profile.role)) {
+        // A passenger's or chauffeur's session left in this browser: sign it out quietly.
+        await endSession(getAccessToken());
+        setUser(null);
+        return;
+      }
       setUser(profile);
     } catch {
       setUser(null);
@@ -62,6 +81,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const data = await res.json().catch(() => null);
     if (!res.ok) throw new Error(data?.message ?? "Could not sign you in");
+
+    // Right password, wrong kind of account: to this console that is just a wrong login.
+    if (!CONSOLE_ROLES.includes(data.user?.role)) {
+      await endSession(data.accessToken);
+      throw new Error(BAD_LOGIN);
+    }
 
     setAccessToken(data.accessToken);
     setUser(data.user);
