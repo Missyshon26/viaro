@@ -129,6 +129,8 @@ export interface Booking {
     at: string;
   }[];
   tripType: TripType;
+  /** Set when this was booked as a package (priced by the package, not by distance). */
+  packageName?: string;
   status: BookingStatus;
   /** Present only once status is 'cancelled'. */
   cancellation?: BookingCancellation;

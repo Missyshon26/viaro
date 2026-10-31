@@ -213,7 +213,7 @@ export default function BookingDetailPage({
 
     <ConsolePage
       title={reference(booking._id)}
-      description={`${TRIP_TYPE_LABEL[booking.tripType] ?? booking.tripType} · ${
+      description={`${booking.packageName ? `Package: ${booking.packageName}` : (TRIP_TYPE_LABEL[booking.tripType] ?? booking.tripType)} · ${
         booking.scheduledAtLocal ?? formatDateTime(booking.scheduledAt)
       }`}
       action={

@@ -7,14 +7,19 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { IconCheck, IconClose, IconPackage } from "@/components/ui/Icons";
 import { errorText } from "@/lib/api/client";
 import {
+  createEventType,
   createPackage,
+  deleteEventType,
   deletePackage,
+  listEventTypes,
   listPackages,
   MAX_PACKAGE_IMAGE_BYTES,
   PACKAGE_IMAGE_TYPES,
   removePackageImage,
+  renameEventType,
   updatePackage,
   uploadPackageImage,
+  type EventType,
   type PackageInput,
   type PackageStatus,
   type TourPackage,
@@ -282,7 +287,10 @@ function PackageDialog({
   const [tourLength, setTourLength] = useState(pkg?.tourLength ?? "");
   const [totalPersons, setTotalPersons] = useState(String(pkg?.totalPersons ?? 1));
   const [status, setStatus] = useState<PackageStatus>(pkg?.status ?? "visible");
-  const [eventTypes, setEventTypes] = useState((pkg?.eventTypes ?? []).join(", "));
+  // The kinds of event ticked for this package, from the managed list.
+  const [eventTypes, setEventTypes] = useState<string[]>(pkg?.eventTypes ?? []);
+  const [eventList, setEventList] = useState<EventType[] | null>(null);
+  const [managingEvents, setManagingEvents] = useState(false);
   // Price per vehicle class, as typed: a class is offered when it has a price.
   const [prices, setPrices] = useState<Record<string, string>>(
     Object.fromEntries((pkg?.vehicles ?? []).map((v) => [v.vehicleClass, String(v.price)])),
@@ -324,6 +332,18 @@ function PackageDialog({
     };
   }, []);
 
+  const loadEvents = useCallback(async () => {
+    try {
+      setEventList(await listEventTypes());
+    } catch (err) {
+      setEventList([]);
+      setError(errorText(err, "Could not load the event list"));
+    }
+  }, []);
+  useEffect(() => {
+    void loadEvents();
+  }, [loadEvents]);
+
   // A package may still price a class that has since been retired; keep it editable.
   const retired = useMemo(
     () => Object.keys(prices).filter((value) => classes && !classes.some((c) => c.value === value)),
@@ -358,7 +378,7 @@ function PackageDialog({
       tourLength: tourLength.trim(),
       totalPersons: persons,
       status,
-      eventTypes: [...new Set(eventTypes.split(",").map((t) => t.trim()).filter(Boolean))],
+      eventTypes,
       vehicles,
     };
   }
@@ -455,9 +475,37 @@ function PackageDialog({
             <textarea value={description} onChange={(e) => setDescription(e.target.value)} maxLength={2000} rows={3} className={`${inputCls} h-auto py-2`} />
           </Field>
 
-          <Field label="Event types" hint="Separate with commas, for example “Wedding, Wine Tasting”.">
-            <input value={eventTypes} onChange={(e) => setEventTypes(e.target.value)} placeholder="Wine Tasting, Birthday" className={inputCls} />
-          </Field>
+          <div className="rounded-field border border-border bg-surface p-3.5">
+            <div className="flex items-center gap-2">
+              <h3 className="text-meta font-bold text-fg">Choose event</h3>
+              <button type="button" onClick={() => setManagingEvents(true)} className="ml-auto text-note font-bold text-fg-body hover:underline">
+                Manage event types…
+              </button>
+            </div>
+            {eventList === null ? (
+              <p className="mt-2 text-note text-fg-muted">Loading…</p>
+            ) : eventList.length === 0 ? (
+              <p className="mt-2 text-note text-fg-muted">No event types yet. Use “Manage event types” to add some.</p>
+            ) : (
+              <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+                {eventList.map((event) => (
+                  <li key={event._id}>
+                    <label className="flex cursor-pointer items-center gap-2.5 text-meta text-fg">
+                      <input
+                        type="checkbox"
+                        checked={eventTypes.includes(event.name)}
+                        onChange={(e) =>
+                          setEventTypes((current) => (e.target.checked ? [...current, event.name] : current.filter((n) => n !== event.name)))
+                        }
+                        className="h-4 w-4 accent-[var(--accent)]"
+                      />
+                      {event.name}
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
 
           <div className="rounded-field border border-border bg-surface p-3.5">
             <h3 className="text-meta font-bold text-fg">Picture</h3>
@@ -520,6 +568,17 @@ function PackageDialog({
           </label>
         </div>
 
+        {managingEvents ? (
+          <EventTypesDialog
+            onClose={() => setManagingEvents(false)}
+            onChanged={async () => {
+              await loadEvents();
+            }}
+            onRenamed={(from, to) => setEventTypes((current) => current.map((n) => (n === from ? to : n)))}
+            onDeleted={(name) => setEventTypes((current) => current.filter((n) => n !== name))}
+          />
+        ) : null}
+
         <div className="flex items-center justify-end gap-2 border-t border-border-subtle px-5 py-3">
           <button type="button" onClick={onClose} className="h-10 rounded-field border border-border bg-surface-raised px-4 text-meta font-bold text-fg-body">
             Cancel
@@ -574,6 +633,154 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
         <span className="mt-1.5 block">{children}</span>
       </label>
       {hint ? <p className="mt-1.5 text-note leading-relaxed text-fg-faint">{hint}</p> : null}
+    </div>
+  );
+}
+
+/* ------------------------------ event types ------------------------------ */
+
+/**
+ * The list of event kinds. Renaming or deleting one changes every package that uses it (the
+ * server does that), so the open form is kept in step through `onRenamed` / `onDeleted`.
+ */
+function EventTypesDialog({
+  onClose,
+  onChanged,
+  onRenamed,
+  onDeleted,
+}: {
+  onClose: () => void;
+  onChanged: () => Promise<void>;
+  onRenamed: (from: string, to: string) => void;
+  onDeleted: (name: string) => void;
+}) {
+  const [items, setItems] = useState<EventType[] | null>(null);
+  const [name, setName] = useState("");
+  const [editing, setEditing] = useState<{ id: string; value: string } | null>(null);
+  const [confirming, setConfirming] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      setItems(await listEventTypes());
+    } catch (err) {
+      setItems([]);
+      setError(errorText(err, "Could not load the event list"));
+    }
+  }, []);
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function run(work: () => Promise<void>) {
+    setBusy(true);
+    setError(null);
+    try {
+      await work();
+      await load();
+      await onChanged();
+    } catch (err) {
+      setError(errorText(err, "That did not work"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div role="dialog" aria-modal="true" aria-label="Event types" className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 cursor-default bg-panel/60 backdrop-blur-[2px]" />
+      <div className="relative flex max-h-[80dvh] w-full max-w-md flex-col overflow-hidden rounded-card border border-border bg-surface-raised shadow-[var(--shadow-raised)]">
+        <div className="flex items-center gap-3 border-b border-border-subtle px-5 py-4">
+          <h2 className="text-action font-bold text-fg">Event types</h2>
+          <button type="button" onClick={onClose} aria-label="Close" className="ml-auto inline-flex h-8 w-8 items-center justify-center rounded-full text-fg-muted hover:bg-surface hover:text-fg">
+            <IconClose size={16} />
+          </button>
+        </div>
+
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4">
+          {error ? (
+            <p role="alert" className="rounded-field border border-danger/30 bg-danger/5 px-3.5 py-2.5 text-note font-bold text-danger">
+              {error}
+            </p>
+          ) : null}
+
+          <form
+            className="flex gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const value = name.trim();
+              if (value.length < 2) return setError("Enter a name of at least 2 letters.");
+              void run(async () => {
+                await createEventType(value);
+                setName("");
+              });
+            }}
+          >
+            <input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} placeholder="Add an event type, e.g. Concerts" aria-label="New event type" className={inputCls} />
+            <button type="submit" disabled={busy} className="h-10 shrink-0 rounded-field bg-primary px-4 text-meta font-bold text-primary-fg disabled:opacity-60">
+              Add
+            </button>
+          </form>
+
+          {items === null ? (
+            <p className="text-note text-fg-muted">Loading…</p>
+          ) : items.length === 0 ? (
+            <p className="text-note text-fg-muted">Nothing here yet.</p>
+          ) : (
+            <ul className="divide-y divide-border-subtle rounded-field border border-border">
+              {items.map((item) => (
+                <li key={item._id} className="flex items-center gap-2 px-3 py-2">
+                  {editing?.id === item._id ? (
+                    <form
+                      className="flex min-w-0 flex-1 items-center gap-2"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const value = editing.value.trim();
+                        if (value.length < 2) return setError("Enter a name of at least 2 letters.");
+                        void run(async () => {
+                          await renameEventType(item._id, value);
+                          onRenamed(item.name, value);
+                          setEditing(null);
+                        });
+                      }}
+                    >
+                      <input autoFocus value={editing.value} onChange={(e) => setEditing({ id: item._id, value: e.target.value })} maxLength={60} aria-label={`Rename ${item.name}`} className={`${inputCls} h-9`} />
+                      <button type="submit" disabled={busy} className="text-note font-bold text-fg hover:underline disabled:opacity-50">Save</button>
+                      <button type="button" onClick={() => setEditing(null)} className="text-note font-bold text-fg-body hover:underline">Cancel</button>
+                    </form>
+                  ) : confirming === item._id ? (
+                    <>
+                      <span className="min-w-0 flex-1 truncate text-note text-fg-muted">Remove “{item.name}” from every package?</span>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() =>
+                          void run(async () => {
+                            await deleteEventType(item._id);
+                            onDeleted(item.name);
+                            setConfirming(null);
+                          })
+                        }
+                        className="h-8 rounded-field bg-danger px-3 text-label font-bold text-white disabled:opacity-50"
+                      >
+                        Delete
+                      </button>
+                      <button type="button" onClick={() => setConfirming(null)} className="text-note font-bold text-fg-body hover:underline">Keep</button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="min-w-0 flex-1 truncate text-meta text-fg">{item.name}</span>
+                      <button type="button" onClick={() => setEditing({ id: item._id, value: item.name })} className="text-note font-bold text-fg-body hover:underline">Rename</button>
+                      <button type="button" onClick={() => setConfirming(item._id)} className="text-note font-bold text-danger hover:underline">Delete</button>
+                    </>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

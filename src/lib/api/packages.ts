@@ -55,3 +55,16 @@ export const uploadPackageImage = (id: string, file: File) => {
   return api.post<TourPackage>(`/admin/packages/${id}/image`, form);
 };
 export const removePackageImage = (id: string) => api.delete<TourPackage>(`/admin/packages/${id}/image`);
+
+/* ------------------------------- event types ------------------------------ */
+
+/** The list of event kinds ("Wine Tasting"…) a package can be ticked for. */
+export interface EventType {
+  _id: string;
+  name: string;
+}
+
+export const listEventTypes = () => api.get<EventType[]>("/admin/event-types");
+export const createEventType = (name: string) => api.post<EventType>("/admin/event-types", { name });
+export const renameEventType = (id: string, name: string) => api.patch<EventType>(`/admin/event-types/${id}`, { name });
+export const deleteEventType = (id: string) => api.delete<{ _id: string }>(`/admin/event-types/${id}`);
