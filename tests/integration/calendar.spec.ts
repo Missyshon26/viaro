@@ -1,5 +1,6 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
+import { Types } from 'mongoose';
 import app from '../../src/app';
 import { Booking } from '../../src/models/Booking';
 import { Driver } from '../../src/models/Driver';
@@ -12,6 +13,7 @@ import {
   type CalendarEventBody,
 } from '../../src/integrations/googleCalendar';
 import * as sync from '../../src/modules/calendar/calendar.sync';
+import { env } from '../../src/config/env';
 import { eventIdFor } from '../../src/modules/calendar/calendar.event';
 import * as events from '../../src/modules/events/events.bus';
 import { listen, makeUser, pickupIn, point, resetData, seedCatalogue, startDatabase, stopDatabase } from './harness';
@@ -278,6 +280,24 @@ describe('the sweep', () => {
     expect(swept).toMatchObject({ tried: 3, failed: 0 });
     expect(cal.live()).toHaveLength(3);
     expect((await sync.sweepOnce()).tried).toBe(0); // nothing left to do
+  });
+
+  it('leaves out bookings made before the switch-on date, and adds the ones made after', async () => {
+    const who = { admin: await makeUser('admin'), client: await makeUser('customer', { name: 'Pat Rider' }) };
+    const old = (await book({ scheduledAt: pickupIn(4) }, who)).id;
+    // createdAt is immutable through Mongoose, so write it underneath.
+    await Booking.collection.updateOne({ _id: new Types.ObjectId(old) }, { $set: { createdAt: new Date('2020-01-01T00:00:00Z') } });
+    const fresh = (await book({ scheduledAt: pickupIn(5) }, who)).id;
+
+    env.GOOGLE_CALENDAR_SYNC_FROM = '2026-01-01T00:00:00Z';
+    try {
+      expect(await sync.sweepOnce()).toMatchObject({ tried: 1, failed: 0 });
+      expect(cal.calls).toEqual([`insert:${eventIdFor(fresh)}`]);
+      expect((await sync.syncBooking(old)).action).toBe('skipped');
+      expect(cal.live()).toHaveLength(1);
+    } finally {
+      delete env.GOOGLE_CALENDAR_SYNC_FROM;
+    }
   });
 
   it('removes events for bookings cancelled while the calendar was unreachable', async () => {

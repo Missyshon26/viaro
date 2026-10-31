@@ -3,7 +3,7 @@ import { Booking, type IBooking } from '../../models/Booking';
 import { Driver } from '../../models/Driver';
 import { Trip } from '../../models/Trip';
 import { User } from '../../models/User';
-import { adminWebUrl } from '../../config/env';
+import { adminWebUrl, env } from '../../config/env';
 import { now, toDate } from '../../config/timezone';
 import { logger } from '../../utils/logger';
 import {
@@ -51,6 +51,14 @@ export interface SyncResult {
 /** Events older than this are not worth creating: the day has long passed. */
 const LOOKBACK_MS = 24 * 60 * 60 * 1000;
 
+/** The moment before which a booking is never added (GOOGLE_CALENDAR_SYNC_FROM), or null for no limit. */
+function syncFrom(): Date | null {
+  const raw = env.GOOGLE_CALENDAR_SYNC_FROM?.trim();
+  if (!raw) return null;
+  const at = new Date(raw);
+  return Number.isNaN(at.getTime()) ? null : at;
+}
+
 const calendarWrite = (id: string, set: Record<string, unknown>) =>
   // `timestamps: false`: our own bookkeeping must not look like the booking being edited,
   // or the sweep would think every synced booking had changed since it was synced.
@@ -89,6 +97,10 @@ export async function syncBooking(bookingId: string, api: CalendarApi | null = g
   /* ----------------------------------- live ------------------------------------- */
   if (booking.scheduledAt.getTime() < Date.now() - LOOKBACK_MS && !booking.calendar) {
     return { action: 'skipped', reason: 'The trip was too long ago to add' };
+  }
+  const from = syncFrom();
+  if (from && !booking.calendar && booking.createdAt.getTime() < from.getTime()) {
+    return { action: 'skipped', reason: 'Made before the calendar was switched on' };
   }
 
   const [customer, vehicleLabel, chauffeur] = await Promise.all([
@@ -212,9 +224,12 @@ export async function sweepOnce(limit = 500): Promise<{ tried: number; failed: n
   if (!isCalendarEnabled()) return { tried: 0, failed: 0 };
 
   const since = new Date(Date.now() - LOOKBACK_MS);
+  const from = syncFrom();
   const live = await Booking.find({
     status: { $ne: 'cancelled' },
     scheduledAt: { $gte: since },
+    // One already on the calendar is kept up to date whatever its age; a new one must be recent enough.
+    ...(from ? { $and: [{ $or: [{ calendar: { $exists: true } }, { createdAt: { $gte: from } }] }] } : {}),
     $or: [
       { calendar: { $exists: false } },
       { 'calendar.removed': true },

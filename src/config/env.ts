@@ -93,6 +93,13 @@ const envSchema = z.object({
    */
   GOOGLE_CALENDAR_IMPERSONATE: z.string().optional(),
   /**
+   * Only bookings CREATED at or after this moment (an ISO date-time, e.g. 2026-11-01T00:00:00-07:00)
+   * are put on the calendar. Switching the sync on otherwise adds every booking already in the
+   * database, test bookings included. Empty = no limit. A booking already on the calendar keeps
+   * being kept up to date whatever its age.
+   */
+  GOOGLE_CALENDAR_SYNC_FROM: z.string().optional(),
+  /**
    * Where uploaded images (vehicle photos) are stored on the server's disk. Defaults to
    * ./uploads, which is fine on a laptop and WRONG on a host whose disk is wiped on every
    * deploy: there it must point at a persistent volume, or the photos disappear.
