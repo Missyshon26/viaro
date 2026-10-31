@@ -28,6 +28,7 @@ const NAV: NavItem[] = [
   { href: "/pricing", label: "City pricing", icon: "pricing" },
   { href: "/drivers", label: "Drivers", icon: "car" },
   { href: "/vehicles", label: "Vehicles", icon: "pricing" },
+  { href: "/packages", label: "Packages", icon: "package" },
   { href: "/revenue", label: "Revenue", icon: "money" },
   { href: "/reports", label: "Reports", icon: "report" },
   { href: "/support", label: "Support", icon: "support" },

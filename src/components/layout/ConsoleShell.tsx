@@ -25,6 +25,7 @@ import {
   IconMenu,
   IconMoney,
   IconMoon,
+  IconPackage,
   IconPanelLeft,
   IconPenalty,
   IconPricing,
@@ -57,7 +58,8 @@ export type NavIcon =
   | "report"
   | "support"
   | "document"
-  | "penalty";
+  | "penalty"
+  | "package";
 
 export interface NavItem {
   href: string;
@@ -78,6 +80,7 @@ const ICONS: Record<NavIcon, (p: { size?: number; className?: string }) => React
   support: IconSupport,
   document: IconDocument,
   penalty: IconPenalty,
+  package: IconPackage,
 };
 
 const COLLAPSE_KEY = "abl-console-collapsed";
