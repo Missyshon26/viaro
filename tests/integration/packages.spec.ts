@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import app from '../../src/app';
 import { uploadDir } from '../../src/config/env';
+import { EventType } from '../../src/models/EventType';
 import { Package } from '../../src/models/Package';
 import { VehicleClass } from '../../src/models/VehicleClass';
 import { listen, makeUser, resetData, seedCatalogue, startDatabase, stopDatabase, TINY_PNG } from './harness';
@@ -26,6 +27,7 @@ beforeEach(async () => {
   await resetData();
   fs.rmSync(uploadDir, { recursive: true, force: true });
   admin = await makeUser('admin');
+  await EventType.create({ name: 'Wine Tasting', key: 'wine tasting' });
 });
 
 const make = (over: Record<string, unknown> = {}) =>
@@ -143,5 +145,45 @@ describe('packages on the booking page', () => {
     expect((await request(server).get(`/packages/${hidden}`)).status).toBe(404);
     expect((await request(server).get(`/packages/${'b'.repeat(24)}`)).status).toBe(404);
     expect(await Package.countDocuments()).toBe(2);
+  });
+});
+
+describe('event types', () => {
+  const ev = (method: 'post' | 'patch' | 'delete' | 'get', url: string, data?: object) => {
+    const r = request(server)[method](url).set('Authorization', admin.auth);
+    return data ? r.send(data) : r;
+  };
+
+  it('adds, lists, refuses duplicates in any case, renames onto packages and deletes off them', async () => {
+    const added = await ev('post', '/admin/event-types', { name: '  Wedding   Send-off ' });
+    expect(added.status).toBe(201);
+    expect(added.body.data.name).toBe('Wedding Send-off');
+    expect((await ev('post', '/admin/event-types', { name: 'wedding send-off' })).status).toBe(409);
+    expect((await ev('post', '/admin/event-types', { name: 'x' })).status).toBe(400);
+
+    const names = (await ev('get', '/admin/event-types')).body.data.map((e: { name: string }) => e.name);
+    expect(names).toEqual(['Wedding Send-off', 'Wine Tasting']);
+
+    // A package may only use names from the list, in the list's own spelling.
+    expect((await ev('post', '/admin/packages', { name: 'Bad', eventTypes: ['Skydiving'] })).status).toBe(400);
+    const pkg = await ev('post', '/admin/packages', { name: 'Day out', eventTypes: ['wine tasting', 'WEDDING SEND-OFF'] });
+    expect(pkg.status).toBe(201);
+    expect(pkg.body.data.eventTypes).toEqual(['Wine Tasting', 'Wedding Send-off']);
+
+    const id = added.body.data._id as string;
+    expect((await ev('patch', `/admin/event-types/${id}`, { name: 'Wine Tasting' })).status).toBe(409);
+    expect((await ev('patch', `/admin/event-types/${id}`, { name: 'Wedding' })).status).toBe(200);
+    expect((await ev('get', `/admin/packages/${pkg.body.data._id}`)).body.data.eventTypes).toEqual(['Wine Tasting', 'Wedding']);
+
+    expect((await ev('delete', `/admin/event-types/${id}`)).status).toBe(200);
+    expect((await ev('get', `/admin/packages/${pkg.body.data._id}`)).body.data.eventTypes).toEqual(['Wine Tasting']);
+    expect((await ev('delete', `/admin/event-types/${id}`)).status).toBe(404);
+    expect((await ev('patch', `/admin/event-types/${'a'.repeat(24)}`, { name: 'Nope' })).status).toBe(404);
+  });
+
+  it('is for admins only', async () => {
+    const customer = await makeUser('customer');
+    expect((await request(server).get('/admin/event-types').set('Authorization', customer.auth)).status).toBe(403);
+    expect((await request(server).get('/admin/event-types')).status).toBe(401);
   });
 });

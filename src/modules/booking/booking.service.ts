@@ -82,6 +82,7 @@ export function fareBreakdownFor(
         }
       : {}),
     ...(fare.pricingModel ? { pricingModel: fare.pricingModel } : {}),
+    ...(fare.packageName ? { packageName: fare.packageName } : {}),
     ...(fare.route ? { route: fare.route } : {}),
     ...(fare.hours !== undefined ? { hours: fare.hours } : {}),
     subtotal: fare.subtotal,
@@ -151,6 +152,7 @@ export async function createBooking(
     // The class the customer picked is priced here too, so the estimate they were
     // shown and the estimatedFare stored on the booking cannot diverge.
     vehicleClass,
+    packageId: input.packageId,
     pickupAddress: input.pickup.address,
     dropAddress: input.drop.address,
     meetAndGreet: input.meetAndGreet,
@@ -195,6 +197,7 @@ export async function createBooking(
     vehicleClass,
     passengers: input.passengers,
     tripType: input.tripType,
+    ...(input.packageId && fare.packageName ? { packageId: input.packageId, packageName: fare.packageName } : {}),
     city: input.city,
     // Every stored time goes through the shared PT helper — never `new Date()` (spec §8.1).
     scheduledAt: input.scheduledAt ? toDate(input.scheduledAt) : toDate(now()),
@@ -212,7 +215,7 @@ export async function createBooking(
     favoriteDriverId: input.favoriteDriverId,
     ...(input.tripType === 'hourly' && input.hours ? { hours: input.hours } : {}),
     ...extras,
-    serviceNotes: buildServiceNotes({ vehicleClass, ...extras }),
+    serviceNotes: buildServiceNotes({ vehicleClass, packageName: fare.packageName, ...extras }),
     // Recorded, not spent — the debit happens when a Trip exists to spend it against.
     walletCreditRequested: input.walletCreditRequested,
     estimatedFare: paid ? paid.chargedFare : fare.fare,
@@ -417,6 +420,8 @@ export async function updateBooking(bookingId: string, customerId: string, input
       requestedAt: booking.scheduledAt,
       customerId: String(booking.customerId),
       ...(booking.vehicleClass ? { vehicleClass: booking.vehicleClass } : {}),
+      // A package stays priced by its package: the name was stored, the package may have changed.
+      ...(booking.packageId ? { packageId: String(booking.packageId) } : {}),
       // Re-priced as booked: the real duration (it used to fall back to 1 hour) and
       // the same add-ons.
       ...(booking.hours ? { hours: booking.hours } : {}),

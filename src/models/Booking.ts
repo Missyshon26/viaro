@@ -156,8 +156,10 @@ export interface IFareBreakdown {
   extraMiles?: number;
   perMileRate?: number;
   distanceFee?: number;
-  /** flat · hourly · multiplier · route — how classFare was worked out. */
+  /** flat · hourly · multiplier · route · package — how classFare was worked out. */
   pricingModel?: string;
+  /** The package's name, when pricingModel is 'package'. */
+  packageName?: string;
   /** e.g. "Tacoma ↔ Sea-Tac", when a route price applied. */
   route?: string;
   hours?: number;
@@ -214,6 +216,13 @@ export interface IBooking {
    */
   passengers?: number;
   tripType: TripType;
+  /**
+   * Set when this is a package booking (a point-to-point booking whose price is the package's
+   * fixed price for the chosen vehicle). `packageName` is kept as booked, so renaming or
+   * deleting the package later never changes what an old booking says.
+   */
+  packageId?: Types.ObjectId;
+  packageName?: string;
   flightDetails?: { flightNumber: string; scheduledArrival?: Date };
   /** Hours booked, hourly charters only — kept so a re-price uses the real duration. */
   hours?: number;
@@ -356,6 +365,8 @@ const bookingSchema = new Schema<IBooking>(
     cancellation: { type: cancellationSchema, default: undefined },
     walletCreditRequested: { type: Number, min: 0 },
     tripType: { type: String, enum: TRIP_TYPES, required: true, index: true },
+    packageId: { type: Schema.Types.ObjectId, ref: 'Package', index: true },
+    packageName: { type: String, trim: true, maxlength: 120 },
     flightDetails: {
       type: new Schema(
         {
@@ -492,6 +503,7 @@ const bookingSchema = new Schema<IBooking>(
           perMileRate: { type: Number, min: 0 },
           distanceFee: { type: Number, min: 0 },
           pricingModel: { type: String },
+          packageName: { type: String },
           route: { type: String },
           hours: { type: Number },
           subtotal: { type: Number, min: 0 },

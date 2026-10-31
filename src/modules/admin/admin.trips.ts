@@ -48,6 +48,7 @@ export async function quoteTrip(customerId: string, input: CreateBookingInput, t
     hours: input.hours,
     customerId,
     vehicleClass,
+    packageId: input.packageId,
     pickupAddress: input.pickup.address,
     dropAddress: input.drop.address,
     meetAndGreet: input.meetAndGreet,

@@ -121,7 +121,9 @@ function linesFor(booking: IBooking, vehicle: string, total: number): DocumentLi
       label: `${SERVICE_LABEL[booking.tripType]} · ${vehicle}`,
       amount: b.classFare,
       note:
-        b.pricingModel === 'route' && b.route
+        b.pricingModel === 'package'
+          ? `Package: ${b.packageName ?? booking.packageName ?? ''}`.trim()
+          : b.pricingModel === 'route' && b.route
           ? `Fixed route price: ${b.route}`
           : b.pricingModel === 'hourly' || booking.tripType === 'hourly'
             ? `${b.hours ?? booking.hours ?? 1} hour${(b.hours ?? booking.hours ?? 1) === 1 ? '' : 's'}`

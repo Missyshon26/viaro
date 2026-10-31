@@ -5,6 +5,7 @@ import { hourOfDay, now, toAppTime, toDate, type DateInput } from '../../config/
 import { ApiError } from '../../utils/ApiError';
 import { round2 } from '../../utils/money';
 import * as vehicleService from '../vehicle/vehicle.service';
+import * as packageService from '../package/package.service';
 import { collectPayment, isStripeEnabled } from '../../integrations/paymentGateway';
 import { getCardOnFile } from '../payments/cardPayments';
 import { getSettingsValues } from '../admin/settings.service';
@@ -73,8 +74,11 @@ export interface FareBreakdown {
    *   hourly      — the class's fixed price per hour × hours
    *   multiplier  — city base fare × peak × hours × class multiplier
    *   route       — a fixed price for this journey (config/services.ts ROUTE_FARES)
+   *   package     — the fixed price a package lists for this vehicle
    */
-  pricingModel: 'flat' | 'hourly' | 'multiplier' | 'route';
+  pricingModel: 'flat' | 'hourly' | 'multiplier' | 'route' | 'package';
+  /** The package's name, when pricingModel is 'package'. */
+  packageName?: string;
   /** The route the price came from, when pricingModel is 'route'. */
   route?: string;
   /** Whether the peak multiplier was actually charged (never on a fixed rate). */
@@ -144,6 +148,12 @@ export async function calculateFare(opts: {
   stopCount?: number;
   /** The stops' addresses, so the route can be measured through them. */
   stopAddresses?: readonly string[];
+  /**
+   * Price this as a package: the package's own price for the vehicle replaces the distance or
+   * class fare, and the extras that belong to a transfer (primetime, meet and greet, stops,
+   * miles) do not apply. Tip, fuel surcharge, discount and tax still do.
+   */
+  packageId?: string;
   /** The tip the customer chose, as a percentage of the trip price. Absent = none. */
   gratuityPct?: number;
   /** Earlier trips in the same request (the legs of a journey priced together). */
@@ -181,32 +191,38 @@ export async function calculateFare(opts: {
    */
   // A route price is the most specific of all, so it wins over the class's flat rate.
   // Transfers only: an hourly charter is priced by the hour wherever it goes.
+  const pkg = opts.packageId && opts.vehicleClass ? await packageService.priceFor(opts.packageId, opts.vehicleClass) : null;
+  if (opts.packageId && !opts.vehicleClass) throw ApiError.badRequest('Choose a vehicle for this package');
   const route =
-    opts.tripType === 'hourly'
+    opts.tripType === 'hourly' || pkg
       ? null
       : routeFareFor(opts.pickupAddress, opts.dropAddress, opts.vehicleClass);
 
-  const pricingModel: FareBreakdown['pricingModel'] = route
+  const pricingModel: FareBreakdown['pricingModel'] = pkg
+    ? 'package'
+    : route
     ? 'route'
     : rates.fixedRate !== null
       ? opts.tripType === 'hourly'
         ? 'hourly'
         : 'flat'
       : 'multiplier';
-  const computed = route
+  const computed = pkg
+    ? pkg.price
+    : route
     ? route.price
     : pricingModel === 'multiplier'
       ? rule.baseFare * multiplier * (hours ?? 1) * rates.multiplier
       : (rates.fixedRate as number) * (hours ?? 1);
 
-  const floored = rates.minimumFare !== null && computed < rates.minimumFare;
+  const floored = !pkg && rates.minimumFare !== null && computed < rates.minimumFare;
   const classFare = round2(floored ? (rates.minimumFare as number) : computed);
 
-  const primetime = isPrimetime(when);
+  const primetime = !pkg && isPrimetime(when);
   const primetimeSurcharge = primetime ? PRIMETIME.surcharge : 0;
-  const meetAndGreetFee = opts.meetAndGreet ? MEET_AND_GREET_FEE : 0;
+  const meetAndGreetFee = opts.meetAndGreet && !pkg ? MEET_AND_GREET_FEE : 0;
   // Stops belong to transfers: an hourly charter goes wherever the hours take it.
-  const stopCount = opts.tripType === 'hourly' ? 0 : Math.max(0, Math.floor(opts.stopCount ?? 0));
+  const stopCount = opts.tripType === 'hourly' || pkg ? 0 : Math.max(0, Math.floor(opts.stopCount ?? 0));
   const stopFee = round2(stopCount * rates.stopFee);
 
   /*
@@ -219,7 +235,7 @@ export async function calculateFare(opts: {
   let distanceUnknown = false;
   const perMile =
     pricingModel === 'flat' && rates.perMileRate !== null && rates.perMileRate > 0 && rates.baseMiles !== null;
-  const limited = rates.maxMiles !== null && opts.tripType !== 'hourly';
+  const limited = !pkg && rates.maxMiles !== null && opts.tripType !== 'hourly';
   if ((perMile || limited) && opts.pickupAddress && opts.dropAddress) {
     const miles = await routeMiles(opts.pickupAddress, opts.dropAddress, opts.stopAddresses ?? []);
     if (miles === null) {
@@ -273,6 +289,7 @@ export async function calculateFare(opts: {
     ...(opts.vehicleClass ? { vehicleClass: opts.vehicleClass } : {}),
     vehicleMultiplier: rates.multiplier,
     pricingModel,
+    ...(pkg ? { packageName: pkg.name } : {}),
     ...(route ? { route: route.label } : {}),
     peakApplied: pricingModel === 'multiplier' && multiplier !== 1,
     classFare,

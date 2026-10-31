@@ -73,6 +73,7 @@ export async function startCheckout(userId: string, input: CreateBookingInput[])
       hours: leg.hours,
       customerId: userId,
       vehicleClass,
+      packageId: leg.packageId,
       pickupAddress: leg.pickup.address,
       dropAddress: leg.drop.address,
       meetAndGreet: leg.meetAndGreet,

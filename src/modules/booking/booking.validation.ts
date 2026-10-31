@@ -81,6 +81,8 @@ export const createBookingSchema = z
     /** Party size. Optional so existing clients keep working. */
     passengers: z.coerce.number().int().min(1).max(60).optional(),
     tripType: z.enum(TRIP_TYPES),
+    /** Book a package: its price for this vehicle is what is charged. A point-to-point booking, so no stops, flight or hours. */
+    packageId: z.string().regex(/^[a-fA-F0-9]{24}$/, 'Invalid package id').optional(),
     city: z.string().min(2).max(80),
     /**
      * Wallet credit to put towards this ride. Nothing is debited now — see
@@ -129,6 +131,20 @@ export const createBookingSchema = z
     passengerPhone: z.string().trim().min(6).max(30).optional(),
   })
   .superRefine((data, ctx) => {
+    if (data.packageId) {
+      if (data.tripType !== 'point2point') {
+        ctx.addIssue({ code: 'custom', path: ['packageId'], message: 'A package is booked as a point-to-point trip' });
+      }
+      for (const field of ['stops', 'cruisePort', 'flightDetails', 'hours'] as const) {
+        const value = data[field];
+        if (Array.isArray(value) ? value.length > 0 : value !== undefined) {
+          ctx.addIssue({ code: 'custom', path: [field], message: 'That does not apply to a package' });
+        }
+      }
+      if (data.meetAndGreet) {
+        ctx.addIssue({ code: 'custom', path: ['meetAndGreet'], message: 'That does not apply to a package' });
+      }
+    }
     if (data.stops?.length && data.tripType === 'hourly') {
       ctx.addIssue({
         code: 'custom',

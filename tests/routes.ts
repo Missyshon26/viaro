@@ -12,6 +12,7 @@ import { adminDispatchRouter, dispatchRouter } from '../src/modules/dispatch/dis
 import driverRoutes from '../src/modules/driver/driver.routes';
 import { adminVehicleRouter, vehicleRouter } from '../src/modules/vehicle/vehicle.routes';
 import { adminPackageRouter, packageRouter } from '../src/modules/package/package.routes';
+import { adminEventTypeRouter } from '../src/modules/package/eventType.routes';
 import supportRoutes from '../src/modules/support/support.routes';
 import tripRoutes from '../src/modules/trip/trip.routes';
 import cancellationRoutes from '../src/modules/cancellation/cancellation.routes';
@@ -55,6 +56,7 @@ export const MOUNTS: [prefix: string, router: Router][] = [
   ['/admin/vehicle-classes', adminVehicleRouter],
   ['/packages', packageRouter],
   ['/admin/packages', adminPackageRouter],
+  ['/admin/event-types', adminEventTypeRouter],
   ['/admin/pricing', adminPricingRouter],
   ['/admin/dispatch', adminDispatchRouter],
   ['/admin', adminRoutes],

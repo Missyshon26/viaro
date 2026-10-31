@@ -1,5 +1,6 @@
 import { ApiError } from '../../utils/ApiError';
 import { ImageRejected, deleteImage, publicImageUrl, saveImage } from '../../utils/imageStorage';
+import { EventType } from '../../models/EventType';
 import * as vehicleRepo from '../vehicle/vehicle.repository';
 import * as repo from './package.repository';
 import type { CreatePackageInput, ListPackagesQuery, UpdatePackageInput } from './package.validation';
@@ -25,6 +26,20 @@ async function assertVehiclesExist(lines: { vehicleClass: string }[]) {
   }
 }
 
+/** Event kinds must come from the managed list; the list's own spelling is what gets stored. */
+async function canonicalEventTypes(names: string[]): Promise<string[]> {
+  if (!names.length) return [];
+  const known = await EventType.find().lean();
+  const byKey = new Map(known.map((e) => [e.key, e.name]));
+  const out: string[] = [];
+  for (const name of names) {
+    const found = byKey.get(name.trim().toLowerCase().replace(/\s+/g, ' '));
+    if (!found) throw ApiError.badRequest(`"${name}" is not in the event list. Add it under Event types first.`);
+    if (!out.includes(found)) out.push(found);
+  }
+  return out;
+}
+
 export async function listForAdmin(q: ListPackagesQuery) {
   const records = await repo.findAll({
     status: q.status,
@@ -41,12 +56,12 @@ export async function getForAdmin(id: string) {
 
 export async function create(input: CreatePackageInput) {
   await assertVehiclesExist(input.vehicles);
-  return present(await repo.create(input));
+  return present(await repo.create({ ...input, eventTypes: await canonicalEventTypes(input.eventTypes) }));
 }
 
 export async function update(id: string, input: UpdatePackageInput) {
   if (input.vehicles) await assertVehiclesExist(input.vehicles);
-  const record = await repo.update(id, input);
+  const record = await repo.update(id, input.eventTypes ? { ...input, eventTypes: await canonicalEventTypes(input.eventTypes) } : input);
   if (!record) throw ApiError.notFound('Package not found');
   return present(record);
 }
@@ -116,4 +131,17 @@ export async function getVisible(id: string) {
   const record = await repo.findById(id);
   if (!record || record.status !== 'visible') throw ApiError.notFound('Package not found');
   return (await forVisitors([record]))[0];
+}
+
+/**
+ * What a package costs with one vehicle, read from the package itself — never from the request,
+ * so a customer cannot name their own price. Only a visible package can be booked, and only with
+ * a vehicle the package lists (and that is still on sale).
+ */
+export async function priceFor(packageId: string, vehicleClass: string): Promise<{ name: string; price: number }> {
+  const record = await repo.findById(packageId);
+  if (!record || record.status !== 'visible') throw ApiError.notFound('That package is not available');
+  const line = record.vehicles.find((v) => v.vehicleClass === vehicleClass);
+  if (!line) throw ApiError.badRequest('That vehicle is not offered for this package');
+  return { name: record.name, price: line.price };
 }

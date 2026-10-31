@@ -33,6 +33,8 @@ export const fareEstimateQuerySchema = z.object({
     .refine(isParsableDate, { message: 'Not a valid ISO date' })
     .optional(),
   hours: z.coerce.number().min(1).max(24).optional(), // hourly trips only
+  /** A package to price (its own fixed price for the vehicle); the trip type stays point2point. */
+  packageId: z.string().regex(/^[a-fA-F0-9]{24}$/, 'Invalid package id').optional(),
   /** Optional: priced at the base rate when absent, so old clients keep working. */
   vehicleClass: z.string().min(1).max(60).optional(),
   /** Both addresses, so a fixed route price can apply (config/services.ts). */

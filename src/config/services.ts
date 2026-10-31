@@ -169,6 +169,8 @@ export type TripOccasion = (typeof TRIP_OCCASIONS)[number];
 
 export interface ServiceRequest {
   vehicleClass: string;
+  /** A package booking: the chauffeur is told what was bought. */
+  packageName?: string | null;
   meetAndGreet?: boolean;
   carSeats?: number;
   /** The same seats by age; when present these are what the note lists. */
@@ -194,6 +196,7 @@ export interface ServiceRequest {
  */
 export function buildServiceNotes(b: ServiceRequest): string[] {
   const notes: string[] = [];
+  if (b.packageName) notes.push(`Package: ${b.packageName}. The route is agreed with the passenger; pick up at the address given.`);
   if (b.meetAndGreet) notes.push('Meet and Greet: meet the passenger inside with a name sign.');
   if (totalCarSeats(b.carSeatTypes) > 0) {
     const parts = CAR_SEAT_KINDS.filter((k) => (b.carSeatTypes?.[k.key] ?? 0) > 0).map(
