@@ -137,6 +137,7 @@ function TripsView({ initialStage }: { initialStage: StageFilter }) {
   const [addingTrip, setAddingTrip] = useState(false);
   const [createdTrip, setCreatedTrip] = useState<string | null>(null);
   const [moreFilters, setMoreFilters] = useState(false);
+  const [filterNote, setFilterNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   // The fare an operator is about to collect, held here until they confirm it.
@@ -189,12 +190,14 @@ function TripsView({ initialStage }: { initialStage: StageFilter }) {
   // The vehicle and city filters list what exists, not just what happens to be on this page.
   useEffect(() => {
     let live = true;
+    // The page still works without these lists, so a failure is a note, not an error screen.
+    const noted = () => live && setFilterNote("The vehicle and city filter lists could not be loaded. Everything else still works.");
     listVehicleClasses(true)
       .then((list) => live && setVehicleOptions(list.map((v) => ({ value: v.value, label: v.label }))))
-      .catch(() => undefined);
+      .catch(noted);
     listPricingRules()
       .then((rules) => live && setCityOptions(rules.map((r) => r.city)))
-      .catch(() => undefined);
+      .catch(noted);
     return () => {
       live = false;
     };
@@ -434,6 +437,7 @@ function TripsView({ initialStage }: { initialStage: StageFilter }) {
           </div>
         ))}
       </div>
+      {filterNote ? <p role="status" className="mb-3 rounded-field border border-border bg-surface px-4 py-2.5 text-note text-fg-muted">{filterNote}</p> : null}
       <section aria-label="Trip filters" className="mb-4">
         <div className="grid items-center gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
           <FilterSelect label="Pickup period" value={datePreset} onChange={setPeriod} options={[{ value: "all", label: "All dates" }, { value: "today", label: "Today" }, { value: "tomorrow", label: "Tomorrow" }, { value: "week", label: "Next 7 days" }, { value: "custom", label: "Custom range" }]} />

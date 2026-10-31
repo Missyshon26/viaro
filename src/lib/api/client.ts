@@ -5,15 +5,33 @@ export const API_BASE_URL =
     ? `${window.location.origin}/backend`
     : process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
 
+/** What an operator reads when the browser cannot reach the API at all (offline, server down, blocked). */
+export const CONNECTION_MESSAGE = "We couldn't reach the server. Check your connection and try again.";
+
+/**
+ * fetch, but a network failure becomes an ApiError with a readable message (status 0) instead of
+ * the browser's own "Failed to fetch". Every call to the API goes through this.
+ */
+export async function reach(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(input, init);
+  } catch (err) {
+    // An aborted request is somebody cancelling it, not a lost connection.
+    if (err instanceof DOMException && err.name === "AbortError") throw err;
+    throw new ApiError(0, CONNECTION_MESSAGE);
+  }
+}
+
 /** Thrown for any non-2xx response so callers can branch on status and message. */
 export class ApiError extends Error {
-  constructor(
-    public readonly status: number,
-    message: string,
-    public readonly details?: unknown,
-  ) {
+  readonly status: number;
+  readonly details?: unknown;
+
+  constructor(status: number, message: string, details?: unknown) {
     super(message);
     this.name = "ApiError";
+    this.status = status;
+    this.details = details;
   }
 
   /** The backend uses these two for business-rule rejections. */
@@ -83,7 +101,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   // boundary included, and setting one by hand would break the upload.
   const isForm = typeof FormData !== "undefined" && body instanceof FormData;
 
-  const response = await fetch(url.toString(), {
+  const response = await reach(url.toString(), {
     ...init,
     headers: {
       ...(body && !isForm ? { "Content-Type": "application/json" } : {}),
@@ -205,7 +223,7 @@ export async function downloadFile(
 ): Promise<void> {
   const url = path.startsWith("http") ? path : `${API_BASE_URL}${path}`;
 
-  const response = await fetch(url, {
+  const response = await reach(url, {
     headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
     cache: "no-store",
   });

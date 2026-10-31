@@ -9,7 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { api, refreshSession, setAccessToken, getAccessToken } from "@/lib/api/client";
+import { api, reach, refreshSession, setAccessToken, getAccessToken } from "@/lib/api/client";
 import type { User, UserRole } from "@/lib/api/types";
 
 interface AuthState {
@@ -120,7 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [loadProfile]);
 
   const login = useCallback(async (email: string, password: string) => {
-    const res = await fetch("/api/auth/login", {
+    const res = await reach("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
