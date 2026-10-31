@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { Logo } from "@/components/brand/Logo";
 import { useTheme } from "@/components/theme/ThemeToggle";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { listNotifications, markNotificationRead } from "@/lib/api/notifications";
+import { listNotificationPage, markAllNotificationsRead, markNotificationRead } from "@/lib/api/notifications";
+import { notificationHref, notificationText, notificationTime, needsAction } from "@/lib/notifications";
+import { useLiveChanges } from "@/lib/live/useLiveChanges";
 import { Avatar } from "@/components/ui/Dashboard";
 import { useNavBadges } from "@/lib/nav/useNavBadges";
 import type { Notification } from "@/lib/api/types";
@@ -63,7 +65,8 @@ export type NavIcon =
   | "penalty"
   | "package"
   | "contact"
-  | "driver";
+  | "driver"
+  | "bell";
 
 export interface NavItem {
   href: string;
@@ -87,6 +90,7 @@ const ICONS: Record<NavIcon, (p: { size?: number; className?: string }) => React
   package: IconPackage,
   contact: IconContact,
   driver: IconIdCard,
+  bell: IconBell,
 };
 
 const COLLAPSE_KEY = "abl-console-collapsed";
@@ -294,7 +298,7 @@ export function ConsoleShell({
 
 function Navigation({ nav, pathname, collapsed, badges }: { nav: NavItem[]; pathname: string; collapsed: boolean; badges: Record<string, number> }) {
   const groups = [
-    { label: "Workspace", paths: ["/", "/trips", "/requests", "/schedule", "/drivers"] },
+    { label: "Workspace", paths: ["/", "/notifications", "/trips", "/requests", "/schedule", "/drivers"] },
     { label: "Finance & insights", paths: ["/revenue", "/earnings", "/pricing", "/reports", "/penalties", "/cancellations"] },
     { label: "Management", paths: ["/users", "/clients", "/vehicles", "/packages", "/documents", "/support", "/apply"] },
   ];
@@ -446,7 +450,9 @@ function SearchBox({ nav }: { nav: NavItem[] }) {
 }
 
 function NotificationBell() {
+  const router = useRouter();
   const [items, setItems] = useState<Notification[] | null>(null);
+  const [unread, setUnread] = useState(0);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const close = useCallback(() => setOpen(false), []);
@@ -454,20 +460,43 @@ function NotificationBell() {
 
   const [error, setError] = useState<string | null>(null);
   const loadNotifications = useCallback(async () => {
-    try { setItems(await listNotifications()); setError(null); }
-    catch { setError("Notifications could not be loaded. Please try again."); }
+    try {
+      const page = await listNotificationPage(1, 8);
+      setItems(page.items);
+      setUnread(page.unread);
+      setError(null);
+    } catch {
+      setError("Notifications could not be loaded. Please try again.");
+    }
   }, []);
   useEffect(() => { void loadNotifications(); }, [loadNotifications]);
+  // A new booking, a cancellation… lands in the bell as it happens, not at the next visit.
+  useLiveChanges(["notification"], () => void loadNotifications());
 
-  const unread = (items ?? []).filter((n) => !n.read).length;
+  /** Opens what the notification is about, and marks it read on the way. */
+  async function openOne(n: Notification) {
+    const href = notificationHref(n);
+    setOpen(false);
+    if (!n.read) {
+      setItems((prev) => prev?.map((x) => (x._id === n._id ? { ...x, read: true } : x)) ?? prev);
+      setUnread((count) => Math.max(0, count - 1));
+      try {
+        await markNotificationRead(n._id);
+      } catch {
+        void loadNotifications();
+      }
+    }
+    if (href) router.push(href);
+  }
 
-  async function readOne(id: string) {
-    setItems((prev) => prev?.map((n) => (n._id === id ? { ...n, read: true } : n)) ?? prev);
+  async function readAll() {
+    setItems((prev) => prev?.map((n) => ({ ...n, read: true })) ?? prev);
+    setUnread(0);
     try {
-      await markNotificationRead(id);
+      await markAllNotificationsRead();
     } catch {
-      setItems((prev) => prev?.map((n) => (n._id === id ? { ...n, read: false } : n)) ?? prev);
-      setError("Could not mark this notification as read. Please try again.");
+      setError("Could not mark them as read. Please try again.");
+      void loadNotifications();
     }
   }
 
@@ -489,13 +518,18 @@ function NotificationBell() {
       </button>
 
       {open ? (
-        <div className="fixed inset-x-4 top-24 z-40 sm:absolute sm:inset-x-auto sm:right-0 sm:top-12 sm:w-[21rem] overflow-hidden rounded-card border border-border bg-surface-raised shadow-[var(--shadow-raised)]">
+        <div className="fixed inset-x-4 top-24 z-40 sm:absolute sm:inset-x-auto sm:right-0 sm:top-12 sm:w-[23rem] overflow-hidden rounded-card border border-border bg-surface-raised shadow-[var(--shadow-raised)]">
           <div className="flex items-center gap-2 border-b border-border-subtle px-4 py-3">
             <p className="text-meta font-bold text-fg">Notifications</p>
             {unread > 0 ? (
               <span className="rounded-full bg-accent-soft px-2 py-0.5 text-label font-bold text-accent-strong">
                 {unread} new
               </span>
+            ) : null}
+            {unread > 0 ? (
+              <button type="button" onClick={() => void readAll()} className="ml-auto text-label font-bold text-accent hover:underline">
+                Mark all read
+              </button>
             ) : null}
           </div>
 
@@ -505,6 +539,7 @@ function NotificationBell() {
             <div className="flex flex-col items-center px-4 py-8 text-center">
               <IconInbox size={22} className="mb-2 text-fg-muted" />
               <p className="text-note text-fg-muted">Nothing to catch up on.</p>
+              <p className="mt-1 text-label text-fg-muted">New bookings, cancellations and cases appear here.</p>
             </div>
           ) : (
             <ul className="max-h-[22rem] divide-y divide-border-subtle overflow-y-auto">
@@ -512,33 +547,34 @@ function NotificationBell() {
                 <li key={n._id}>
                   <button
                     type="button"
-                    onClick={() => readOne(n._id)}
+                    onClick={() => void openOne(n)}
                     className="flex w-full gap-2.5 px-4 py-3 text-left transition-colors hover:bg-surface"
                   >
                     <span
                       aria-hidden
                       className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${
-                        n.read ? "bg-transparent" : "bg-accent"
+                        n.read ? "bg-transparent" : needsAction(n.type) ? "bg-danger" : "bg-accent"
                       }`}
                     />
                     <span className="min-w-0">
-                      <span className="block text-note leading-snug text-fg">
-                        {n.payload?.message ?? n.type.replace(/[._]/g, " ")}
+                      <span className={`block text-note leading-snug ${n.read ? "text-fg-body" : "font-bold text-fg"}`}>
+                        {notificationText(n)}
                       </span>
-                      <span className="mt-0.5 block text-label text-fg-muted">
-                        {new Date(n.createdAt).toLocaleString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          hour: "numeric",
-                          minute: "2-digit",
-                        })}
-                      </span>
+                      <span className="mt-0.5 block text-label text-fg-muted">{notificationTime(n.createdAt)}</span>
                     </span>
                   </button>
                 </li>
               ))}
             </ul>
           )}
+
+          <Link
+            href="/notifications"
+            onClick={() => setOpen(false)}
+            className="block border-t border-border-subtle px-4 py-3 text-center text-note font-bold text-accent transition-colors hover:bg-surface"
+          >
+            View all notifications
+          </Link>
         </div>
       ) : null}
     </div>

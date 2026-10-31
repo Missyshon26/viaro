@@ -22,6 +22,7 @@ export const viewport: Viewport = {
 
 const NAV: NavItem[] = [
   { href: "/", label: "Dashboard", icon: "home" },
+  { href: "/notifications", label: "Notifications", icon: "bell" },
   { href: "/trips", label: "Trips", icon: "route" },
   { href: "/users", label: "Users", icon: "users" },
   { href: "/clients", label: "Clients", icon: "contact" },
