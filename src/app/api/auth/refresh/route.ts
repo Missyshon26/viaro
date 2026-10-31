@@ -12,12 +12,18 @@ export async function POST() {
     return NextResponse.json({ message: "No session" }, { status: 401 });
   }
 
-  const upstream = await fetch(`${API_BASE_URL}/auth/refresh`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refreshToken }),
-    cache: "no-store",
-  });
+  let upstream: Response;
+  try {
+    upstream = await fetch(`${API_BASE_URL}/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken }),
+      cache: "no-store",
+    });
+  } catch {
+    // The API is unreachable, which says nothing about the session — keep the cookie.
+    return NextResponse.json({ message: "Could not reach the server" }, { status: 503 });
+  }
 
   const payload = await upstream.json().catch(() => null);
 
