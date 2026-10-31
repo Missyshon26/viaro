@@ -121,6 +121,7 @@ export interface JourneyFilters {
   service?: string;
   city?: string;
   payment?: string;
+  customerId?: string;
 }
 export type JourneysPage = Paginated<Booking & { trip?: Trip }> & { counts: Record<string, number> };
 
@@ -143,6 +144,9 @@ export const getDashboardSummary = () => api.get<DashboardSummary>("/admin/dashb
 
 export const getUsersDashboard = (page = 1, limit = 20, filters: { role?: string; q?: string } = {}) =>
   api.get<Paginated<User>>("/admin/dashboard/users", { query: { page, limit, ...filters } });
+
+/** One account by id. */
+export const getUserDashboard = (id: string) => api.get<User>(`/admin/dashboard/users/${id}`);
 
 export interface SubscriptionRevenue {
   months: { year: number; month: number; activeSubscriptions: number; revenue: number }[];

@@ -23,13 +23,12 @@ import { errorText } from "@/lib/api/client";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
   fetchAllPages,
-  getBookingsDashboard,
+  getJourneys,
   getUserAgreement,
+  getUserDashboard,
   reviewUserAgreement,
-  getUsersDashboard,
   type UserAgreement,
 } from "@/lib/api/admin";
-import { listMyTrips } from "@/lib/api/driver";
 import { vehicleLabel } from "@/lib/vehicles";
 import type { Booking, Trip, User } from "@/lib/api/types";
 
@@ -73,11 +72,6 @@ function stageOf(row: Row): Stage {
   return "awaiting";
 }
 
-const customerIdOf = (booking: Row) =>
-  booking.customerId && typeof booking.customerId === "object"
-    ? booking.customerId._id
-    : String(booking.customerId ?? "");
-
 export default function UserDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
 
@@ -108,30 +102,17 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
    */
   const load = useCallback(async (isCurrent: () => boolean = () => true) => {
     try {
-      const [users, bookings, trips] = await Promise.all([
-        fetchAllPages((page, limit) => getUsersDashboard(page, limit)),
-        fetchAllPages((page, limit) => getBookingsDashboard(page, limit)),
-        fetchAllPages((page, limit) => listMyTrips({ page, limit })),
+      // One account and its own bookings (each with its trip), not every user, booking and trip.
+      const [found, journeys] = await Promise.all([
+        getUserDashboard(id),
+        fetchAllPages((page, limit) => getJourneys(page, limit, { customerId: id })),
       ]);
 
       if (!isCurrent()) return;
 
-      const found = users.items.find((u) => u._id === id) ?? null;
       setUser(found);
-      if (!found) {
-        setError("That account is not in the first pages of the user list.");
-        setRows([]);
-        return;
-      }
-
-      const tripByBooking = new Map<string, Trip>();
-      for (const trip of trips.items) tripByBooking.set(String(trip.bookingId), trip);
-
       setRows(
-        (bookings.items as Row[])
-          .filter((booking) => customerIdOf(booking) === id)
-          .map((booking) => ({ ...booking, trip: tripByBooking.get(booking._id) }))
-          .sort((a, b) => b.scheduledAt.localeCompare(a.scheduledAt)),
+        (journeys.items as unknown as Row[]).sort((a, b) => b.scheduledAt.localeCompare(a.scheduledAt)),
       );
       setError(null);
     } catch (err) {
