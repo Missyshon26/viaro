@@ -256,6 +256,7 @@ export const MATRIX: MatrixEntry[] = [
 
   /* ----------------------------- notifications ------------------------------ */
   { method: 'GET', path: '/notifications', allowed: ANY_ROLE },
+  { method: 'PATCH', path: '/notifications/read-all', allowed: ANY_ROLE },
   { method: 'PATCH', path: '/notifications/:id/read', allowed: ANY_ROLE },
 
   /* --------------------------------- flight --------------------------------- */

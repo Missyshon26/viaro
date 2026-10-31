@@ -97,13 +97,21 @@ export async function sendMany(
   await Promise.all(unique.map((id) => send(id, type, payload)));
 }
 
-export async function listForUser(userId: string, q: PaginationQuery) {
+export async function listForUser(userId: string, q: PaginationQuery & { unread?: 'true' | 'false' }) {
   const { skip, limit } = toSkipLimit(q);
-  const [items, total] = await Promise.all([
-    Notification.find({ userId }).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
-    Notification.countDocuments({ userId }),
+  const filter = { userId, ...(q.unread === 'true' ? { read: false } : {}) };
+  const [items, total, unread] = await Promise.all([
+    Notification.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+    Notification.countDocuments(filter),
+    Notification.countDocuments({ userId, read: false }),
   ]);
-  return paginated(items, total, q);
+  // `unread` is the account's whole unread count whatever the filter, so a badge can use it.
+  return { ...paginated(items, total, q), unread };
+}
+
+export async function markAllRead(userId: string) {
+  const result = await Notification.updateMany({ userId, read: false }, { $set: { read: true } });
+  return { updated: result.modifiedCount };
 }
 
 export async function markRead(notificationId: string, userId: string) {

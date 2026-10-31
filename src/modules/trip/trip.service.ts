@@ -24,6 +24,7 @@ import * as dispatchService from '../dispatch/dispatch.service';
 import * as walletService from '../wallet/wallet.service';
 import * as flightService from '../flight/flight.service';
 import * as notify from '../notifications/notifications.service';
+import { notifyOps, OPS_NOTIFICATIONS, bookingRef } from '../notifications/ops.notify';
 import { NOTIFICATION_TYPES } from '../notifications/notifications.service';
 import type { ChangeLocationInput, RateInput } from './trip.validation';
 import { companyDriverIds, companyOwnsDriver } from '../../utils/roster';
@@ -619,6 +620,14 @@ export async function cancelTripByDriver(tripId: string, userId: string, reason?
       customerId: booking.customerId,
       driverUserId: userId,
     });
+    void (async () => {
+      const who = await User.findById(userId).select('name').lean();
+      await notifyOps(OPS_NOTIFICATIONS.DRIVER_CANCELLED, {
+        message: `${who?.name ?? 'A driver'} cancelled ${bookingRef(booking._id)} after accepting it. The passenger was refunded in full and the trip needs a new driver.`,
+        bookingId: String(booking._id),
+        tripId: String(trip._id),
+      });
+    })();
     await notify.send(booking.customerId, NOTIFICATION_TYPES.TRIP_CANCELLED, {
       message: 'Your driver cancelled the trip',
       tripId: String(trip._id),

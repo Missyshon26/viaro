@@ -13,6 +13,7 @@ import * as walletService from '../wallet/wallet.service';
 import { paginated, toSkipLimit, type PaginationQuery } from '../../utils/pagination';
 import { emitTo, getIo, ns } from '../../sockets/io';
 import * as notify from '../notifications/notifications.service';
+import { notifyOps, OPS_NOTIFICATIONS, bookingRef } from '../notifications/ops.notify';
 import { NOTIFICATION_TYPES } from '../notifications/notifications.service';
 import { schedulePenaltyCheck, scheduleDelayedAlert } from '../../jobs/penalty.job';
 
@@ -293,6 +294,10 @@ export async function publishToPublicPool(bookingId: string): Promise<void> {
 
   if (nearby.length === 0) {
     logger.warn(`No available drivers within ${DISPATCH_RADIUS_KM}km of booking ${bookingId}`);
+    void notifyOps(OPS_NOTIFICATIONS.NO_DRIVERS, {
+      message: `No driver is available near the pickup for ${bookingRef(booking._id)} (${format(booking.scheduledAt)}). Assign one or publish it again.`,
+      bookingId: String(booking._id),
+    });
     return;
   }
 

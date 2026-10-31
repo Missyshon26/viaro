@@ -1,12 +1,14 @@
 import type { Job } from 'bullmq';
 import { Booking } from '../models/Booking';
 import { Trip } from '../models/Trip';
+import { User } from '../models/User';
 import { Driver } from '../models/Driver';
 import { PenaltyEvent } from '../models/PenaltyEvent';
 import { getQueue, registerWorker, QUEUE_NAMES } from './queues';
 import { getIo, ns } from '../sockets/io';
 import { logger } from '../utils/logger';
 import * as notify from '../modules/notifications/notifications.service';
+import { notifyOps, OPS_NOTIFICATIONS, bookingRef } from '../modules/notifications/ops.notify';
 import { NOTIFICATION_TYPES } from '../modules/notifications/notifications.service';
 
 /**
@@ -97,6 +99,11 @@ async function processPenaltyCheck(data: PenaltyJobData): Promise<void> {
       if (driver) {
         await notify.send(driver.userId, NOTIFICATION_TYPES.PENALTY_APPLIED, {
           message: 'You missed a ride request. Your next ride alerts will be delayed by 2 minutes.',
+          bookingId: String(booking._id),
+        });
+        const who = await User.findById(driver.userId).select('name').lean();
+        void notifyOps(OPS_NOTIFICATIONS.DRIVER_PENALISED, {
+          message: `${who?.name ?? 'A driver'} missed the ride request for ${bookingRef(booking._id)} and was penalised`,
           bookingId: String(booking._id),
         });
       }

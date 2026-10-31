@@ -15,6 +15,7 @@ import type { LoginInput, RegisterInput } from './auth.validation';
 import { revokeUserSessions } from './revocation';
 import { splitName } from '../../utils/profile';
 import { sendWelcomeEmail } from '../notifications/notification.emails';
+import { notifyOps, OPS_NOTIFICATIONS } from '../notifications/ops.notify';
 import { verifyFirebasePassword } from '../../integrations/firebasePassword';
 
 const BCRYPT_ROUNDS = 12;
@@ -135,6 +136,10 @@ export async function register(input: InternalRegisterInput) {
       userId: user._id,
       vehicleClass: input.vehicleClass,
       status: 'offline',
+    });
+    void notifyOps(OPS_NOTIFICATIONS.DRIVER_REGISTERED, {
+      message: `${user.name} registered as a driver${input.vehicleClass ? ` (${input.vehicleClass})` : ''}. Their documents are pending.`,
+      userId: String(user._id),
     });
   }
 

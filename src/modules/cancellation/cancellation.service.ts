@@ -13,6 +13,7 @@ import {
 import * as events from '../events/events.bus';
 import * as walletService from '../wallet/wallet.service';
 import * as notify from '../notifications/notifications.service';
+import { notifyOps, OPS_NOTIFICATIONS, bookingRef } from '../notifications/ops.notify';
 import { refundBookingToCard } from '../payments/cardPayments';
 import { NOTIFICATION_TYPES } from '../notifications/notifications.service';
 
@@ -152,6 +153,12 @@ export async function cancelTripByCustomer(
     scheduledAt: format(booking.scheduledAt),
     ...policy,
     refundAmount,
+  });
+
+  void notifyOps(OPS_NOTIFICATIONS.TRIP_CANCELLED, {
+    message: `${bookingRef(booking._id)}: the customer cancelled an assigned trip${policy.refundPct > 0 ? ` (${policy.refundPct}% refunded)` : ' (no refund)'}`,
+    bookingId: String(booking._id),
+    tripId: String(trip._id),
   });
 
   if (driver) {

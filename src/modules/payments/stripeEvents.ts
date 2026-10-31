@@ -1,3 +1,4 @@
+import { notifyOps, OPS_NOTIFICATIONS } from '../notifications/ops.notify';
 import { logger } from '../../utils/logger';
 import { completeCheckout } from '../booking/booking.checkout';
 import { syncStripeRefunds } from './cardPayments';
@@ -26,6 +27,14 @@ export async function handleStripeEvent(event: {
     if (event.type === 'payment_intent.succeeded') {
       const metadata = object.metadata as { kind?: string } | undefined;
       if (metadata?.kind === 'booking') await completeCheckout(null, String(object.id));
+    } else if (event.type === 'payment_intent.payment_failed') {
+      const metadata = object.metadata as { kind?: string } | undefined;
+      if (metadata?.kind === 'booking') {
+        const reason = (object.last_payment_error as { message?: string } | undefined)?.message;
+        void notifyOps(OPS_NOTIFICATIONS.PAYMENT_FAILED, {
+          message: `A card payment failed at checkout${reason ? `: ${reason}` : ''}. No booking was made.`,
+        });
+      }
     } else if (event.type === 'checkout.session.completed') {
       // A payment link an operator sent was paid.
       await handleCheckoutCompleted(object as unknown as StripeCheckoutSession);

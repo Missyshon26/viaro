@@ -23,6 +23,7 @@ import { availableDocuments, generateDocument, type DocumentKind } from './booki
 import * as dispatchService from '../dispatch/dispatch.service';
 import { scheduleCancellationWindowCheck } from '../../jobs/cancellationWindow.job';
 import * as notify from '../notifications/notifications.service';
+import { notifyOps, OPS_NOTIFICATIONS, bookingRef } from '../notifications/ops.notify';
 import { NOTIFICATION_TYPES } from '../notifications/notifications.service';
 import type { CreateBookingInput, UpdateBookingInput } from './booking.validation';
 import { applyAmendment, assertChangeable } from './booking.amendments';
@@ -233,6 +234,18 @@ export async function createBooking(
       estimatedFare: booking.estimatedFare,
     }),
   );
+
+  // Operations hears about every booking a customer makes (one an operator entered themselves
+  // needs no announcement to the same operators).
+  if (!madeBy) {
+    void (async () => {
+      const label = await vehicleService.labelFor(vehicleClass).catch(() => vehicleClass);
+      await notifyOps(OPS_NOTIFICATIONS.BOOKING_CREATED, {
+        message: `New booking ${bookingRef(booking._id)}: ${fare.packageName ? `${fare.packageName}, ` : ''}${label}, ${format(booking.scheduledAt)} · $${(booking.estimatedFare ?? 0).toFixed(2)}${booking.payment ? ' (paid by card)' : ''}`,
+        bookingId: String(booking._id),
+      });
+    })();
+  }
 
   // Warn the customer when their free-cancellation window is about to lapse (spec §1).
   scheduleCancellationWindowCheck(String(booking._id), booking.scheduledAt, booking.tripType).catch(
@@ -474,6 +487,11 @@ export async function updateBooking(bookingId: string, customerId: string, input
       );
     }
 
+    void notifyOps(OPS_NOTIFICATIONS.BOOKING_CHANGED, {
+      message: `${bookingRef(booking._id)} was changed by the customer${fareMoved ? ` (fare $${previousFare?.toFixed(2)} → $${booking.estimatedFare?.toFixed(2)})` : ''}`,
+      bookingId: String(booking._id),
+    });
+
     // The updated-booking email: the new details, and the fare change when there was one.
     await afterCommit('Update notice', booking._id, () =>
       notify.send(booking.customerId, NOTIFICATION_TYPES.BOOKING_UPDATED, {
@@ -548,6 +566,10 @@ export async function cancelBookingByCustomer(
       ...(refundAmount > 0 ? { refundAmount } : {}),
     }),
   );
+  void notifyOps(OPS_NOTIFICATIONS.BOOKING_CANCELLED, {
+    message: `${bookingRef(booking._id)} was cancelled by the customer${reason ? `: ${reason}` : ''}${refundAmount > 0 ? ` ($${refundAmount.toFixed(2)} refunded)` : ''}`,
+    bookingId: String(booking._id),
+  });
   await afterCommit('Live update', booking._id, () =>
     events.publish({
       topic: 'booking',

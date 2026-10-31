@@ -6,6 +6,7 @@ import { now, toDate } from '../../config/timezone';
 import type { AuthUser } from '../../middlewares/authGuard';
 import { paginated, toSkipLimit } from '../../utils/pagination';
 import * as notify from '../notifications/notifications.service';
+import { notifyOps, OPS_NOTIFICATIONS } from '../notifications/ops.notify';
 import { User } from '../../models/User';
 import { env } from '../../config/env';
 import { logger } from '../../utils/logger';
@@ -96,6 +97,10 @@ export async function createTicket(user: AuthUser, input: CreateTicketInput) {
     status: 'open',
     messages: [{ senderId: user.userId, senderRole: user.role, message: input.message }],
   });
+  void notifyOps(OPS_NOTIFICATIONS.SUPPORT_NEW, {
+    message: `New ${user.role === 'driver' ? 'driver' : 'passenger'} case: ${input.subject}`,
+    ticketId: String(ticket._id),
+  });
   void alertSupportInbox(ticket, user, input.message, 'new');
   return ticket;
 }
@@ -176,6 +181,10 @@ export async function reply(ticketId: string, user: AuthUser, input: ReplyInput)
       ticketId: String(ticket._id),
     });
   } else {
+    void notifyOps(OPS_NOTIFICATIONS.SUPPORT_REPLY, {
+      message: `${user.role === 'driver' ? 'A driver' : 'A passenger'} replied to the case "${ticket.subject}"`,
+      ticketId: String(ticket._id),
+    });
     void alertSupportInbox(ticket, user, input.message, 'reply');
   }
 
