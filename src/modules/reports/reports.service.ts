@@ -98,10 +98,12 @@ export async function tripsCompleted(user: AuthUser, range: ReportRange) {
   // GET /trips/:id can never drift apart on who may see a fare.
   const showFare = canSeeTripFare(user.role);
 
+  const names = await driverNamesById(trips.map((t) => t.driverId));
   const rows = trips.map((t) => ({
     tripId: String(t._id),
     bookingId: String(t.bookingId),
     driverId: String(t.driverId),
+    driverName: names.get(String(t.driverId)) ?? '',
     ...(showFare ? { fareAmount: round2(t.fareAmount) } : {}),
     completedAt: t.timestamps.completed ? format(t.timestamps.completed) : null,
   }));
@@ -112,6 +114,17 @@ export async function tripsCompleted(user: AuthUser, range: ReportRange) {
     ...(showFare ? { totalFare: round2(trips.reduce((sum, t) => sum + t.fareAmount, 0)) } : {}),
     rows,
   };
+}
+
+/** Chauffeur names by driver id, so a report row reads as a person and can be searched by one. */
+async function driverNamesById(ids: unknown[]): Promise<Map<string, string>> {
+  const unique = [...new Set(ids.map(String))];
+  if (!unique.length) return new Map();
+  const drivers = await Driver.find({ _id: { $in: unique } })
+    .select('userId')
+    .populate<{ userId: { name?: string } | null }>('userId', 'name')
+    .lean();
+  return new Map(drivers.map((d) => [String(d._id), d.userId?.name ?? '']));
 }
 
 /* ----------------------------- earnings / payout -------------------------- */
@@ -226,11 +239,15 @@ export async function cancellationsPenalties(user: AuthUser, range: ReportRange)
       .lean(),
   ]);
 
+  const names = await driverNamesById([...trips.map((t) => t.driverId), ...penalties.map((p) => p.driverId)]);
+
   return {
     scope: scope.driverId ? 'own' : scope.driverIds ? 'company' : 'all',
     cancellations: trips.map((t) => ({
       tripId: String(t._id),
+      bookingId: String(t.bookingId),
       driverId: String(t.driverId),
+      driverName: names.get(String(t.driverId)) ?? '',
       status: t.status,
       cancelledBy: t.cancellation?.cancelledBy ?? null,
       reason: t.cancellation?.reason ?? null,
@@ -241,6 +258,7 @@ export async function cancellationsPenalties(user: AuthUser, range: ReportRange)
       penaltyId: String(p._id),
       bookingId: String(p.bookingId),
       driverId: String(p.driverId),
+      driverName: names.get(String(p.driverId)) ?? '',
       reason: p.reason,
       alertDelayMinutes: p.alertDelayMinutes,
       at: format(p.createdAt),
