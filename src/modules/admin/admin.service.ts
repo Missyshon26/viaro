@@ -263,8 +263,18 @@ export async function listJourneys(q: JourneysQuery) {
     stage: { $nin: ['completed', 'cancelled'] },
     scheduledAt: { $lt: nowDate() },
   };
+  const stageGroups: Record<string, string[]> = {
+    active: ['assigned', 'in_progress'],
+    pending: ['awaiting', 'pool'],
+  };
   const stageMatch =
-    q.stage === 'overdue' ? overdue : q.stage ? { stage: q.stage } : {};
+    q.stage === 'overdue'
+      ? overdue
+      : q.stage && stageGroups[q.stage]
+        ? { stage: { $in: stageGroups[q.stage] } }
+        : q.stage
+          ? { stage: q.stage }
+          : {};
 
   const [result] = await Booking.aggregate([
     { $match: base },

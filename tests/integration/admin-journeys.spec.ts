@@ -180,3 +180,21 @@ describe('one account on the console', () => {
     expect((await request(server).get(`/admin/dashboard/users/${ann.id}`).set('Authorization', ann.auth)).status).toBe(403);
   });
 });
+
+describe('stage groups for the dashboard links', () => {
+  it("'active' is assigned plus in progress, and 'pending' is awaiting plus the pool", async () => {
+    const admin = await makeUser('admin');
+    const ann = await makeUser('customer');
+    const a = await book(admin.auth, ann.id); // awaiting
+    const b = await book(admin.auth, ann.id);
+    const c = await book(admin.auth, ann.id);
+    await Booking.updateOne({ _id: b }, { status: 'dispatched' }); // pool
+    await Booking.updateOne({ _id: c }, { status: 'assigned' }); // assigned
+
+    const ids = async (stage: string) =>
+      (await get(admin.auth, `stage=${stage}`)).body.data.items.map((i: { _id: string }) => String(i._id)).sort();
+    expect(await ids('pending')).toEqual([a, b].sort());
+    expect(await ids('active')).toEqual([c]);
+    expect((await get(admin.auth, 'stage=nonsense')).status).toBe(400);
+  });
+});

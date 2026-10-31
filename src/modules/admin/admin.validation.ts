@@ -63,7 +63,8 @@ const text = z.string().trim().max(120);
 
 /** GET /admin/dashboard/journeys — one page of bookings with their trip, filtered in the database. */
 export const journeysQuerySchema = paginationSchema.extend({
-  stage: z.enum([...JOURNEY_STAGES, 'overdue']).optional(),
+  /** One stage, 'overdue', or a group the dashboard links to: 'active' (assigned or in progress), 'pending' (awaiting or in the pool). */
+  stage: z.enum([...JOURNEY_STAGES, 'overdue', 'active', 'pending']).optional(),
   q: text.optional(),
   from: day.optional(),
   to: day.optional(),
