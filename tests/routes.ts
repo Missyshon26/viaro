@@ -8,7 +8,7 @@ import {
   subscriptionRouter,
 } from '../src/modules/pricing/pricing.routes';
 import { bookingRouter, customerRidesRouter } from '../src/modules/booking/booking.routes';
-import { adminDispatchRouter, dispatchRouter } from '../src/modules/dispatch/dispatch.routes';
+import { adminDispatchRouter } from '../src/modules/dispatch/dispatch.routes';
 import driverRoutes from '../src/modules/driver/driver.routes';
 import { adminVehicleRouter, vehicleRouter } from '../src/modules/vehicle/vehicle.routes';
 import { adminPackageRouter, packageRouter } from '../src/modules/package/package.routes';
@@ -41,7 +41,6 @@ export const MOUNTS: [prefix: string, router: Router][] = [
   ['/pricing', pricingRouter],
   ['/bookings', bookingRouter],
   ['/drivers', driverRoutes],
-  ['/dispatch', dispatchRouter],
   ['/support', supportRoutes],
   ['/trips', tripRoutes],
   ['/trips', cancellationRoutes],

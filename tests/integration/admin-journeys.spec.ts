@@ -7,9 +7,6 @@ import { listen, makeUser, pickupIn, point, resetData, seedCatalogue, startDatab
 vi.mock('../../src/jobs/cancellationWindow.job', () => ({
   scheduleCancellationWindowCheck: vi.fn(async () => undefined),
 }));
-vi.mock('../../src/modules/dispatch/dispatch.service', () => ({
-  receiveBookingRequest: vi.fn(async () => undefined),
-}));
 
 const http = listen(app);
 const server = http.server;
@@ -54,7 +51,7 @@ describe('GET /admin/dashboard/journeys', () => {
     const first = await book(admin.auth, ann.id);
     const second = await book(admin.auth, bob.id, { vehicleClass: 'suv', drop: point('Bellevue Square') });
     await book(admin.auth, bob.id);
-    await Booking.updateOne({ _id: second }, { status: 'dispatched' });
+    await Booking.updateOne({ _id: second }, { status: 'assigned' });
     await Booking.updateOne({ _id: first }, { status: 'cancelled' });
 
     const res = await get(admin.auth, 'limit=2');
@@ -65,7 +62,7 @@ describe('GET /admin/dashboard/journeys', () => {
     // Newest first, with the customer filled in the way the console reads it.
     expect(res.body.data.items[0].customerId.name).toBe('Bob Traveller');
     expect(res.body.data.items[0].scheduledAtLocal).toBeTruthy();
-    expect(res.body.data.counts).toMatchObject({ all: 3, awaiting: 1, pool: 1, cancelled: 1 });
+    expect(res.body.data.counts).toMatchObject({ all: 3, awaiting: 1, assigned: 1, cancelled: 1 });
 
     const page2 = await get(admin.auth, 'limit=2&page=2');
     expect(page2.body.data.items).toHaveLength(1);
@@ -76,12 +73,12 @@ describe('GET /admin/dashboard/journeys', () => {
     const ann = await makeUser('customer', { name: 'Ann Rider' });
     const a = await book(admin.auth, ann.id);
     await book(admin.auth, ann.id);
-    await Booking.updateOne({ _id: a }, { status: 'dispatched' });
+    await Booking.updateOne({ _id: a }, { status: 'assigned' });
 
-    const res = await get(admin.auth, 'stage=pool');
+    const res = await get(admin.auth, 'stage=assigned');
     expect(res.body.data.total).toBe(1);
     expect(String(res.body.data.items[0]._id)).toBe(a);
-    expect(res.body.data.counts).toMatchObject({ all: 2, pool: 1, awaiting: 1 });
+    expect(res.body.data.counts).toMatchObject({ all: 2, assigned: 1, awaiting: 1 });
   });
 
   it('searches the customer, an address, and the booking reference', async () => {
@@ -143,12 +140,12 @@ describe('GET /admin/dashboard/summary', () => {
     const ann = await makeUser('customer');
     const a = await book(admin.auth, ann.id);
     await book(admin.auth, ann.id);
-    await Booking.updateOne({ _id: a }, { status: 'dispatched' });
+    await Booking.updateOne({ _id: a }, { status: 'assigned' });
 
     const res = await request(server).get('/admin/dashboard/summary').set('Authorization', admin.auth);
     expect(res.status).toBe(200);
     expect(res.body.data.bookings.total).toBe(2);
-    expect(res.body.data.bookings.stages).toMatchObject({ awaiting: 1, pool: 1, completed: 0 });
+    expect(res.body.data.bookings.stages).toMatchObject({ awaiting: 1, assigned: 1, completed: 0 });
     expect(res.body.data.users).toMatchObject({ customer: 1, admin: 1, driver: 0 });
     expect(res.body.data.drivers).toMatchObject({ total: 0, available: 0 });
 
@@ -182,19 +179,21 @@ describe('one account on the console', () => {
 });
 
 describe('stage groups for the dashboard links', () => {
-  it("'active' is assigned plus in progress, and 'pending' is awaiting plus the pool", async () => {
+  it("'active' is assigned plus in progress, and a booking nobody has been put on is awaiting", async () => {
     const admin = await makeUser('admin');
     const ann = await makeUser('customer');
     const a = await book(admin.auth, ann.id); // awaiting
     const b = await book(admin.auth, ann.id);
     const c = await book(admin.auth, ann.id);
-    await Booking.updateOne({ _id: b }, { status: 'dispatched' }); // pool
-    await Booking.updateOne({ _id: c }, { status: 'assigned' }); // assigned
+    // A booking left 'dispatched' from when bookings were offered to drivers still reads as awaiting.
+    await Booking.updateOne({ _id: b }, { status: 'dispatched' });
+    await Booking.updateOne({ _id: c }, { status: 'assigned' });
 
     const ids = async (stage: string) =>
       (await get(admin.auth, `stage=${stage}`)).body.data.items.map((i: { _id: string }) => String(i._id)).sort();
-    expect(await ids('pending')).toEqual([a, b].sort());
+    expect(await ids('awaiting')).toEqual([a, b].sort());
     expect(await ids('active')).toEqual([c]);
     expect((await get(admin.auth, 'stage=nonsense')).status).toBe(400);
+    expect((await get(admin.auth, 'stage=pool')).status).toBe(400);
   });
 });

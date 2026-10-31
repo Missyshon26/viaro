@@ -17,9 +17,6 @@ vi.mock('../../src/modules/wallet/wallet.service', async (orig) => {
   const actual = await orig<typeof import('../../src/modules/wallet/wallet.service')>();
   return { ...actual, getOrCreateWallet: vi.fn(actual.getOrCreateWallet) };
 });
-vi.mock('../../src/modules/dispatch/dispatch.service', () => ({
-  receiveBookingRequest: vi.fn(async () => undefined),
-}));
 
 const http = listen(app);
 const server = http.server;

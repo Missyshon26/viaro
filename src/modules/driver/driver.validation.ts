@@ -7,9 +7,6 @@ import { z } from 'zod';
  */
 export const setStatusSchema = z.object({
   status: z.enum(['available', 'offline']),
-  /** Sent when going online so dispatch can place them immediately. */
-  lat: z.coerce.number().min(-90).max(90).optional(),
-  lng: z.coerce.number().min(-180).max(180).optional(),
 });
 
 export type SetStatusInput = z.infer<typeof setStatusSchema>;

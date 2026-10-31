@@ -152,8 +152,8 @@ export async function resolveDriverOwner(driverId: Types.ObjectId | string): Pro
  *      The driver is never paid straight from the fare.
  *
  * This is what makes the arithmetic close: the fare is allocated exactly once, and the
- * driver's pay is a transfer between two internal wallets, not new money. A public-pool
- * ride taken by a company's driver still splits 60/40, and that company then pays its
+ * driver's pay is a transfer between two internal wallets, not new money. A ride
+ * taken by a company's driver still splits 60/40, and that company then pays its
  * driver out of its 60.
  *
  * The rate itself is per driver (Driver.payout), set by their owner — a flat charge per
@@ -560,9 +560,8 @@ export async function withdraw(userId: string, amount: number, destination?: str
 /**
  * Spends the credit a passenger chose at booking, now that a Trip exists to spend it on.
  *
- * Called from both places a Trip is created — the chauffeur accepting from the pool, and
- * operations assigning one directly — so the choice is honoured whichever way the ride
- * is filled.
+ * Called where a Trip is created or confirmed — operations assigning a driver, and the driver
+ * confirming — so the choice is honoured whichever way the ride is filled.
  *
  * Everything here is best-effort and clamped. The booking may have been made days ago:
  * the balance can have been spent elsewhere, and the fare can have changed with a
@@ -581,9 +580,8 @@ export async function applyRequestedCredit(tripId: Types.ObjectId | string): Pro
   /*
    * One booking intent, spent once.
    *
-   * This is reachable from every path that creates or confirms a Trip — pool accept,
-   * favourite-driver auto-assign, admin dispatch — and none of them knew whether another
-   * had already run. A prior `ride_credit` row for this trip means the intent is spent,
+   * This is reachable from every path that creates or confirms a Trip — admin assignment
+   * and the driver's confirmation — and none of them knew whether another had already run. A prior `ride_credit` row for this trip means the intent is spent,
    * so re-running is a no-op rather than a second debit.
    */
   const alreadyApplied = await Transaction.findOne({

@@ -51,7 +51,6 @@ vi.mock('../../src/modules/payments/cardPayments', async (orig) => {
   return { ...actual, ensureStripeCustomer: vi.fn(async () => 'cus_test') };
 });
 vi.mock('../../src/jobs/cancellationWindow.job', () => ({ scheduleCancellationWindowCheck: vi.fn(async () => undefined) }));
-vi.mock('../../src/modules/dispatch/dispatch.service', () => ({ receiveBookingRequest: vi.fn(async () => undefined) }));
 
 const http = listen(app);
 const server = http.server;

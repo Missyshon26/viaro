@@ -57,14 +57,14 @@ export const usersQuerySchema = paginationSchema.extend({
 });
 export type UsersQuery = z.infer<typeof usersQuerySchema>;
 
-export const JOURNEY_STAGES = ['awaiting', 'pool', 'assigned', 'in_progress', 'completed', 'cancelled'] as const;
+export const JOURNEY_STAGES = ['awaiting', 'assigned', 'in_progress', 'completed', 'cancelled'] as const;
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use yyyy-mm-dd');
 const text = z.string().trim().max(120);
 
 /** GET /admin/dashboard/journeys — one page of bookings with their trip, filtered in the database. */
 export const journeysQuerySchema = paginationSchema.extend({
-  /** One stage, 'overdue', or a group the dashboard links to: 'active' (assigned or in progress), 'pending' (awaiting or in the pool). */
-  stage: z.enum([...JOURNEY_STAGES, 'overdue', 'active', 'pending']).optional(),
+  /** One stage, 'overdue', or 'active' (assigned or in progress, which the dashboard links to). */
+  stage: z.enum([...JOURNEY_STAGES, 'overdue', 'active']).optional(),
   q: text.optional(),
   from: day.optional(),
   to: day.optional(),

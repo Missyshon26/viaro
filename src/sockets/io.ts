@@ -20,7 +20,6 @@ export function getIo(): SocketIOServer | null {
 
 /** Namespace name builders — one place, so emitters and listeners can never drift apart. */
 export const ns = {
-  dispatch: '/dispatch',
   tracking: (tripId: string) => `/tracking/${tripId}`,
   chat: (tripId: string) => `/chat/${tripId}`,
   notify: (userId: string) => `/notify/${userId}`,

@@ -202,19 +202,11 @@ export const MATRIX: MatrixEntry[] = [
   { method: 'DELETE', path: '/admin/vehicle-classes/:id/images/:key', allowed: ['admin'] },
 
   /* -------------------------------- dispatch -------------------------------- */
-  { method: 'GET', path: '/dispatch/pool', allowed: ['driver', 'admin'] },
-  { method: 'GET', path: '/admin/dispatch/pool', allowed: ['admin'] },
   {
     method: 'POST',
     path: '/admin/dispatch/:id/assign',
     allowed: ['admin'],
     note: 'UML «Assign Driver to Booking» — the diagram draws no actor but Admin on it',
-  },
-  {
-    method: 'POST',
-    path: '/admin/dispatch/:id/publish',
-    allowed: ['admin'],
-    note: 'manual retry of the otherwise-automatic broadcast',
   },
 
   /* --------------------------------- wallet --------------------------------- */

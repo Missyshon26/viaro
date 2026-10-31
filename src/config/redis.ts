@@ -3,10 +3,9 @@ import { env } from './env';
 import { logger } from '../utils/logger';
 
 /**
- * Redis serves three jobs in this system (spec §1):
- *   1. driver geolocation  — GEOADD / GEOSEARCH on 'drivers:available' (dispatch step)
- *   2. BullMQ backend      — penalty timer, cancellation window, payouts, report exports
- *   3. token blacklist     — logged-out refresh tokens, keyed by jti with a TTL
+ * Redis serves two jobs in this system (spec §1):
+ *   1. BullMQ backend  — cancellation window, payouts, report exports
+ *   2. token blacklist — logged-out refresh tokens, keyed by jti with a TTL
  *
  * BullMQ requires its own connection with `maxRetriesPerRequest: null`, so queues must
  * use `createRedisConnection()` rather than sharing the app client below.

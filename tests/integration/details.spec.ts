@@ -15,9 +15,6 @@ vi.mock('../../src/modules/notifications/notifications.service', async (orig) =>
   const actual = await orig<typeof import('../../src/modules/notifications/notifications.service')>();
   return { ...actual, send: vi.fn(actual.send) };
 });
-vi.mock('../../src/modules/dispatch/dispatch.service', () => ({
-  receiveBookingRequest: vi.fn(async () => undefined),
-}));
 
 const http = listen(app);
 const server = http.server;

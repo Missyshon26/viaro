@@ -7,9 +7,6 @@ import { listen, makeUser, pickupIn, point, resetData, seedCatalogue, startDatab
 vi.mock('../../src/jobs/cancellationWindow.job', () => ({
   scheduleCancellationWindowCheck: vi.fn(async () => undefined),
 }));
-vi.mock('../../src/modules/dispatch/dispatch.service', () => ({
-  receiveBookingRequest: vi.fn(async () => undefined),
-}));
 
 const http = listen(app);
 const server = http.server;

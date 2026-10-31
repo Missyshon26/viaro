@@ -13,8 +13,8 @@ Specs live alongside the code:
 - MongoDB (Atlas cluster or local install)
 - Redis (Redis Cloud, Memurai, Docker or WSL)
 
-Redis is not optional — it backs driver geo-search for dispatch, the BullMQ job queues
-(penalty timer, report exports), and the refresh-token blacklist.
+Redis is not optional — it backs the BullMQ job queues (cancellation window, payouts,
+report exports) and the refresh-token blacklist.
 
 ## Setup
 
@@ -67,8 +67,8 @@ Seeded accounts, all with password `test1234`:
 | `customer1@abl.test` | customer | completed trip, cancelled trip + 90% refund |
 | `customer2@abl.test` | customer | active subscription (flat fares) |
 
-Note that dispatch is asynchronous — after creating a booking, the collection polls until
-it reaches `dispatched` before a driver accepts. Accepting instantly returns 409 by design.
+Note that a booking is not offered to drivers — after creating one, the collection has the
+admin assign the driver, and the driver then confirms the ride.
 
 ## Layout
 
@@ -97,7 +97,7 @@ Auth is `Authorization: Bearer <accessToken>`.
 | Users | `GET|PATCH /users/me` · `POST /users/me/documents` · `GET|POST|DELETE /users/me/favorites[/:driverId]` |
 | Pricing | `POST|GET|DELETE /subscriptions[/me]` · `GET /pricing/fare-estimate` · `POST|GET|PATCH /admin/pricing/city[/:id]` |
 | Booking | `POST /bookings` · `GET|PATCH|DELETE /bookings/:id` · `POST /bookings/:id/favorite-driver` · `GET /users/me/rides[/:id/receipt]` |
-| Dispatch | `GET /admin/dispatch/pool` · WS `/dispatch` |
+| Assignment | `POST /admin/dispatch/:id/assign` |
 | Trip | `POST /trips/:bookingId/accept` · `GET /trips/:id` · `POST /trips/:id/start|complete|cancel|rate` · `PATCH /trips/:id/vehicle-class|location` |
 | Cancellation | `POST /trips/:id/cancel/point-to-point|airport|hourly` |
 | Wallet | `GET /wallet/me` · `POST /wallet/withdraw` · `POST /wallet/use-credit` · `POST /payments/collect` · `POST /payments/webhook` |
@@ -111,7 +111,6 @@ Auth is `Authorization: Bearer <accessToken>`.
 
 | Namespace | Who connects | Events |
 |---|---|---|
-| `/dispatch` | drivers only | server → `booking:new`, `booking:claimed`; client → `location:update`, `booking:claimed` |
 | `/tracking/:tripId` | assigned driver emits, customer/admin subscribe | `location:update` |
 | `/chat/:tripId` | customer + driver read/write, **admin read-only** | `message:new`, `chat:error` |
 | `/notify/:userId` | that user only | `notification:new` |
@@ -141,7 +140,6 @@ Authenticate the handshake with `io(url, { auth: { token } })`.
 
 | Job | Trigger | What it does |
 |---|---|---|
-| `penalty.job` | armed when a booking hits the public pool | after 2 min with no acceptance, records a `PenaltyEvent` per silent driver and delays their future ride alerts |
 | `cancellationWindow.job` | armed when a booking is created | fires when the 90%-refund window closes, so the customer is warned instead of surprised |
 | `payout.job` | repeatable, Mondays 09:00 PT | sweeps driver balances ≥ 25 and notifies them earnings are ready — **does not move money**, see below |
 | `reportExport.job` | `GET /reports?format=csv\|pdf` | renders the export off the request thread |
@@ -151,7 +149,7 @@ Authenticate the handshake with `io(url, { auth: { token } })`.
 Settlement runs in [wallet.service.ts](src/modules/wallet/wallet.service.ts) on trip completion:
 
 1. **The customer's fare is split once** — `COMPANY_REVENUE_PCT` / `ADMIN_REVENUE_PCT`
-   (default 60 / 40). A public-pool ride taken by a company's driver still splits this way.
+   (default 60 / 40). A ride taken by a company's driver still splits this way.
 2. **The driver is paid by whoever owns them, out of that owner's share.** A company pays
    its roster drivers from its 60; the admin/platform pays unrostered drivers from its share.
    The driver is never paid straight from the fare, so the fare is allocated exactly once

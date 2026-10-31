@@ -12,7 +12,6 @@ import { logger } from '../utils/logger';
  */
 // BullMQ rejects ':' in queue names — it is the Redis key separator it builds with.
 export const QUEUE_NAMES = {
-  DISPATCH: 'abl-dispatch',
   CANCELLATION: 'abl-cancellation',
   PAYOUT: 'abl-payout',
   REPORTS: 'abl-reports',

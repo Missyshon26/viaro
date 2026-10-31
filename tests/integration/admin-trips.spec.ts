@@ -3,14 +3,10 @@ import request from 'supertest';
 import app from '../../src/app';
 import { Booking } from '../../src/models/Booking';
 import { User } from '../../src/models/User';
-import * as dispatch from '../../src/modules/dispatch/dispatch.service';
 import { listen, makeUser, pickupIn, point, resetData, seedCatalogue, startDatabase, stopDatabase } from './harness';
 
 vi.mock('../../src/jobs/cancellationWindow.job', () => ({
   scheduleCancellationWindowCheck: vi.fn(async () => undefined),
-}));
-vi.mock('../../src/modules/dispatch/dispatch.service', () => ({
-  receiveBookingRequest: vi.fn(async () => undefined),
 }));
 
 const http = listen(app);
@@ -26,7 +22,6 @@ afterAll(async () => {
 });
 beforeEach(async () => {
   await resetData();
-  vi.mocked(dispatch.receiveBookingRequest).mockClear();
 });
 
 const trip = (over: Record<string, unknown> = {}) => ({
@@ -89,7 +84,6 @@ describe('POST /admin/bookings', () => {
     expect(saved!.status).toBe('pending');
     expect(saved!.payment).toBeUndefined();
     expect(saved!.estimatedFare).toBeGreaterThan(0);
-    expect(dispatch.receiveBookingRequest).toHaveBeenCalledTimes(1);
   });
 
   it('carries the client\'s guest tag and signed agreement onto the trip', async () => {
@@ -193,7 +187,6 @@ describe('POST /admin/bookings/journey (multi-city and round trips)', () => {
       expect(String(b.customerId)).toBe(client.id);
       expect(b.payment).toBeUndefined();
     }
-    expect(dispatch.receiveBookingRequest).toHaveBeenCalledTimes(2);
   });
 
   it('books up to five legs and refuses six or one', async () => {
@@ -230,7 +223,6 @@ describe('POST /admin/bookings/journey (multi-city and round trips)', () => {
     expect(res.status).toBe(400);
     expect(JSON.stringify(res.body)).toMatch(/Leg 2/);
     expect(await Booking.countDocuments()).toBe(0);
-    expect(dispatch.receiveBookingRequest).not.toHaveBeenCalled();
   });
 
   it('refuses a suspended client and non-admins', async () => {

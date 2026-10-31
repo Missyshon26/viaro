@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "ABL Backend — Full API",
-    "description": "Complete ABL API: auth, users, pricing, booking, dispatch, trip lifecycle, cancellation & refunds, wallet, notifications, flight, chat, reports and admin.\n\n**Run `npm run seed` first** — the seeded accounts all use the password `Passw0rd!23`.\n\nRequests are ordered as a working flow, so \"Run collection\" exercises the whole system end to end. Every request asserts its result.",
+    "description": "Complete ABL API: auth, users, pricing, booking, assignment, trip lifecycle, cancellation & refunds, wallet, notifications, flight, chat, reports and admin.\n\n**Run `npm run seed` first** — the seeded accounts all use the password `Passw0rd!23`.\n\nRequests are ordered as a working flow, so \"Run collection\" exercises the whole system end to end. Every request asserts its result.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -1621,7 +1621,7 @@
           ]
         },
         {
-          "name": "UPDATE booking (pre-dispatch)",
+          "name": "UPDATE booking (before a driver is assigned)",
           "request": {
             "method": "PATCH",
             "header": [
@@ -1660,7 +1660,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"updated, or already dispatched\", () => pm.expect([200, 409]).to.include(pm.response.code));"
+                  "pm.test(\"updated, or too late\", () => pm.expect([200, 409]).to.include(pm.response.code));"
                 ]
               }
             }
@@ -1800,71 +1800,42 @@
       ]
     },
     {
-      "name": "05 · Dispatch & Trip lifecycle",
+      "name": "05 · Assignment & Trip lifecycle",
       "item": [
         {
-          "name": "Wait for dispatch (booking)",
+          "name": "Admin assigns the driver",
           "request": {
-            "method": "GET",
+            "method": "POST",
             "header": [
               {
-                "key": "Authorization",
-                "value": "Bearer {{customerToken}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/bookings/{{bookingId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "bookings",
-                "{{bookingId}}"
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const status = pm.response.json().data.status;",
-                  "const tries = Number(pm.collectionVariables.get(\"dispatchTries\") || 0);",
-                  "if (status === \"dispatched\" || status === \"assigned\") {",
-                  "  pm.collectionVariables.set(\"dispatchTries\", 0);",
-                  "  pm.test(\"booking reached dispatch\", () => pm.expect([\"dispatched\",\"assigned\"]).to.include(status));",
-                  "} else if (tries < 12) {",
-                  "  pm.collectionVariables.set(\"dispatchTries\", tries + 1);",
-                  "  postman.setNextRequest(\"Wait for dispatch (booking)\");",
-                  "} else {",
-                  "  pm.test(\"booking reached dispatch\", () => pm.expect.fail(\"still \" + status + \" after 12 polls\"));",
-                  "}"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Admin: dispatch pool",
-          "request": {
-            "method": "GET",
-            "header": [
+                "key": "Content-Type",
+                "value": "application/json"
+              },
               {
                 "key": "Authorization",
                 "value": "Bearer {{adminToken}}"
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/admin/dispatch/pool",
+              "raw": "{{baseUrl}}/admin/dispatch/{{bookingId}}/assign",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "admin",
                 "dispatch",
-                "pool"
+                "{{bookingId}}",
+                "assign"
               ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"driverId\": \"{{driverId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             }
           },
           "event": [
@@ -1875,14 +1846,14 @@
                 "exec": [
                   "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
                   "pm.test(\"envelope has success:true\", () => pm.expect(pm.response.json().success).to.eql(true));",
-                  "pm.test(\"pool listed\", () => pm.expect(pm.response.json().data.items).to.be.an(\"array\"));"
+                  "pm.test(\"driver assigned\", () => pm.expect(pm.response.json().data.booking.status).to.eql(\"assigned\"));"
                 ]
               }
             }
           ]
         },
         {
-          "name": "Driver ACCEPTS the booking",
+          "name": "Driver CONFIRMS the ride",
           "request": {
             "method": "POST",
             "header": [
@@ -1911,7 +1882,7 @@
                 "exec": [
                   "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
                   "pm.test(\"envelope has success:true\", () => pm.expect(pm.response.json().success).to.eql(true));",
-                  "pm.test(\"trip created\", () => pm.expect(pm.response.json().data.status).to.eql(\"accepted\"));",
+                  "pm.test(\"ride confirmed\", () => pm.expect(pm.response.json().data.status).to.eql(\"accepted\"));",
                   "pm.collectionVariables.set(\"tripId\", pm.response.json().data._id);"
                 ]
               }
@@ -2389,24 +2360,39 @@
           ]
         },
         {
-          "name": "Wait for dispatch (cancellation booking)",
+          "name": "Admin assigns the driver (cancellation booking)",
           "request": {
-            "method": "GET",
+            "method": "POST",
             "header": [
               {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
                 "key": "Authorization",
-                "value": "Bearer {{customerToken}}"
+                "value": "Bearer {{adminToken}}"
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/bookings/{{cancelBookingId}}",
+              "raw": "{{baseUrl}}/admin/dispatch/{{cancelBookingId}}/assign",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
-                "bookings",
-                "{{cancelBookingId}}"
+                "admin",
+                "dispatch",
+                "{{cancelBookingId}}",
+                "assign"
               ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"driverId\": \"{{driverId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             }
           },
           "event": [
@@ -2415,24 +2401,16 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "const status = pm.response.json().data.status;",
-                  "const tries = Number(pm.collectionVariables.get(\"dispatchTries\") || 0);",
-                  "if (status === \"dispatched\" || status === \"assigned\") {",
-                  "  pm.collectionVariables.set(\"dispatchTries\", 0);",
-                  "  pm.test(\"booking reached dispatch\", () => pm.expect([\"dispatched\",\"assigned\"]).to.include(status));",
-                  "} else if (tries < 12) {",
-                  "  pm.collectionVariables.set(\"dispatchTries\", tries + 1);",
-                  "  postman.setNextRequest(\"Wait for dispatch (cancellation booking)\");",
-                  "} else {",
-                  "  pm.test(\"booking reached dispatch\", () => pm.expect.fail(\"still \" + status + \" after 12 polls\"));",
-                  "}"
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"envelope has success:true\", () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "pm.test(\"driver assigned\", () => pm.expect(pm.response.json().data.booking.status).to.eql(\"assigned\"));"
                 ]
               }
             }
           ]
         },
         {
-          "name": "Driver accepts it",
+          "name": "Driver confirms it",
           "request": {
             "method": "POST",
             "header": [

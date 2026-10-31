@@ -41,7 +41,7 @@ export async function scheduleCancellationWindowCheck(
   await getQueue(QUEUE_NAMES.CANCELLATION).add(
     CANCELLATION_WINDOW_JOB,
     { bookingId } satisfies CancellationWindowJobData,
-    // ':' is reserved by BullMQ and rejected in a custom job id — see penalty.job.ts.
+    // ':' is reserved by BullMQ and rejected in a custom job id
     { delay: Math.floor(delayMs), jobId: `cancel-window-${bookingId}` },
   );
 

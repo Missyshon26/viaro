@@ -9,7 +9,6 @@ import { AGREEMENT_VERSION } from '../../src/config/agreement';
 import { listen, makeUser, TINY_PNG, pickupIn, point, resetData, seedCatalogue, startDatabase, stopDatabase } from './harness';
 
 vi.mock('../../src/jobs/cancellationWindow.job', () => ({ scheduleCancellationWindowCheck: vi.fn(async () => undefined) }));
-vi.mock('../../src/modules/dispatch/dispatch.service', () => ({ receiveBookingRequest: vi.fn(async () => undefined) }));
 // The real senders skip themselves under test; these are spies on the ones this suite is about.
 vi.mock('../../src/modules/notifications/notification.emails', async (orig) => {
   const actual = await orig<typeof import('../../src/modules/notifications/notification.emails')>();

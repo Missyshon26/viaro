@@ -10,11 +10,9 @@ import { connectRedis, disconnectRedis } from './config/redis';
 import { seedDefaults as seedVehicleClasses } from './modules/vehicle/vehicle.service';
 import { logger } from './utils/logger';
 import { setIo } from './sockets/io';
-import { attachDispatchNamespace } from './sockets/dispatch.socket';
 import { attachTrackingNamespace } from './sockets/tracking.socket';
 import { attachChatNamespace } from './sockets/chat.socket';
 import { attachNotifyNamespace } from './sockets/notify.socket';
-import { registerPenaltyWorker } from './jobs/penalty.job';
 import { registerCancellationWindowWorker } from './jobs/cancellationWindow.job';
 import { registerPayoutWorker, schedulePayoutRuns } from './jobs/payout.job';
 import { registerReportWorker } from './jobs/reportExport.job';
@@ -118,12 +116,10 @@ async function bootstrap(): Promise<void> {
   await seedVehicleClasses();
 
   setIo(io);
-  attachDispatchNamespace(io); // /dispatch
   attachTrackingNamespace(io); // /tracking/:tripId
   attachChatNamespace(io); //     /chat/:tripId
   attachNotifyNamespace(io); //   /notify/:userId
 
-  registerPenaltyWorker(); //            2-minute driver response penalty (spec §8 rule 5)
   registerCancellationWindowWorker(); // refund-window closing alerts (spec §8 rule 6)
   registerPayoutWorker(); //             weekly driver payout run (spec §1)
   registerReportWorker(); //             async CSV/PDF report exports (spec §4.10)

@@ -64,30 +64,14 @@ const req = (name, method, p, o = {}) => {
 const folder = (name, items) => ({ name, item: items });
 
 /**
- * Dispatch runs asynchronously after a booking is created (booking.service fires it
- * without awaiting, so a slow dispatch can never fail the customer's request). A driver
- * therefore cannot accept the instant the booking returns — in production they accept
- * from the socket broadcast, which only happens once dispatch has run.
- *
- * This request polls the booking until dispatch has picked it up, re-running itself via
- * setNextRequest. Without it the next request races and gets a 409.
+ * A booking waits as "pending" until an operator assigns a driver; nothing is offered to drivers
+ * to claim. So the admin assigns the driver, and the driver then confirms the ride.
  */
-const waitForDispatch = (name, bookingVar, tokenVar) =>
-  req(name, 'GET', `/bookings/{{${bookingVar}}}`, {
-    token: tokenVar,
-    tests: [
-      'const status = pm.response.json().data.status;',
-      'const tries = Number(pm.collectionVariables.get("dispatchTries") || 0);',
-      'if (status === "dispatched" || status === "assigned") {',
-      '  pm.collectionVariables.set("dispatchTries", 0);',
-      '  pm.test("booking reached dispatch", () => pm.expect(["dispatched","assigned"]).to.include(status));',
-      '} else if (tries < 12) {',
-      '  pm.collectionVariables.set("dispatchTries", tries + 1);',
-      `  postman.setNextRequest("${name}");`,
-      '} else {',
-      '  pm.test("booking reached dispatch", () => pm.expect.fail("still " + status + " after 12 polls"));',
-      '}',
-    ],
+const assignDriver = (name, bookingVar) =>
+  req(name, 'POST', `/admin/dispatch/{{${bookingVar}}}/assign`, {
+    token: 'adminToken',
+    body: { driverId: '{{driverId}}' },
+    tests: [...ok(), 'pm.test("driver assigned", () => pm.expect(pm.response.json().data.booking.status).to.eql("assigned"));'],
   });
 
 // Common assertion snippets
@@ -107,7 +91,7 @@ const collection = {
   info: {
     name: 'ABL Backend — Full API',
     description:
-      'Complete ABL API: auth, users, pricing, booking, dispatch, trip lifecycle, ' +
+      'Complete ABL API: auth, users, pricing, booking, assignment, trip lifecycle, ' +
       'cancellation & refunds, wallet, notifications, flight, chat, reports and admin.\n\n' +
       '**Run `npm run seed` first** — the seeded accounts all use the password `' + SEED_PASSWORD + '`.\n\n' +
       'Requests are ordered as a working flow, so "Run collection" exercises the whole system ' +
@@ -340,10 +324,10 @@ collection.item.push(
       token: 'driverToken',
       tests: denied(403, 'drivers read trips, not bookings'),
     }),
-    req('UPDATE booking (pre-dispatch)', 'PATCH', '/bookings/{{bookingId}}', {
+    req('UPDATE booking (before a driver is assigned)', 'PATCH', '/bookings/{{bookingId}}', {
       token: 'customerToken',
       body: { vehicleClass: 'suv' },
-      tests: ['pm.test("updated, or already dispatched", () => pm.expect([200, 409]).to.include(pm.response.code));'],
+      tests: ['pm.test("updated, or too late", () => pm.expect([200, 409]).to.include(pm.response.code));'],
     }),
     req('Request favourite driver', 'POST', '/bookings/{{bookingId}}/favorite-driver', {
       token: 'customerToken',
@@ -365,15 +349,11 @@ collection.item.push(
 /* 05 — dispatch + trip ----------------------------------------------------- */
 
 collection.item.push(
-  folder('05 · Dispatch & Trip lifecycle', [
-    waitForDispatch('Wait for dispatch (booking)', 'bookingId', 'customerToken'),
-    req('Admin: dispatch pool', 'GET', '/admin/dispatch/pool', {
-      token: 'adminToken',
-      tests: [...ok(), 'pm.test("pool listed", () => pm.expect(pm.response.json().data.items).to.be.an("array"));'],
-    }),
-    req('Driver ACCEPTS the booking', 'POST', '/trips/{{bookingId}}/accept', {
+  folder('05 · Assignment & Trip lifecycle', [
+    assignDriver('Admin assigns the driver', 'bookingId'),
+    req('Driver CONFIRMS the ride', 'POST', '/trips/{{bookingId}}/accept', {
       token: 'driverToken',
-      tests: [...ok(201), 'pm.test("trip created", () => pm.expect(pm.response.json().data.status).to.eql("accepted"));', save('tripId', '.data._id')],
+      tests: [...ok(201), 'pm.test("ride confirmed", () => pm.expect(pm.response.json().data.status).to.eql("accepted"));', save('tripId', '.data._id')],
     }),
     req('Trip as DRIVER — fare is stripped (note 2)', 'GET', '/trips/{{tripId}}', {
       token: 'driverToken',
@@ -441,8 +421,8 @@ collection.item.push(
       },
       tests: [...ok(201), save('cancelBookingId', '.data.booking._id')],
     }),
-    waitForDispatch('Wait for dispatch (cancellation booking)', 'cancelBookingId', 'customerToken'),
-    req('Driver accepts it', 'POST', '/trips/{{cancelBookingId}}/accept', {
+    assignDriver('Admin assigns the driver (cancellation booking)', 'cancelBookingId'),
+    req('Driver confirms it', 'POST', '/trips/{{cancelBookingId}}/accept', {
       token: 'driverToken',
       tests: [...ok(201), save('cancelTripId', '.data._id')],
     }),

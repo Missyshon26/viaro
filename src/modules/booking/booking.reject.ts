@@ -11,11 +11,12 @@ import { recordBookingCancellation } from './booking.cancellation';
 /**
  * Operations turning down a booking request, with a reason the customer is told.
  *
- * Only while no chauffeur has taken the ride (pending or offered to the pool): after that
+ * Only while no chauffeur has taken the ride (still pending): after that
  * the trip is somebody's job and has its own cancellation, which frees the chauffeur and
  * settles the money. The move is one conditional update, so a chauffeur accepting at the
  * same instant either wins — and this is refused as "already accepted" — or loses, and
- * never ends up with a ride that has just been rejected.
+ * never ends up with a ride that has just been rejected. (An old 'dispatched' booking, from
+ * when bookings were offered to drivers, can still be rejected too.)
  *
  * The customer did nothing wrong, so a card payment is refunded in full. If the refund
  * itself fails the booking is still rejected (and the customer told), and the failure comes

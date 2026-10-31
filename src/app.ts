@@ -15,7 +15,7 @@ import { adminPackageRouter, packageRouter } from './modules/package/package.rou
 import { adminEventTypeRouter } from './modules/package/eventType.routes';
 import { adminPricingRouter, pricingRouter, subscriptionRouter } from './modules/pricing/pricing.routes';
 import { bookingRouter, customerRidesRouter } from './modules/booking/booking.routes';
-import { adminDispatchRouter, dispatchRouter } from './modules/dispatch/dispatch.routes';
+import { adminDispatchRouter } from './modules/dispatch/dispatch.routes';
 import driverRoutes from './modules/driver/driver.routes';
 import supportRoutes from './modules/support/support.routes';
 import tripRoutes from './modules/trip/trip.routes';
@@ -121,9 +121,8 @@ app.use('/pricing', pricingRouter);
 
 app.use('/bookings', bookingRouter);
 
-// A driver's own account and the open-request pool they claim from.
+// A driver's own account.
 app.use('/drivers', driverRoutes);
-app.use('/dispatch', dispatchRouter);
 app.use('/support', supportRoutes);
 
 // Three routers share the /trips prefix: lifecycle, customer cancellation variants, and

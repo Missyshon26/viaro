@@ -28,19 +28,19 @@ Status: ✅ built and end-to-end tested · 🟡 built as a PLACEHOLDER pending a
 
 | # | Use case | Status | Where |
 |---|---|---|---|
-| 8 | Receive Booking Request | ✅ | `receiveBookingRequest()` — fired on booking creation |
-| 9 | Assign Driver to Booking | ✅ | `assignDriverToBooking()` — favourite-driver-first |
-| 10 | Publish Booking to Public Pool | ✅ | `publishToPublicPool()` — Redis `GEOSEARCH` + `/dispatch` socket |
+| 8 | Receive Booking Request | ✅ | a new booking waits as `pending` until an operator assigns a driver |
+| 9 | Assign Driver to Booking | ✅ | `assignSpecificDriver()` — admin console |
+| 10 | Publish Booking to Public Pool | ❌ | removed — bookings are not offered to drivers |
 
 ## 4. Driver Trip Flow
 
 | # | Use case | Status | Where |
 |---|---|---|---|
-| 11 | Accept Booking (assignment or public pool) | ✅ | `POST /trips/:id/accept` — resolves booking **or** trip id |
+| 11 | Accept Booking (the assigned driver confirms) | ✅ | `POST /trips/:id/accept` — resolves booking **or** trip id |
 | 12 | View Trip Details | ✅ | `GET /trips/:id` — fare stripped for driver (note 2) |
 | 13 | Cancel Ride | ✅ | `POST /trips/:id/cancel` |
-| 14 | Apply Penalty (2-min alert delay) | ✅ | [penalty.job.ts](src/jobs/penalty.job.ts) — BullMQ, survives restarts |
-| 15 | Receive Priority Ride Notifications | ✅ | socket `booking:new` **+** persisted notification, rating-ranked |
+| 14 | Apply Penalty | ✅ | recorded when a driver cancels an accepted ride (`cancelByDriver`) |
+| 15 | Receive Priority Ride Notifications | ❌ | removed with the public pool — drivers are assigned, not offered rides |
 
 ## 5. Money & Wallet
 
@@ -130,7 +130,7 @@ Status: ✅ built and end-to-end tested · 🟡 built as a PLACEHOLDER pending a
 | Pay Peak-Hour Adjusted Fare «extend» Book a Ride | ✅ non-subscriber → multiplier |
 | Upgrade/Downgrade Vehicle Class «extend» Book a Ride | ✅ |
 | **Cancel Ride «include» Apply Penalty** | ✅ driver-initiated cancel now penalises |
-| **Rate Driver After Trip «extend» Receive Priority Ride Notifications** | ✅ rating ranks ride offers |
+| **Rate Driver After Trip «extend» Receive Priority Ride Notifications** | ❌ removed with the public pool |
 | Pay Fare «include» Apply Revenue Split | ✅ on trip completion |
 | Cancel or Change Booking «include» Cancel Point-to-Point Trip | ✅ |
 | Issue 90% Refund «include» Credit Refund to Customer Wallet | ✅ |

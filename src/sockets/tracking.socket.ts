@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import type { Server as SocketIOServer, Socket } from 'socket.io';
 import { Trip } from '../models/Trip';
 import { Booking } from '../models/Booking';
@@ -7,8 +8,13 @@ import { nsPattern } from './io';
 import { logger } from '../utils/logger';
 import { companyOwnsDriver } from '../utils/roster';
 import * as tripService from '../modules/trip/trip.service';
-import { locationUpdateSchema } from '../modules/dispatch/dispatch.validation';
 import { now, toISO } from '../config/timezone';
+
+/** A driver's position frame on the tracking namespace; socket frames never reach Express validation. */
+const locationUpdateSchema = z.object({
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
+});
 
 /**
  * '/tracking/:tripId' namespace (spec §5) — Live Car Tracking.

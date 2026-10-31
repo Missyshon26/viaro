@@ -4,6 +4,10 @@ import { CRUISE_PORT_KEYS, MAX_CAR_SEATS, MAX_JOURNEY_LEGS, type CruisePort } fr
 export const TRIP_TYPES = ['point2point', 'airport', 'hourly'] as const;
 export type TripType = (typeof TRIP_TYPES)[number];
 
+/**
+ * 'dispatched' is no longer set by anything: bookings used to be offered to nearby drivers, and
+ * ones from that time may still carry it. They are treated as pending (awaiting a driver).
+ */
 export const BOOKING_STATUSES = ['pending', 'dispatched', 'assigned', 'cancelled'] as const;
 export type BookingStatus = (typeof BOOKING_STATUSES)[number];
 

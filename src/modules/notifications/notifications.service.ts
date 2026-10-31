@@ -25,7 +25,6 @@ export const NOTIFICATION_TYPES = {
   /** Cancelled before a chauffeur was assigned (after that it is TRIP_CANCELLED). */
   BOOKING_CANCELLED: 'booking.cancelled',
   DRIVER_ASSIGNED: 'trip.driver_assigned',
-  RIDE_OFFER: 'dispatch.ride_offer',
   /** The chauffeur is on the way / at the pickup (before the ride starts). */
   /** Operations confirmed the trip (driver, vehicle and pickup are final). */
   TRIP_CONFIRMED: 'trip.confirmed',

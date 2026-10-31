@@ -192,7 +192,11 @@ export async function listAllBookings(q: PaginationQuery) {
   );
 }
 
-/** The console's stageOf, as a Mongo expression over a booking joined to its `trips` array. */
+/**
+ * The console's stageOf, as a Mongo expression over a booking joined to its `trips` array. A
+ * booking with no trip is awaiting a driver (an old 'dispatched' booking, from when bookings were
+ * offered to drivers, reads the same way).
+ */
 const journeyStageExpr = {
   $switch: {
     branches: [
@@ -200,7 +204,6 @@ const journeyStageExpr = {
       { case: { $or: [{ $eq: ['$trip.status', 'cancelled'] }, { $eq: ['$status', 'cancelled'] }] }, then: 'cancelled' },
       { case: { $eq: ['$trip.status', 'started'] }, then: 'in_progress' },
       { case: { $or: [{ $gt: [{ $size: '$trips' }, 0] }, { $eq: ['$status', 'assigned'] }] }, then: 'assigned' },
-      { case: { $eq: ['$status', 'dispatched'] }, then: 'pool' },
     ],
     default: 'awaiting',
   },
@@ -265,7 +268,6 @@ export async function listJourneys(q: JourneysQuery) {
   };
   const stageGroups: Record<string, string[]> = {
     active: ['assigned', 'in_progress'],
-    pending: ['awaiting', 'pool'],
   };
   const stageMatch =
     q.stage === 'overdue'
@@ -378,7 +380,6 @@ export async function dashboardSummary() {
       total: Object.values(stages).reduce((a, b) => a + b, 0),
       stages: {
         awaiting: stages.awaiting ?? 0,
-        pool: stages.pool ?? 0,
         assigned: stages.assigned ?? 0,
         in_progress: stages.in_progress ?? 0,
         completed: stages.completed ?? 0,
@@ -484,7 +485,6 @@ export async function driverPenalties(user: AuthUser) {
         .map((e) => ({
           bookingId: e.bookingId,
           reason: e.reason,
-          alertDelayMinutes: e.alertDelayMinutes,
           at: format(e.createdAt),
         })),
     })),

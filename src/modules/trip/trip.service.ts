@@ -20,7 +20,6 @@ import { format, now, toDate } from '../../config/timezone';
 import { round2 } from '../../utils/money';
 import { logger } from '../../utils/logger';
 import { paginated, toSkipLimit, type PaginationQuery } from '../../utils/pagination';
-import * as dispatchService from '../dispatch/dispatch.service';
 import * as walletService from '../wallet/wallet.service';
 import * as flightService from '../flight/flight.service';
 import * as notify from '../notifications/notifications.service';
@@ -126,9 +125,8 @@ export function shapeTripForRole(
 /* -------------------------------------------------------------------------- */
 
 /**
- * Driver accepts a ride, either from a direct favourite-driver assignment or from the
- * public pool. This is the authoritative claim — the socket 'booking:claimed' event is
- * only a courtesy broadcast.
+ * A driver confirms a ride an operator assigned to them. Only the assigned driver may; a ride
+ * is never offered to drivers to claim.
  */
 /**
  * Announces a trip change to everyone who could be looking at it.
@@ -160,7 +158,7 @@ export async function acceptBooking(id: string, userId: string) {
   if (!driver) throw ApiError.notFound('Driver profile not found');
 
   // Same rule as going online (driver.service setOwnStatus): an account still awaiting
-  // document review cannot be dispatched, so it must not be able to claim from the pool.
+  // document review cannot be dispatched, so it must not be able to take a ride.
   const account = await User.findById(userId).select('status').lean<{ status: string }>();
   if (account?.status === 'pending_documents') {
     throw ApiError.forbidden('Upload your documents before accepting rides');
@@ -168,7 +166,7 @@ export async function acceptBooking(id: string, userId: string) {
 
   // The spec writes this route as /trips/:id/accept and the build prompt as
   // /trips/:bookingId/accept. Both are honoured: the id is resolved as a booking first,
-  // then as a Trip (which exists already when a favourite driver was pre-assigned).
+  // then as a Trip (which exists once an operator has assigned the driver).
   let booking = await Booking.findById(id);
   if (!booking) {
     const viaTrip = await Trip.findById(id);
@@ -180,9 +178,9 @@ export async function acceptBooking(id: string, userId: string) {
   const existing = await Trip.findOne({ bookingId: booking._id });
 
   if (existing) {
-    // Pre-assigned to a favourite driver: only that driver may confirm it.
+    // Only the driver an operator assigned may confirm it.
     if (String(existing.driverId) !== String(driver._id)) {
-      throw ApiError.conflict('This ride has already been claimed by another driver');
+      throw ApiError.conflict('This ride is assigned to another driver');
     }
 
     /*
@@ -210,25 +208,8 @@ export async function acceptBooking(id: string, userId: string) {
     return claimed;
   }
 
-  if (booking.status !== 'dispatched') {
-    throw ApiError.conflict(`Booking is '${booking.status}' and cannot be accepted`);
-  }
-
-  const trip = await Trip.create({
-    bookingId: booking._id,
-    driverId: driver._id,
-    status: 'accepted',
-    fareAmount: booking.estimatedFare ?? 0,
-    ...(booking.fareBreakdown?.tax ? { taxAmount: booking.fareBreakdown.tax } : {}),
-    timestamps: {
-      requested: booking.createdAt,
-      assigned: toDate(now()),
-      accepted: toDate(now()),
-    },
-  });
-
-  await afterAccept(trip, booking, driver);
-  return trip;
+  // Nobody claims a job from a pool: a driver confirms a ride an operator assigned to them.
+  throw ApiError.conflict('This ride has not been assigned to you');
 }
 
 async function afterAccept(trip: TripDocument, booking: BookingDocument, driver: DriverDocument) {
@@ -237,8 +218,6 @@ async function afterAccept(trip: TripDocument, booking: BookingDocument, driver:
 
   driver.status = 'busy';
   await driver.save();
-  await dispatchService.removeDriverLocation(String(driver._id));
-  dispatchService.broadcastClaimed(String(booking._id), String(driver._id));
 
   await notify.send(booking.customerId, NOTIFICATION_TYPES.DRIVER_ASSIGNED, {
     message: 'A driver has accepted your ride',
@@ -558,12 +537,11 @@ export async function cancelTripByDriver(tripId: string, userId: string, reason?
   };
 
   /**
-   * UML: "Cancel Ride" «include» "Apply Penalty (2-min alert delay)".
+   * UML: "Cancel Ride" «include» "Apply Penalty".
    *
-   * A driver abandoning a ride they already accepted is penalised the same way as one who
-   * ignores an alert — this is an <<include>>, so it is unconditional, not a judgement
-   * call. The event lands in the same PenaltyEvent collection the Admin and Company
-   * dashboards read (spec §8 rule 5).
+   * A driver abandoning a ride they already accepted is penalised — this is an <<include>>,
+   * so it is unconditional, not a judgement call. The event lands in the PenaltyEvent
+   * collection the Admin and Company dashboards read (spec §8 rule 5).
    */
   trip.penaltyApplied = true;
   await trip.save();
@@ -573,7 +551,6 @@ export async function cancelTripByDriver(tripId: string, userId: string, reason?
       bookingId: trip.bookingId,
       driverId: driver._id,
       reason: 'Driver cancelled a ride they had already accepted',
-      alertDelayMinutes: 2,
     });
     driver.penaltyCount += 1;
   } catch (err) {
@@ -585,7 +562,7 @@ export async function cancelTripByDriver(tripId: string, userId: string, reason?
   await driver.save();
 
   await notify.send(driver.userId, NOTIFICATION_TYPES.PENALTY_APPLIED, {
-    message: 'You cancelled an accepted ride. Your next ride alerts will be delayed by 2 minutes.',
+    message: 'You cancelled an accepted ride. A penalty has been recorded.',
     tripId: String(trip._id),
   });
 

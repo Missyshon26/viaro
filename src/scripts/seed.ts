@@ -272,7 +272,7 @@ export async function seed(): Promise<void> {
     vehicleClass: 'sedan',
     tripType: 'point2point',
     city: SEED_CITY,
-    status: 'dispatched',
+    status: 'pending',
     scheduledAt: toDate(now().plus({ days: 2 })),
     estimatedFare: 100,
   });
@@ -281,8 +281,7 @@ export async function seed(): Promise<void> {
   await PenaltyEvent.create({
     bookingId: pendingBooking._id,
     driverId: fleetDriver._id,
-    reason: 'No response to ride alert within the 2-minute window',
-    alertDelayMinutes: 2,
+    reason: 'Driver cancelled a ride they had already accepted',
   });
   fleetDriver.penaltyCount = 1;
   await fleetDriver.save();

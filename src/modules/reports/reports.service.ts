@@ -260,7 +260,6 @@ export async function cancellationsPenalties(user: AuthUser, range: ReportRange)
       driverId: String(p.driverId),
       driverName: names.get(String(p.driverId)) ?? '',
       reason: p.reason,
-      alertDelayMinutes: p.alertDelayMinutes,
       at: format(p.createdAt),
     })),
     counts: { cancellations: trips.length, penalties: penalties.length },

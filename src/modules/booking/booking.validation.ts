@@ -22,9 +22,9 @@ import {
  *   - unparsable text reached `toAppTime`, which throws a bare Error -> a 500 on what is
  *     plainly a bad request;
  *   - a date in the past was accepted, so `scheduledAt:"2020-01-01"` created a pending
- *     booking and broadcast it to the dispatch pool for a ride that could never happen.
+ *     booking for a ride that could never happen.
  *
- * MIN_LEAD_MINUTES gives dispatch a moment to actually find a chauffeur, and absorbs
+ * MIN_LEAD_MINUTES gives operations a moment to find a chauffeur, and absorbs
  * clock skew between a client and the server.
  */
 export const MIN_LEAD_MINUTES = 5;

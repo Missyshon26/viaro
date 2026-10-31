@@ -9,7 +9,6 @@ import {
 } from '../wallet/ratingPay';
 import { getPayoutDefaults } from '../admin/settings.service';
 import { logger } from '../../utils/logger';
-import * as dispatchService from '../dispatch/dispatch.service';
 import * as repo from './driver.repository';
 import type { ApplyInput, SetStatusInput } from './driver.validation';
 
@@ -58,12 +57,6 @@ export async function setOwnStatus(userId: string, input: SetStatusInput) {
   }
 
   const updated = await repo.updateStatus(driver._id, input.status);
-
-  if (input.status === 'available' && input.lat !== undefined && input.lng !== undefined) {
-    await dispatchService.upsertDriverLocation(String(driver._id), input.lat, input.lng);
-  } else if (input.status === 'offline') {
-    await dispatchService.removeDriverLocation(String(driver._id));
-  }
 
   logger.info(`Driver ${String(driver._id)} is now ${input.status}`);
   return updated;

@@ -13,8 +13,6 @@ export interface IPenaltyEvent {
   bookingId: Types.ObjectId;
   driverId: Types.ObjectId;
   reason: string;
-  /** Minutes the driver's next ride alerts are delayed by, per spec §8 rule 5. */
-  alertDelayMinutes: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -26,7 +24,6 @@ const penaltyEventSchema = new Schema<IPenaltyEvent>(
     bookingId: { type: Schema.Types.ObjectId, ref: 'Booking', required: true, index: true },
     driverId: { type: Schema.Types.ObjectId, ref: 'Driver', required: true, index: true },
     reason: { type: String, required: true },
-    alertDelayMinutes: { type: Number, default: 2 },
   },
   { timestamps: true },
 );

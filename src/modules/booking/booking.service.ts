@@ -20,7 +20,6 @@ import type { Address } from '../../utils/profile';
 import { assertVehicleRules } from './booking.rules';
 import { applyDetailChanges } from './booking.details';
 import { availableDocuments, generateDocument, type DocumentKind } from './booking.documents';
-import * as dispatchService from '../dispatch/dispatch.service';
 import { scheduleCancellationWindowCheck } from '../../jobs/cancellationWindow.job';
 import * as notify from '../notifications/notifications.service';
 import { notifyOps, OPS_NOTIFICATIONS, bookingRef } from '../notifications/ops.notify';
@@ -252,13 +251,6 @@ export async function createBooking(
     (err) => logger.warn(`Could not arm cancellation window for booking ${String(booking._id)}`, err),
   );
 
-  // The single cross-module wiring point (spec §4.4): dispatch takes over from here.
-  // Deliberately not awaited into the response path — a dispatch hiccup must not fail a
-  // booking the customer already paid attention to; it is logged and retryable instead.
-  dispatchService.receiveBookingRequest(String(booking._id)).catch((err) => {
-    logger.error(`Dispatch failed for booking ${String(booking._id)}`, err);
-  });
-
   // Operations watches the pipeline; the passenger's own trip list is stale too.
   await afterCommit('Live update', booking._id, () =>
     events.publish({
@@ -342,13 +334,8 @@ export async function updateBooking(bookingId: string, customerId: string, input
   const booking = await loadOwnBooking(bookingId, customerId);
 
   /*
-   * This used to refuse anything that was not 'pending', which made the feature almost
-   * unreachable: dispatch runs the moment a booking is created, so a booking is
-   * 'dispatched' within a second or two and the customer could never edit it.
-   *
-   * The real constraint is time, not dispatch state — a change is fine until a chauffeur
-   * is close enough to be inconvenienced. assertChangeable() owns that rule and the
-   * trip-level routes share it.
+   * The constraint is time — a change is fine until a chauffeur is close enough to be
+   * inconvenienced. assertChangeable() owns that rule and the trip-level routes share it.
    */
   assertChangeable(booking);
 
@@ -595,7 +582,7 @@ export async function requestFavoriteDriver(bookingId: string, customerId: strin
   if (!driver) throw ApiError.notFound('Driver not found');
 
   if (driver.status !== 'available') {
-    // Explicit, machine-readable so the client can fall back to normal dispatch.
+    // Explicit, machine-readable so the client can carry on without a favourite.
     throw new ApiError(409, 'Favourite driver is not available right now', {
       code: 'FAVORITE_DRIVER_BUSY',
       driverStatus: driver.status,

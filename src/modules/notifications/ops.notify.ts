@@ -21,8 +21,6 @@ export const OPS_NOTIFICATIONS = {
   BOOKING_CANCELLED: 'ops.booking_cancelled',
   TRIP_CANCELLED: 'ops.trip_cancelled',
   DRIVER_CANCELLED: 'ops.driver_cancelled',
-  NO_DRIVERS: 'ops.no_drivers',
-  DRIVER_PENALISED: 'ops.driver_penalised',
   DRIVER_REGISTERED: 'ops.driver_registered',
   SUPPORT_NEW: 'ops.support_new',
   SUPPORT_REPLY: 'ops.support_reply',
