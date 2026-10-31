@@ -94,7 +94,7 @@ export interface PenaltyDriver {
   vehicleClass: string;
   status: string;
   penaltyCount: number;
-  events: { bookingId: string; reason: string; alertDelayMinutes: number; at?: string }[];
+  events: { bookingId: string; reason: string; at?: string }[];
 }
 
 export interface PenaltiesReport {
@@ -135,7 +135,7 @@ export const getJourneys = (page: number, limit: number, filters: JourneyFilters
 export interface DashboardSummary {
   bookings: {
     total: number;
-    stages: { awaiting: number; pool: number; assigned: number; in_progress: number; completed: number; cancelled: number };
+    stages: { awaiting: number; assigned: number; in_progress: number; completed: number; cancelled: number };
   };
   users: { customer: number; driver: number; company: number; admin: number };
   drivers: { total: number; available: number; busy: number; offline: number; penalised: number; top: RosterDriver[] };
@@ -184,24 +184,20 @@ export const deletePricingRule = (id: string) =>
 
 /* --------------------------------- dispatch -------------------------------- */
 
-export interface PoolBooking extends Omit<Booking, "customerId"> {
+export interface AssignedBooking extends Omit<Booking, "customerId"> {
   customerId: string | { _id: string; name: string; phone: string };
   scheduledAtLocal?: string;
 }
-
-export const getDispatchPool = () =>
-  api.get<Paginated<PoolBooking> | PoolBooking[]>("/admin/dispatch/pool");
 
 /**
  * UML «Assign Driver to Booking» — the Admin actor's association on the DISPATCH
  * cluster, and admin-only because no other actor is drawn against it.
  *
- * Dispatch is otherwise automatic: a booking is broadcast to nearby chauffeurs the
- * moment it is created. This is the manual override. The API refuses a booking that is
- * already assigned or cancelled, and a chauffeur who is not `available`.
+ * A booking is not offered to drivers: it waits until an operator assigns one here. The API
+ * refuses a booking that is already assigned or cancelled, and a driver who is not `available`.
  */
 export const assignDriverToBooking = (bookingId: string, driverId: string) =>
-  api.post<{ booking: PoolBooking; tripId: string }>(
+  api.post<{ booking: AssignedBooking; tripId: string }>(
     `/admin/dispatch/${bookingId}/assign`,
     { driverId },
   );
@@ -278,7 +274,6 @@ export interface CancellationsReport {
     bookingId: string;
     driverId: string;
     reason: string;
-    alertDelayMinutes: number;
     at: string;
   }[];
   counts: { cancellations: number; penalties: number };
@@ -330,19 +325,6 @@ export const replyToTicket = (id: string, message: string) =>
 /** Admin-only: moving a ticket's state. */
 export const setTicketStatus = (id: string, status: string) =>
   api.patch<Ticket>(`/support/tickets/${id}`, { status });
-
-/**
- * UML «Publish Booking to Public Pool» — the manual retry.
- *
- * Publishing is normally automatic: creating a booking broadcasts it to nearby
- * chauffeurs straight away. This re-runs that broadcast for a booking the automatic
- * pass missed or that nobody claimed. Answers with how many chauffeurs were in range,
- * because "published to nobody" is a materially different outcome.
- */
-export const publishToPool = (bookingId: string) =>
-  api.post<{ bookingId: string; driversInRange: number }>(
-    `/admin/dispatch/${bookingId}/publish`,
-  );
 
 /* ---------------------------------- flight --------------------------------- */
 

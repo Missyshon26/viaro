@@ -28,10 +28,9 @@ export async function collectBadgeIds(): Promise<Record<string, string[]>> {
   /*
    * Trips: the badge is the OPS QUEUE, not the volume of journeys.
    *
-   * A booking with no trip against it is one nobody is driving — either still awaiting
-   * dispatch or sitting in the pool unclaimed. Counting every booking would make the
-   * badge a number that never goes down and means nothing; counting the unassigned ones
-   * makes it a to-do list.
+   * A booking with no trip against it is one nobody is driving — still awaiting a driver.
+   * Counting every booking would make the badge a number that never goes down and means
+   * nothing; counting the unassigned ones makes it a to-do list.
    */
   if (bookings.status === "fulfilled" && trips.status === "fulfilled") {
     const claimed = new Set(

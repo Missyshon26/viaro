@@ -44,7 +44,7 @@ const axisLabel = (n: number, kind: "number" | "money") => (kind === "money" ? `
  * The top of the axis, rounded up to a step that reads cleanly (1, 2, 5, 10, 20, 50…) so the four
  * gridlines fall on whole, sensible values — 0, 25, 50, 75, 100 rather than 0, 31.5, 63, 94.5, 126.
  */
-export function niceMax(max: number, kind: "number" | "money" = "number"): number {
+export function niceMax(max: number): number {
   if (max <= 0) return 4;
   const raw = Math.max(max / 4, 1);
   const power = 10 ** Math.floor(Math.log10(raw));
@@ -166,7 +166,7 @@ export function AreaChart({
   const PAD_T = 12;
   const PAD_B = 24;
 
-  const max = niceMax(Math.max(...data.map((d) => d.value), 1), kind);
+  const max = niceMax(Math.max(...data.map((d) => d.value), 1));
   const innerW = W - PAD_L - PAD_R;
   const innerH = H - PAD_T - PAD_B;
 
@@ -302,7 +302,7 @@ export function BarChart({
   const W = 600;
   const H = 200;
   const PAD = { l: 8, r: 8, t: 12, b: 24 };
-  const max = niceMax(Math.max(...data.map((d) => d.value), 1), kind);
+  const max = niceMax(Math.max(...data.map((d) => d.value), 1));
   const innerW = W - PAD.l - PAD.r;
   const innerH = H - PAD.t - PAD.b;
   const slot = innerW / data.length;

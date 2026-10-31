@@ -9,7 +9,7 @@ import type { Booking } from "@/lib/api/types";
 /**
  * Turning down a booking request that no chauffeur has taken.
  *
- * Shown only while that is still possible (pending, or offered to the pool); once someone
+ * Shown only while that is still possible (still pending); once someone
  * accepts, the trip has its own cancellation. The reason is required because the customer
  * is emailed it word for word. A card payment is refunded in full automatically.
  */

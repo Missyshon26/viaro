@@ -1,4 +1,4 @@
-export type TripStage = "awaiting" | "pool" | "assigned" | "in_progress" | "completed" | "cancelled";
+export type TripStage = "awaiting" | "assigned" | "in_progress" | "completed" | "cancelled";
 
 export interface JourneyState {
   status: string;
@@ -13,7 +13,6 @@ export function stageOf(row: JourneyState): TripStage {
   if (row.trip?.status === "cancelled" || row.status === "cancelled") return "cancelled";
   if (row.trip?.status === "started") return "in_progress";
   if (row.trip || row.status === "assigned") return "assigned";
-  if (row.status === "dispatched") return "pool";
   return "awaiting";
 }
 

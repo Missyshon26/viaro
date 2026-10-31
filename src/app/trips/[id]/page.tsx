@@ -174,7 +174,7 @@ export default function BookingDetailPage({
       : undefined);
 
   const stage = stageOf({ ...booking, trip: trip ?? undefined });
-  const stageLabel = { awaiting: "Awaiting dispatch", pool: "In the pool", assigned: "Driver assigned", in_progress: "In progress", completed: "Completed", cancelled: "Cancelled" }[stage];
+  const stageLabel = { awaiting: "Awaiting a driver", assigned: "Driver assigned", in_progress: "In progress", completed: "Completed", cancelled: "Cancelled" }[stage];
   const vehicle = findVehicleClass(booking.vehicleClass);
   const customer =
     booking.customerId && typeof booking.customerId === "object" ? booking.customerId : null;
@@ -227,9 +227,9 @@ export default function BookingDetailPage({
       }
     >
       <div className="mb-5 flex flex-wrap items-center justify-between gap-4 rounded-card border border-border bg-surface px-5 py-4">
-        <div><p className="text-label font-bold uppercase tracking-wider text-accent">Trip overview</p><p className="mt-1 text-note text-fg-body">{stage === "awaiting" || stage === "pool" ? "Assign a driver to prepare this trip for pickup." : stage === "completed" ? "Trip complete. Review payment and trip records below." : stage === "cancelled" ? "This trip has been cancelled. Review the cancellation details below." : "Monitor the pickup and keep the trip status up to date."}</p></div>
+        <div><p className="text-label font-bold uppercase tracking-wider text-accent">Trip overview</p><p className="mt-1 text-note text-fg-body">{stage === "awaiting" ? "Assign a driver to prepare this trip for pickup." : stage === "completed" ? "Trip complete. Review payment and trip records below." : stage === "cancelled" ? "This trip has been cancelled. Review the cancellation details below." : "Monitor the pickup and keep the trip status up to date."}</p></div>
         {isOverdue({ ...booking, trip: trip ?? undefined }) && <StatusBadge tone="bad">Pickup overdue</StatusBadge>}
-        {(stage === "awaiting" || stage === "pool") && tripSearched && !tripError && <AssignDriver bookingId={booking._id} reference={reference(booking._id)} onAssigned={() => void load()} />}
+        {stage === "awaiting" && tripSearched && !tripError && <AssignDriver bookingId={booking._id} reference={reference(booking._id)} onAssigned={() => void load()} />}
       </div>
       {/* ------------------------------ headline strip ------------------------- */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

@@ -160,11 +160,11 @@ export default function AdminDashboard() {
   /* -------------------------------- derived -------------------------------- */
 
   const byRole = summary?.users ?? { customer: 0, driver: 0, company: 0, admin: 0 };
-  const bookingStatus = summary?.bookings.stages ?? { awaiting: 0, pool: 0, assigned: 0, in_progress: 0, completed: 0, cancelled: 0 };
+  const bookingStatus = summary?.bookings.stages ?? { awaiting: 0, assigned: 0, in_progress: 0, completed: 0, cancelled: 0 };
   const driverStatus = summary?.drivers ?? { total: 0, available: 0, busy: 0, offline: 0, penalised: 0, top: [] as RosterDriver[] };
   const topDrivers = driverStatus.top;
   const bookings = summary ? { total: summary.bookings.total } : null;
-  const pool = summary ? summary.bookings.stages.pool : null;
+  const awaiting = summary ? summary.bookings.stages.awaiting : null;
 
   const days = RANGES.find((r) => r.key === range)?.days ?? 30;
   const tripSeries = useMemo(
@@ -211,7 +211,7 @@ export default function AdminDashboard() {
       ) : null}
 
       {!loadingCore && <NextSteps items={[
-        { title: `${pool ?? 0} trips in the dispatch pool`, description: "Review requests and assign an available driver.", href: "/trips", urgent: (pool ?? 0) > 0 },
+        { title: `${awaiting ?? 0} trips awaiting a driver`, description: "Review the requests and assign an available driver.", href: "/trips?stage=awaiting", urgent: (awaiting ?? 0) > 0 },
         { title: "Review driver accounts", description: "Check documents, account status and eligibility.", href: "/drivers" },
         { title: "Resolve support requests", description: "Follow up on passenger and driver cases.", href: "/support" },
       ]} />}
@@ -247,10 +247,10 @@ export default function AdminDashboard() {
             />
             <StatCard
               label="Waiting for a driver"
-              value={count(pool)}
-              hint="Unassigned in the pool"
+              value={count(awaiting)}
+              hint="No driver assigned yet"
               icon={<IconCalendar size={18} />}
-              href="/trips?stage=pool"
+              href="/trips?stage=awaiting"
             />
           </>
         )}
@@ -335,7 +335,7 @@ export default function AdminDashboard() {
           <DonutChart
             total={
               bookingStatus.completed +
-              (bookingStatus.awaiting + bookingStatus.pool) +
+              bookingStatus.awaiting +
               activeTrips +
               bookingStatus.cancelled
             }
@@ -348,7 +348,7 @@ export default function AdminDashboard() {
                 href: "/trips?stage=completed",
               },
               { label: "Active", value: activeTrips, color: "var(--chart-2)", href: "/trips?stage=active" },
-              { label: "Pending", value: (bookingStatus.awaiting + bookingStatus.pool), color: "var(--chart-warn)", href: "/trips?stage=pending" },
+              { label: "Awaiting a driver", value: bookingStatus.awaiting, color: "var(--chart-warn)", href: "/trips?stage=awaiting" },
               {
                 label: "Cancelled",
                 value: bookingStatus.cancelled,
@@ -499,10 +499,10 @@ export default function AdminDashboard() {
           body="A city without a rule cannot be quoted at all — booking there fails outright."
         />
         <QuickLink
-          href="/trips?stage=pool"
+          href="/trips?stage=awaiting"
           icon={<IconDispatch size={18} />}
-          title="Dispatch pool"
-          body="Trips still waiting on a driver — filter Trips by 'In the pool'."
+          title="Trips awaiting a driver"
+          body="Bookings nobody has been assigned to yet — open one and assign a driver."
         />
         <QuickLink
           href="/support"

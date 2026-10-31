@@ -23,7 +23,6 @@ import {
   getJourneys,
   listPricingRules,
   getBookingsDashboard,
-  publishToPool,
 } from "@/lib/api/admin";
 import { listVehicleClasses } from "@/lib/api/vehicles";
 import { DatePicker } from "@/components/ui/DatePicker";
@@ -50,10 +49,10 @@ import { useLiveChanges } from "@/lib/live/useLiveChanges";
  * because the two records are joinable, and it is *necessary* because neither alone
  * tells the whole story:
  *
- *   - A Booking never reaches 'completed'. Its statuses stop at pending, dispatched,
- *     assigned and cancelled, so a finished journey still reads 'assigned' forever.
+ *   - A Booking never reaches 'completed'. Its statuses stop at pending, assigned and
+ *     cancelled, so a finished journey still reads 'assigned' forever.
  *   - A Trip only exists once a chauffeur is on the job, so everything still waiting in
- *     the pool has no trip at all.
+ *     a driver has no trip at all.
  *
  * The stage below is therefore derived from BOTH. No endpoint joins them — GET /trips/:id
  * takes a trip id and nothing maps a booking to its trip — hence two full reads and a
@@ -70,8 +69,7 @@ type Row = Booking & {
 
 
 const STAGE: Record<Stage, { label: string; tone: BadgeTone }> = {
-  awaiting: { label: "Awaiting dispatch", tone: "warn" },
-  pool: { label: "In the pool", tone: "info" },
+  awaiting: { label: "Awaiting a driver", tone: "warn" },
   assigned: { label: "Driver assigned", tone: "info" },
   in_progress: { label: "In progress", tone: "info" },
   completed: { label: "Completed", tone: "good" },
@@ -87,7 +85,6 @@ const CANCELLER_ROLE: Record<string, string> = {
 
 const ORDER: Stage[] = [
   "awaiting",
-  "pool",
   "assigned",
   "in_progress",
   "completed",
@@ -101,12 +98,12 @@ const ORDER: Stage[] = [
  * are both true at once and operations needs both — the stage says what to do next, the
  * flag says how urgent it is. Collapsing them into one column would lose the first.
  */
-/** Every stage the page can be opened on: a real one, 'overdue', or a group the dashboard links to. */
-type StageFilter = Stage | "all" | "overdue" | "active" | "pending";
-const STAGE_FILTERS = ["awaiting", "pool", "assigned", "in_progress", "completed", "cancelled", "overdue", "active", "pending"];
+/** Every stage the page can be opened on: a real one, 'overdue', or 'active' (assigned or in progress). */
+type StageFilter = Stage | "all" | "overdue" | "active";
+const STAGE_FILTERS = ["awaiting", "assigned", "in_progress", "completed", "cancelled", "overdue", "active"];
 
 /**
- * The dashboard's cards and chart segments open this page already filtered, as /trips?stage=pool.
+ * The dashboard's cards and chart segments open this page already filtered, as /trips?stage=awaiting.
  * The view is remounted when the address changes, so following a different link (or the plain
  * "Trips" link in the sidebar) always starts from what that link says rather than from whatever
  * was last chosen on the page.
@@ -203,26 +200,8 @@ function TripsView({ initialStage }: { initialStage: StageFilter }) {
     };
   }, []);
 
-  // Someone else assigning, publishing or moving a trip changes this list under the operator looking at it.
+  // Someone else assigning or moving a trip changes this list under the operator looking at it.
   useLiveChanges(["booking", "trip", "dispatch"], () => void load());
-
-  async function publish(bookingId: string) {
-    setBusy(bookingId);
-    setError(null);
-    try {
-      const result = await publishToPool(bookingId);
-      await load();
-      // Publishing with nobody in range succeeds and does nothing visible, so say so
-      // rather than letting the operator think the broadcast reached someone.
-      if (result.driversInRange === 0) {
-        setError("Published, but no driver is online within range right now.");
-      }
-    } catch (err) {
-      setError(errorText(err, "Could not publish that booking"));
-    } finally {
-      setBusy(null);
-    }
-  }
 
   async function collect(tripId: string) {
     setBusy(tripId);
@@ -331,7 +310,7 @@ function TripsView({ initialStage }: { initialStage: StageFilter }) {
             {/*
               The stage is where the eye already is when someone asks "why is this still
               assigned?", so it is also where the answer gets acted on. A trip with no
-              trip yet has nothing to move — it needs Publish or Assign instead — so the
+              trip yet has nothing to move — it needs a driver assigned instead — so the
               badge stays inert there rather than offering a control that would 404.
             */}
             {movable ? (
@@ -387,20 +366,10 @@ function TripsView({ initialStage }: { initialStage: StageFilter }) {
       align: "right",
       cell: (r) => {
         const stage = stageOf(r);
-        // Both actions used to have a screen each. They are contextual now: an operator
-        // only ever sees the one this particular journey can actually take.
-        if (stage === "awaiting" || stage === "pool") {
+        // An operator only ever sees the action this particular trip can actually take.
+        if (stage === "awaiting") {
           return (
             <span className="flex justify-end gap-2">
-              <button
-                type="button"
-                disabled={busy === r._id}
-                onClick={() => publish(r._id)}
-                title="Re-broadcast this booking to nearby drivers"
-                className="h-8 rounded-field border border-border bg-surface-raised px-3 text-label font-bold text-fg-body transition-colors hover:border-accent hover:text-fg disabled:opacity-50"
-              >
-                {busy === r._id ? "Publishing…" : stage === "awaiting" ? "Publish" : "Re-publish"}
-              </button>
               <AssignDriver
                 bookingId={r._id}
                 reference={reference(r._id)}
@@ -458,7 +427,7 @@ function TripsView({ initialStage }: { initialStage: StageFilter }) {
       ) : null}
 
       <div className="mb-5 grid grid-cols-2 gap-3 xl:grid-cols-4">
-        {[{ label: "Total trips", value: counts.all }, { label: "Awaiting dispatch", value: (counts.awaiting ?? 0) + (counts.pool ?? 0) }, { label: "On the road", value: counts.in_progress ?? 0 }, { label: "Overdue pickups", value: counts.overdue ?? 0 }].map((item) => (
+        {[{ label: "Total trips", value: counts.all }, { label: "Awaiting a driver", value: counts.awaiting ?? 0 }, { label: "On the road", value: counts.in_progress ?? 0 }, { label: "Overdue pickups", value: counts.overdue ?? 0 }].map((item) => (
           <div key={item.label} className="rounded-card border border-border bg-surface p-4">
             <p className="text-label font-medium text-fg-muted">{item.label}</p>
             <p className={`mt-2 text-metric font-bold tabular-nums ${item.label === "Overdue pickups" && item.value ? "text-danger" : "text-fg"}`}>{data ? item.value : "—"}</p>
@@ -468,7 +437,7 @@ function TripsView({ initialStage }: { initialStage: StageFilter }) {
       <section aria-label="Trip filters" className="mb-4">
         <div className="grid items-center gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
           <FilterSelect label="Pickup period" value={datePreset} onChange={setPeriod} options={[{ value: "all", label: "All dates" }, { value: "today", label: "Today" }, { value: "tomorrow", label: "Tomorrow" }, { value: "week", label: "Next 7 days" }, { value: "custom", label: "Custom range" }]} />
-          <FilterSelect label="Trip stage" value={filter} onChange={(value) => setFilter(value as typeof filter)} options={[{ value: "all", label: "All stages" }, { value: "overdue", label: `Overdue (${counts.overdue})` }, { value: "active", label: `Active: assigned or in progress (${(counts.assigned ?? 0) + (counts.in_progress ?? 0)})` }, { value: "pending", label: `Pending: awaiting or in the pool (${(counts.awaiting ?? 0) + (counts.pool ?? 0)})` }, ...ORDER.map((stage) => ({ value: stage, label: `${STAGE[stage].label} (${counts[stage] ?? 0})` }))]} />
+          <FilterSelect label="Trip stage" value={filter} onChange={(value) => setFilter(value as typeof filter)} options={[{ value: "all", label: "All stages" }, { value: "overdue", label: `Overdue (${counts.overdue})` }, { value: "active", label: `Active: assigned or in progress (${(counts.assigned ?? 0) + (counts.in_progress ?? 0)})` }, ...ORDER.map((stage) => ({ value: stage, label: `${STAGE[stage].label} (${counts[stage] ?? 0})` }))]} />
           <FilterSelect label="Vehicle class" value={filters.vehicle} onChange={(value) => updateFilter("vehicle", value)} options={[{ value: "", label: "All vehicles" }, ...vehicleOptions]} />
           <div className="flex items-center gap-2">
           <button type="button" aria-expanded={moreFilters} aria-controls="additional-trip-filters" onClick={() => setMoreFilters((open) => !open)} className={`inline-flex h-12 items-center justify-center gap-2 whitespace-nowrap rounded-field border px-4 text-meta font-medium transition-colors ${moreFilters ? "border-accent bg-accent-soft text-accent-strong" : "border-border bg-surface-raised text-fg-body hover:bg-surface"}`}>

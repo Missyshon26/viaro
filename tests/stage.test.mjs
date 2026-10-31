@@ -9,7 +9,7 @@ test("a completed journey is counted once even when its booking remains assigned
     { status: "dispatched" },
     { status: "cancelled" },
   ];
-  assert.deepEqual(rows.map(stageOf), ["completed", "in_progress", "pool", "cancelled"]);
+  assert.deepEqual(rows.map(stageOf), ["completed", "in_progress", "awaiting", "cancelled"]);
   assert.equal(rows.filter((row) => ["assigned", "in_progress"].includes(stageOf(row))).length, 1);
 });
 

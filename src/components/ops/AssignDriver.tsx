@@ -7,11 +7,8 @@ import { Avatar, StatusBadge } from "@/components/ui/Dashboard";
 import { IconCheck, IconClose, IconStar } from "@/components/ui/Icons";
 
 /**
- * UML «Assign Driver to Booking» — the admin's manual override on a pooled booking.
- *
- * Dispatch runs itself: a booking is broadcast to nearby chauffeurs the moment it is
- * created, and normally a chauffeur claims it. This is for when operations needs a
- * particular person on a particular job.
+ * UML «Assign Driver to Booking» — how a booking gets its driver. A booking is not offered
+ * to drivers: it waits until operations picks a particular person for the job here.
  *
  * Only `available` chauffeurs are offered. The API enforces that too — this list is a
  * convenience, not the guard — and a 409 comes back if someone goes busy between the

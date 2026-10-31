@@ -1,5 +1,5 @@
 import { api } from "./client";
-import type { Booking, Driver, Paginated, Trip, TripStatus } from "./types";
+import type { Driver, Paginated, Trip, TripStatus } from "./types";
 
 /** Endpoints the driver portal runs on. All are `roleGuard('driver')` unless noted. */
 
@@ -110,7 +110,6 @@ export interface CancellationsReport {
     bookingId: string;
     driverId: string;
     reason: string;
-    alertDelayMinutes: number;
     at: string;
   }[];
   counts: { cancellations: number; penalties: number };
@@ -120,24 +119,6 @@ export function getCancellations(range: ReportRange = {}) {
   return api.get<CancellationsReport>("/reports/cancellations-penalties", {
     query: { ...range },
   });
-}
-
-/* -------------------------------- dispatch -------------------------------- */
-
-/** `GET /admin/dispatch/pool` is roleGuard('driver','admin') — the open request pool. */
-/**
- * The pool returns whole Booking documents (paginated), with the customer populated —
- * not a slim offer object. `_id` here is the BOOKING id, which is what
- * POST /trips/:id/accept expects: it resolves the id as a booking first.
- */
-export interface PoolEntry extends Omit<Booking, "customerId"> {
-  /** Populated with just the contact fields the driver needs, not the whole User. */
-  customerId: string | { _id: string; name: string; phone: string };
-  scheduledAtLocal?: string;
-}
-
-export function getDispatchPool() {
-  return api.get<PoolEntry[] | { items: PoolEntry[] }>("/admin/dispatch/pool");
 }
 
 /* --------------------------------- dates ---------------------------------- */

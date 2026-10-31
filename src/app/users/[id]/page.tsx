@@ -52,11 +52,10 @@ type Row = Booking & {
   trip?: Trip;
 };
 
-type Stage = "awaiting" | "pool" | "assigned" | "in_progress" | "completed" | "cancelled";
+type Stage = "awaiting" | "assigned" | "in_progress" | "completed" | "cancelled";
 
 const STAGE: Record<Stage, { label: string; tone: BadgeTone }> = {
-  awaiting: { label: "Awaiting dispatch", tone: "warn" },
-  pool: { label: "In the pool", tone: "info" },
+  awaiting: { label: "Awaiting a driver", tone: "warn" },
   assigned: { label: "Driver assigned", tone: "info" },
   in_progress: { label: "In progress", tone: "info" },
   completed: { label: "Completed", tone: "good" },
@@ -69,7 +68,6 @@ function stageOf(row: Row): Stage {
   if (row.trip?.status === "cancelled" || row.status === "cancelled") return "cancelled";
   if (row.trip?.status === "started") return "in_progress";
   if (row.trip) return "assigned";
-  if (row.status === "dispatched") return "pool";
   return "awaiting";
 }
 
