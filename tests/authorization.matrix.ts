@@ -156,6 +156,22 @@ export const MATRIX: MatrixEntry[] = [
     note: 'ownership re-checked in driver.documents.openFile',
   },
 
+  /* -------------------------------- packages -------------------------------- */
+  {
+    method: 'GET',
+    path: '/packages',
+    allowed: PUBLIC,
+    note: 'the booking page lists the visible packages before sign-in',
+  },
+  { method: 'GET', path: '/packages/:id', allowed: PUBLIC, note: 'a visible package; hidden ones are 404' },
+  { method: 'GET', path: '/admin/packages', allowed: ['admin'] },
+  { method: 'POST', path: '/admin/packages', allowed: ['admin'] },
+  { method: 'GET', path: '/admin/packages/:id', allowed: ['admin'] },
+  { method: 'PATCH', path: '/admin/packages/:id', allowed: ['admin'] },
+  { method: 'DELETE', path: '/admin/packages/:id', allowed: ['admin'] },
+  { method: 'POST', path: '/admin/packages/:id/image', allowed: ['admin'] },
+  { method: 'DELETE', path: '/admin/packages/:id/image', allowed: ['admin'] },
+
   /* ---------------------------- vehicle catalogue --------------------------- */
   {
     method: 'GET',

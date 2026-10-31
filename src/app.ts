@@ -11,6 +11,7 @@ import { errorHandler, notFoundHandler } from './middlewares/errorHandler';
 import authRoutes from './modules/auth/auth.routes';
 import usersRoutes from './modules/users/users.routes';
 import { adminVehicleRouter, vehicleRouter } from './modules/vehicle/vehicle.routes';
+import { adminPackageRouter, packageRouter } from './modules/package/package.routes';
 import { adminPricingRouter, pricingRouter, subscriptionRouter } from './modules/pricing/pricing.routes';
 import { bookingRouter, customerRidesRouter } from './modules/booking/booking.routes';
 import { adminDispatchRouter, dispatchRouter } from './modules/dispatch/dispatch.routes';
@@ -143,6 +144,8 @@ app.use('/reports', reportRoutes);
 
 app.use('/vehicle-classes', vehicleRouter);
 app.use('/admin/vehicle-classes', adminVehicleRouter);
+app.use('/packages', packageRouter);
+app.use('/admin/packages', adminPackageRouter);
 app.use('/admin/pricing', adminPricingRouter);
 app.use('/admin/dispatch', adminDispatchRouter);
 app.use('/admin', adminRoutes);

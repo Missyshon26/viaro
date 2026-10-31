@@ -17,7 +17,7 @@ import { logger } from './logger';
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 /** The folders an upload may go into. A closed list: nothing here comes from a request. */
-export type UploadFolder = 'vehicles';
+export type UploadFolder = 'vehicles' | 'packages';
 
 export type ImageType = { ext: 'jpg' | 'png' | 'webp'; mime: string };
 
