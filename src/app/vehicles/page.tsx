@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ConsolePage, DataTable, money, type Column } from "@/components/ui/DataTable";
+import { ConsolePage, DataTable, emptyActionClass, money, type Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/Dashboard";
 import { IconCar, IconCheck, IconClose, IconMoney } from "@/components/ui/Icons";
 import { errorText } from "@/lib/api/client";
@@ -277,6 +277,12 @@ export default function VehiclesPage() {
             show === "all"
               ? "Add one to make it bookable on the passenger site."
               : "Try another filter above.",
+          action:
+            show === "all" ? (
+              <button type="button" className={emptyActionClass} onClick={() => setEditing("new")}>Add a class</button>
+            ) : (
+              <button type="button" className={emptyActionClass} onClick={() => setShow("all")}>Show all classes</button>
+            ),
         }}
       />
 

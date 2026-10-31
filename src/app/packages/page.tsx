@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { ConsolePage, DataTable, money, type Column } from "@/components/ui/DataTable";
+import { ConsolePage, DataTable, emptyActionClass, money, type Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/Dashboard";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { IconCheck, IconClose, IconPackage } from "@/components/ui/Icons";
@@ -230,6 +230,12 @@ export default function PackagesPage() {
         empty={{
           title: show === "all" ? "No packages yet" : `No ${show} packages`,
           description: show === "all" ? "Add one to list it on the booking page." : "Try another filter above.",
+          action:
+            show === "all" ? (
+              <button type="button" className={emptyActionClass} onClick={() => setEditing("new")}>Add a package</button>
+            ) : (
+              <button type="button" className={emptyActionClass} onClick={() => setShow("all")}>Show all packages</button>
+            ),
         }}
       />
 

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLiveChanges } from "@/lib/live/useLiveChanges";
 import Link from "next/link";
-import { ConsolePage } from "@/components/ui/DataTable";
+import { ConsolePage, emptyActionClass } from "@/components/ui/DataTable";
 import {
   Avatar,
   LoadError,
@@ -29,10 +29,11 @@ import {
   type RangeKey,
 } from "@/components/ui/Charts";
 import {
+  IconBuilding,
   IconCalendar,
-  IconCar,
   IconCheck,
   IconDispatch,
+  IconIdCard,
   IconMoney,
   IconPenalty,
   IconRoute,
@@ -72,7 +73,7 @@ const since = (days: number) => {
 };
 
 const driverName = (driver: RosterDriver) =>
-  driver.userId && typeof driver.userId === "object" ? driver.userId.name : "Chauffeur";
+  driver.userId && typeof driver.userId === "object" ? driver.userId.name : "Driver";
 
 export default function AdminDashboard() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
@@ -210,9 +211,9 @@ export default function AdminDashboard() {
       ) : null}
 
       {!loadingCore && <NextSteps items={[
-        { title: `${pool ?? 0} journeys in the dispatch pool`, description: "Review requests and assign an available chauffeur.", href: "/trips", urgent: (pool ?? 0) > 0 },
-        { title: "Review chauffeur accounts", description: "Check documents, account status and eligibility.", href: "/drivers" },
-        { title: "Resolve support requests", description: "Follow up on passenger and chauffeur cases.", href: "/support" },
+        { title: `${pool ?? 0} trips in the dispatch pool`, description: "Review requests and assign an available driver.", href: "/trips", urgent: (pool ?? 0) > 0 },
+        { title: "Review driver accounts", description: "Check documents, account status and eligibility.", href: "/drivers" },
+        { title: "Resolve support requests", description: "Follow up on passenger and driver cases.", href: "/support" },
       ]} />}
 
       {/* --------------------------------- KPIs --------------------------------- */}
@@ -245,7 +246,7 @@ export default function AdminDashboard() {
               href="/trips"
             />
             <StatCard
-              label="Waiting for a chauffeur"
+              label="Waiting for a driver"
               value={count(pool)}
               hint="Unassigned in the pool"
               icon={<IconCalendar size={18} />}
@@ -264,14 +265,14 @@ export default function AdminDashboard() {
               label="Companies"
               value={count(byRole.company)}
               hint="Fleet operators"
-              icon={<IconUsers size={18} />}
+              icon={<IconBuilding size={18} />}
               href="/users"
             />
             <StatCard
-              label="Chauffeurs"
+              label="Drivers"
               value={count(summary ? driverStatus.total : byRole.driver)}
               hint={`${driverStatus.available} online now`}
-              icon={<IconCar size={18} />}
+              icon={<IconIdCard size={18} />}
               href="/drivers"
             />
             <StatCard
@@ -305,7 +306,7 @@ export default function AdminDashboard() {
           error={!rangeLoading && !ranged}
           onRetry={() => setRetry((value) => value + 1)}
         >
-          <AreaChart data={tripSeries} />
+          <AreaChart data={tripSeries} emptyAction={<Link href="/trips" className={emptyActionClass}>View trips</Link>} />
         </ChartCard>
 
         <ChartCard
@@ -321,7 +322,7 @@ export default function AdminDashboard() {
           error={!rangeLoading && !ranged}
           onRetry={() => setRetry((value) => value + 1)}
         >
-          <BarChart data={revenueSeries} kind="money" color="var(--chart-2)" />
+          <BarChart data={revenueSeries} kind="money" color="var(--chart-2)" emptyAction={<Link href="/revenue" className={emptyActionClass}>View revenue</Link>} />
         </ChartCard>
       </div>
 
@@ -357,7 +358,7 @@ export default function AdminDashboard() {
         </ChartCard>
 
         <ChartCard
-          title="Chauffeur availability"
+          title="Driver availability"
           subtitle={`${driverStatus.total} on the platform`}
           loading={summary === null}
         >
@@ -386,7 +387,7 @@ export default function AdminDashboard() {
               href="/drivers"
               className="mt-1 inline-block text-note font-bold text-accent hover:underline"
             >
-              Manage chauffeurs →
+              Manage drivers →
             </Link>
           </div>
         </ChartCard>
@@ -399,7 +400,7 @@ export default function AdminDashboard() {
           loading={revenue === null}
         >
           {subscriptionSeries.length > 0 ? (
-            <BarChart data={subscriptionSeries} kind="money" color="var(--chart-3)" height={180} />
+            <BarChart data={subscriptionSeries} kind="money" color="var(--chart-3)" height={180} emptyAction={<Link href="/revenue" className={emptyActionClass}>View revenue</Link>} />
           ) : (
             <p className="py-10 text-center text-note text-fg-muted">
               No subscription revenue recorded yet.
@@ -411,11 +412,11 @@ export default function AdminDashboard() {
       {/* ------------------------------ leaderboards ---------------------------- */}
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
         <SectionCard
-          title="Top-rated chauffeurs"
+          title="Top-rated drivers"
           subtitle="Ranked by passenger rating, rated trips only"
           action={
             <Link href="/drivers" className="text-note font-bold text-accent hover:underline">
-              All chauffeurs
+              All drivers
             </Link>
           }
           bodyClassName="px-5 pb-5"
@@ -423,10 +424,13 @@ export default function AdminDashboard() {
           {summary === null ? (
             <p className="py-6 text-note text-fg-muted">Loading…</p>
           ) : topDrivers.length === 0 ? (
-            <p className="py-6 text-note text-fg-muted">
-              No chauffeur has been rated yet — ratings appear once passengers score a
-              completed trip.
-            </p>
+            <div className="py-6">
+              <p className="text-note text-fg-muted">
+                No driver has been rated yet — ratings appear once passengers score a
+                completed trip.
+              </p>
+              <Link href="/drivers" className={`${emptyActionClass} mt-3`}>View drivers</Link>
+            </div>
           ) : (
             <ul className="divide-y divide-border-subtle">
               {topDrivers.map((driver) => (
@@ -467,7 +471,7 @@ export default function AdminDashboard() {
             </div>
             <div className="rounded-field border border-border bg-surface p-4">
               <p className="text-label font-bold uppercase tracking-wider text-fg-muted">
-                Penalised chauffeurs
+                Penalised drivers
               </p>
               <p className="mt-2 text-[1.5rem] font-bold tracking-tight text-fg">
                 {count(driverStatus.penalised)}
@@ -496,7 +500,7 @@ export default function AdminDashboard() {
           href="/trips"
           icon={<IconDispatch size={18} />}
           title="Dispatch pool"
-          body="Journeys still waiting on a chauffeur — filter Trips by 'In the pool'."
+          body="Trips still waiting on a driver — filter Trips by 'In the pool'."
         />
         <QuickLink
           href="/support"

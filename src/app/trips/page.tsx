@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   ConsolePage,
   DataTable,
+  emptyActionClass,
   formatDateTime,
   money,
   type Column,
@@ -70,7 +71,7 @@ type Row = Booking & {
 const STAGE: Record<Stage, { label: string; tone: BadgeTone }> = {
   awaiting: { label: "Awaiting dispatch", tone: "warn" },
   pool: { label: "In the pool", tone: "info" },
-  assigned: { label: "Chauffeur assigned", tone: "info" },
+  assigned: { label: "Driver assigned", tone: "info" },
   in_progress: { label: "In progress", tone: "info" },
   completed: { label: "Completed", tone: "good" },
   cancelled: { label: "Cancelled", tone: "bad" },
@@ -79,7 +80,7 @@ const STAGE: Record<Stage, { label: string; tone: BadgeTone }> = {
 /** How each actor reads in the console, rather than the raw enum. */
 const CANCELLER_ROLE: Record<string, string> = {
   customer: "passenger",
-  driver: "chauffeur",
+  driver: "driver",
   admin: "operations",
 };
 
@@ -95,7 +96,7 @@ const ORDER: Stage[] = [
 /**
  * Past its pickup time and still not finished.
  *
- * Deliberately a flag rather than a seventh stage: "overdue" and "chauffeur assigned"
+ * Deliberately a flag rather than a seventh stage: "overdue" and "driver assigned"
  * are both true at once and operations needs both — the stage says what to do next, the
  * flag says how urgent it is. Collapsing them into one column would lose the first.
  */
@@ -188,7 +189,7 @@ export default function TripsPage() {
       // Publishing with nobody in range succeeds and does nothing visible, so say so
       // rather than letting the operator think the broadcast reached someone.
       if (result.driversInRange === 0) {
-        setError("Published, but no chauffeur is online within range right now.");
+        setError("Published, but no driver is online within range right now.");
       }
     } catch (err) {
       setError(errorText(err, "Could not publish that booking"));
@@ -303,7 +304,7 @@ export default function TripsPage() {
           <span className="flex flex-wrap items-center gap-1.5">
             {/*
               The stage is where the eye already is when someone asks "why is this still
-              assigned?", so it is also where the answer gets acted on. A journey with no
+              assigned?", so it is also where the answer gets acted on. A trip with no
               trip yet has nothing to move — it needs Publish or Assign instead — so the
               badge stays inert there rather than offering a control that would 404.
             */}
@@ -369,7 +370,7 @@ export default function TripsPage() {
                 type="button"
                 disabled={busy === r._id}
                 onClick={() => publish(r._id)}
-                title="Re-broadcast this booking to nearby chauffeurs"
+                title="Re-broadcast this booking to nearby drivers"
                 className="h-8 rounded-field border border-border bg-surface-raised px-3 text-label font-bold text-fg-body transition-colors hover:border-accent hover:text-fg disabled:opacity-50"
               >
                 {busy === r._id ? "Publishing…" : stage === "awaiting" ? "Publish" : "Re-publish"}
@@ -415,7 +416,7 @@ export default function TripsPage() {
   return (
     <ConsolePage
       title="Trips"
-      description="Every journey on the platform, from request through dispatch to settlement."
+      description="Every trip on the platform, from request through dispatch to settlement."
       action={
         <button type="button" onClick={() => setAddingTrip(true)} className={buttonClass("accent")}>
           Add a trip
@@ -431,7 +432,7 @@ export default function TripsPage() {
       ) : null}
 
       <div className="mb-5 grid grid-cols-2 gap-3 xl:grid-cols-4">
-        {[{ label: "Total journeys", value: counts.all }, { label: "Awaiting dispatch", value: (counts.awaiting ?? 0) + (counts.pool ?? 0) }, { label: "On the road", value: counts.in_progress ?? 0 }, { label: "Overdue pickups", value: counts.overdue ?? 0 }].map((item) => (
+        {[{ label: "Total trips", value: counts.all }, { label: "Awaiting dispatch", value: (counts.awaiting ?? 0) + (counts.pool ?? 0) }, { label: "On the road", value: counts.in_progress ?? 0 }, { label: "Overdue pickups", value: counts.overdue ?? 0 }].map((item) => (
           <div key={item.label} className="rounded-card border border-border bg-surface p-4">
             <p className="text-label font-medium text-fg-muted">{item.label}</p>
             <p className={`mt-2 text-metric font-bold tabular-nums ${item.label === "Overdue pickups" && item.value ? "text-danger" : "text-fg"}`}>{data ? item.value : "—"}</p>
@@ -498,8 +499,12 @@ export default function TripsPage() {
         searchPlaceholder="Search reference, customer, address…"
         rowHref={(r) => `/trips/${r._id}`}
         empty={{
-          title: activeCount ? "No journeys match these filters" : "No journeys yet",
-          action: activeCount ? <button type="button" className="min-h-11 rounded-field border border-border px-4 text-note font-bold text-accent" onClick={resetFilters}>Clear all filters</button> : undefined,
+          title: activeCount ? "No trips match these filters" : "No trips yet",
+          action: activeCount ? (
+            <button type="button" className={emptyActionClass} onClick={resetFilters}>Clear all filters</button>
+          ) : (
+            <button type="button" className={emptyActionClass} onClick={() => setAddingTrip(true)}>Add a trip</button>
+          ),
           description: activeCount ? "Try a wider date range or reset the filters." : "Bookings appear here as customers make them.",
         }}
       />

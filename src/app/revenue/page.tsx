@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Card, Kicker } from "@/components/ui/Surfaces";
-import { ConsolePage, DataTable, money, type Column } from "@/components/ui/DataTable";
+import Link from "next/link";
+import { ConsolePage, DataTable, emptyActionClass, money, type Column } from "@/components/ui/DataTable";
 import {
   getSubscriptionRevenue,
   getEarningsPayout,
@@ -87,7 +88,7 @@ export default function RevenuePage() {
             columns={monthColumns}
             rowKey={(m) => `${m.year}-${m.month}`}
             minWidth="34rem"
-            empty={{ title: "No subscription revenue yet" }}
+            empty={{ title: "No subscription revenue yet", description: "It appears here when a customer subscribes.", action: <Link href="/trips" className={emptyActionClass}>View trips</Link> }}
           />
         </div>
       </div>
@@ -100,7 +101,7 @@ export default function RevenuePage() {
             columns={splitColumns}
             rowKey={(r) => r.transactionId}
             minWidth="34rem"
-            empty={{ title: "Nothing recorded", description: "The split is written when a trip settles." }}
+            empty={{ title: "Nothing recorded", description: "The split is written when a trip settles.", action: <Link href="/trips" className={emptyActionClass}>View trips</Link> }}
           />
         </div>
       </div>

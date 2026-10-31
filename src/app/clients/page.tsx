@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { PersonCell, StatusBadge } from "@/components/ui/Dashboard";
 import { Button } from "@/components/ui/Button";
-import { ConsolePage, DataTable, formatDate, type Column } from "@/components/ui/DataTable";
+import { ConsolePage, DataTable, emptyActionClass, formatDate, type Column } from "@/components/ui/DataTable";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { IconClose } from "@/components/ui/Icons";
 import { errorText } from "@/lib/api/client";
@@ -225,6 +225,11 @@ export default function ClientsPage() {
         empty={{
           title: filtered ? "No clients match" : "No clients yet",
           description: filtered ? "Try a different search or clear the filters." : "Add one to get started.",
+          action: filtered ? (
+            <button type="button" className={emptyActionClass} onClick={() => setFilters(EMPTY_FILTERS)}>Clear filters</button>
+          ) : (
+            <button type="button" className={emptyActionClass} onClick={() => setDialog("new")}>Add a client</button>
+          ),
         }}
       />
 

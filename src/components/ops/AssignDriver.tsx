@@ -89,7 +89,7 @@ function AssignDialog({
       .catch(() => {
         if (!cancelled) {
           setDrivers([]);
-          setError("Could not load the chauffeur list.");
+          setError("Could not load the driver list.");
         }
       });
     return () => {
@@ -114,13 +114,13 @@ function AssignDialog({
   }
 
   const nameOf = (driver: RosterDriver) =>
-    driver.userId && typeof driver.userId === "object" ? driver.userId.name : "Chauffeur";
+    driver.userId && typeof driver.userId === "object" ? driver.userId.name : "Driver";
 
   return (
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={`Assign a chauffeur to ${reference}`}
+      aria-label={`Assign a driver to ${reference}`}
       className="fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center"
     >
       <button
@@ -133,9 +133,9 @@ function AssignDialog({
       <div className="relative flex max-h-[85dvh] w-full max-w-md flex-col overflow-hidden rounded-card border border-border bg-surface-raised shadow-[var(--shadow-raised)]">
         <div className="flex items-start gap-3 border-b border-border-subtle px-5 py-4">
           <div className="min-w-0">
-            <h2 className="text-action font-bold text-fg">Assign a chauffeur</h2>
+            <h2 className="text-action font-bold text-fg">Assign a driver</h2>
             <p className="mt-1 text-note text-fg-muted">
-              {reference} · only chauffeurs who are online right now
+              {reference} · only drivers who are online right now
             </p>
           </div>
           <button
@@ -157,10 +157,10 @@ function AssignDialog({
           ) : null}
 
           {drivers === null ? (
-            <p className="py-6 text-note text-fg-muted">Loading chauffeurs…</p>
+            <p className="py-6 text-note text-fg-muted">Loading drivers…</p>
           ) : drivers.length === 0 ? (
             <p className="py-6 text-note leading-relaxed text-fg-muted">
-              Nobody is online. A chauffeur has to be <strong>available</strong> to take
+              Nobody is online. A driver has to be <strong>available</strong> to take
               an assignment — the API rejects anyone busy or offline, so that a driver
               mid-trip is never pulled onto a second job.
             </p>

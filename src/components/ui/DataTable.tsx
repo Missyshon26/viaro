@@ -361,6 +361,10 @@ function PageButton({
 }
 
 /** Page heading used above every table. */
+/** The look of the one button an empty table offers, so every empty state reads the same. */
+export const emptyActionClass =
+  "inline-flex min-h-11 items-center rounded-field border border-border bg-surface-raised px-4 text-note font-bold text-accent transition-colors hover:border-accent";
+
 export function ConsolePage({
   title,
   description,
@@ -379,7 +383,7 @@ export function ConsolePage({
     <div className={`mx-auto ${width === "wide" ? "max-w-[1400px]" : "max-w-[1100px]"}`}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <div className="min-w-0">
-          <h2 className="text-[1.75rem] font-semibold tracking-tight text-fg">{title}</h2>
+          <h1 className="text-[1.75rem] font-semibold tracking-tight text-fg">{title}</h1>
           {description ? (
             <p className="mt-2 max-w-2xl text-body leading-relaxed text-fg-muted">
               {description}

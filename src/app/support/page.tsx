@@ -77,7 +77,7 @@ export default function SupportPage() {
   return (
     <ConsolePage
       title="Support queue"
-      description="Disputes and appeals from passengers and chauffeurs."
+      description="Disputes and appeals from passengers and drivers."
       action={
         <div className="flex gap-1 rounded-field bg-accent-soft p-1">
           {FILTERS.map((value) => (

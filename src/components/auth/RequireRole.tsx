@@ -28,7 +28,7 @@ export function RequireRole({ children }: { children: ReactNode }) {
       user.role === "company"
         ? "Fleet operators use the company console."
         : user.role === "driver"
-          ? "Chauffeurs use the driver app."
+          ? "Drivers use the driver app."
           : "Passengers book and manage rides on the booking site.";
     return (
       <div className="flex min-h-dvh items-center justify-center bg-bg px-5 py-12">

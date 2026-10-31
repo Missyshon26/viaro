@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
 /**
@@ -31,11 +31,92 @@ const MONEY = new Intl.NumberFormat("en-US", {
 export const formatValue = (n: number, kind: "number" | "money" = "number") =>
   kind === "money" ? MONEY.format(n) : NUMBER.format(n);
 
-/** Shared "there is nothing to draw" panel, so every chart fails the same way. */
-export function ChartEmpty({ message = "No data for this period" }: { message?: string }) {
+
+/* ---------------------------------- y axis --------------------------------- */
+
+const COMPACT = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 });
+
+/** Short axis labels: 1.2K, 3M, $1.5K — the full value is in the tooltip. */
+const axisLabel = (n: number, kind: "number" | "money") => (kind === "money" ? `$${COMPACT.format(n)}` : COMPACT.format(n));
+
+/**
+ * The top of the axis, rounded up to a step that reads cleanly (1, 2, 5, 10, 20, 50…) so the four
+ * gridlines fall on whole, sensible values — 0, 25, 50, 75, 100 rather than 0, 31.5, 63, 94.5, 126.
+ */
+export function niceMax(max: number, kind: "number" | "money" = "number"): number {
+  if (max <= 0) return 4;
+  const raw = Math.max(max / 4, 1);
+  const power = 10 ** Math.floor(Math.log10(raw));
+  // Counts and whole dollars: every gridline is a whole number, never "2.5 trips".
+  const step =
+    [1, 2, 2.5, 5, 10]
+      .map((m) => m * power)
+      .filter((candidate) => Number.isInteger(candidate))
+      .find((candidate) => candidate >= raw) ?? Math.ceil(raw);
+  return step * 4;
+}
+
+/** The chart's pixel width, kept up to date as its container resizes. */
+function useWidth() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(600);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    setWidth(el.clientWidth || 600);
+    const observer = new ResizeObserver(() => setWidth(el.clientWidth || 600));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  return [ref, width] as const;
+}
+
+/** Width of the column the value labels sit in. */
+const AXIS_GUTTER = 44;
+
+/**
+ * The value labels beside the gridlines. The chart is an SVG scaled to fit its box (aspect
+ * ratio kept), so each label is placed by the same scale the SVG is drawn with — otherwise a
+ * label drifts off its line whenever the box is not exactly the viewBox's shape.
+ */
+function YAxis({
+  top,
+  kind,
+  width,
+  height,
+  box,
+  pad,
+}: {
+  top: number;
+  kind: "number" | "money";
+  width: number;
+  height: number;
+  box: { W: number; H: number };
+  pad: { t: number; innerH: number };
+}) {
+  const scale = Math.min(width / box.W, height / box.H);
+  const offsetY = (height - box.H * scale) / 2;
   return (
-    <div className="flex h-full min-h-[180px] items-center justify-center rounded-field border border-dashed border-border px-6 py-10 text-center">
+    <div aria-hidden className="relative shrink-0" style={{ width: AXIS_GUTTER, height }}>
+      {[0, 0.25, 0.5, 0.75, 1].map((t) => (
+        <span
+          key={t}
+          className="absolute right-2 -translate-y-1/2 text-label leading-none text-fg-muted"
+          style={{ top: offsetY + (pad.t + pad.innerH * t) * scale }}
+        >
+          {axisLabel(top * (1 - t), kind)}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/** Shared "there is nothing to draw" panel, so every chart fails the same way. */
+export function ChartEmpty({ message = "No data for this period", action }: { message?: string; action?: ReactNode }) {
+  return (
+    <div className="flex h-full min-h-[180px] flex-col items-center justify-center gap-3 rounded-field border border-dashed border-border px-6 py-10 text-center">
       <p className="text-note text-fg-muted">{message}</p>
+      {action}
     </div>
   );
 }
@@ -62,16 +143,20 @@ export function AreaChart({
   height = 220,
   kind = "number",
   color = "var(--chart-1)",
+  emptyAction,
 }: {
   data: Point[];
   height?: number;
   kind?: "number" | "money";
   color?: string;
+  /** Offered under the "no data" message, so an empty chart says what to do next. */
+  emptyAction?: ReactNode;
 }) {
   const gradientId = useId();
   const [hover, setHover] = useState<number | null>(null);
+  const [boxRef, boxWidth] = useWidth();
 
-  if (data.length === 0) return <ChartEmpty />;
+  if (data.length === 0) return <ChartEmpty action={emptyAction} />;
 
   const W = 600;
   const H = 200;
@@ -80,7 +165,7 @@ export function AreaChart({
   const PAD_T = 12;
   const PAD_B = 24;
 
-  const max = Math.max(...data.map((d) => d.value), 1);
+  const max = niceMax(Math.max(...data.map((d) => d.value), 1), kind);
   const innerW = W - PAD_L - PAD_R;
   const innerH = H - PAD_T - PAD_B;
 
@@ -96,6 +181,9 @@ export function AreaChart({
 
   return (
     <div className="relative">
+      <div className="flex">
+        <YAxis top={max} kind={kind} width={boxWidth} height={height} box={{ W, H }} pad={{ t: PAD_T, innerH }} />
+        <div ref={boxRef} className="min-w-0 flex-1">
       <svg
         viewBox={`0 0 ${W} ${H}`}
         className="w-full"
@@ -171,8 +259,10 @@ export function AreaChart({
           />
         ))}
       </svg>
+        </div>
+      </div>
 
-      <div className="mt-1 flex justify-between text-label text-fg-muted">
+      <div className="mt-1 flex justify-between text-label text-fg-muted" style={{ marginLeft: AXIS_GUTTER }}>
         <span>{data[0].label}</span>
         {data.length > 2 ? <span>{data[Math.floor(data.length / 2)].label}</span> : null}
         {data.length > 1 ? <span>{data[data.length - 1].label}</span> : null}
@@ -196,19 +286,22 @@ export function BarChart({
   height = 220,
   kind = "number",
   color = "var(--chart-2)",
+  emptyAction,
 }: {
   data: Point[];
   height?: number;
   kind?: "number" | "money";
   color?: string;
+  emptyAction?: ReactNode;
 }) {
   const [hover, setHover] = useState<number | null>(null);
-  if (data.length === 0) return <ChartEmpty />;
+  const [boxRef, boxWidth] = useWidth();
+  if (data.length === 0) return <ChartEmpty action={emptyAction} />;
 
   const W = 600;
   const H = 200;
   const PAD = { l: 8, r: 8, t: 12, b: 24 };
-  const max = Math.max(...data.map((d) => d.value), 1);
+  const max = niceMax(Math.max(...data.map((d) => d.value), 1), kind);
   const innerW = W - PAD.l - PAD.r;
   const innerH = H - PAD.t - PAD.b;
   const slot = innerW / data.length;
@@ -218,6 +311,9 @@ export function BarChart({
 
   return (
     <div className="relative">
+      <div className="flex">
+        <YAxis top={max} kind={kind} width={boxWidth} height={height} box={{ W, H }} pad={{ t: PAD.t, innerH }} />
+        <div ref={boxRef} className="min-w-0 flex-1">
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height }} role="img">
         {[0, 0.25, 0.5, 0.75, 1].map((t) => (
           <line
@@ -261,8 +357,10 @@ export function BarChart({
           );
         })}
       </svg>
+        </div>
+      </div>
 
-      <div className="mt-1 flex justify-between text-label text-fg-muted">
+      <div className="mt-1 flex justify-between text-label text-fg-muted" style={{ marginLeft: AXIS_GUTTER }}>
         <span>{data[0].label}</span>
         {data.length > 2 ? <span>{data[Math.floor(data.length / 2)].label}</span> : null}
         {data.length > 1 ? <span>{data[data.length - 1].label}</span> : null}

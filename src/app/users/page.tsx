@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { PersonCell, StatusBadge } from "@/components/ui/Dashboard";
-import { ConsolePage, DataTable, formatDate, type Column } from "@/components/ui/DataTable";
+import { ConsolePage, DataTable, emptyActionClass, formatDate, type Column } from "@/components/ui/DataTable";
 import { getUsersDashboard } from "@/lib/api/admin";
 import { errorText } from "@/lib/api/client";
 import { useLiveChanges } from "@/lib/live/useLiveChanges";
@@ -129,7 +129,14 @@ export default function UsersPage() {
         searchable={() => []}
         searchPlaceholder="Search name, email, phone…"
         rowHref={(u) => `/users/${u._id}`}
-        empty={{ title: "No users", description: "Nobody matches that filter." }}
+        empty={{
+          title: role === "all" ? "No users" : `No ${role} accounts`,
+          description: "Nobody matches that filter.",
+          action:
+            role !== "all" ? (
+              <button type="button" className={emptyActionClass} onClick={() => setRole("all")}>Show all users</button>
+            ) : undefined,
+        }}
       />
       </div>
     </ConsolePage>

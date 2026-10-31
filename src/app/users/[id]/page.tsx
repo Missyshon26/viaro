@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   ConsolePage,
   DataTable,
+  emptyActionClass,
   formatDate,
   formatDateTime,
   money,
@@ -18,7 +19,7 @@ import {
   reference,
   type BadgeTone,
 } from "@/components/ui/Dashboard";
-import { IconCar, IconCheck, IconMoney, IconRoute, IconUsers } from "@/components/ui/Icons";
+import { IconCheck, IconMoney, IconPenalty, IconRoute, IconUsers } from "@/components/ui/Icons";
 import { errorText } from "@/lib/api/client";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
@@ -56,7 +57,7 @@ type Stage = "awaiting" | "pool" | "assigned" | "in_progress" | "completed" | "c
 const STAGE: Record<Stage, { label: string; tone: BadgeTone }> = {
   awaiting: { label: "Awaiting dispatch", tone: "warn" },
   pool: { label: "In the pool", tone: "info" },
-  assigned: { label: "Chauffeur assigned", tone: "info" },
+  assigned: { label: "Driver assigned", tone: "info" },
   in_progress: { label: "In progress", tone: "info" },
   completed: { label: "Completed", tone: "good" },
   cancelled: { label: "Cancelled", tone: "bad" },
@@ -263,7 +264,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
           <>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <Tile
-                label="Journeys"
+                label="Trips"
                 value={isCustomer ? String(stats.total) : "—"}
                 hint={isCustomer ? "Booked all time" : "Customers only"}
                 icon={<IconRoute size={16} />}
@@ -277,12 +278,12 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
               <Tile
                 label="Cancelled"
                 value={isCustomer ? String(stats.cancelled) : "—"}
-                icon={<IconCar size={16} />}
+                icon={<IconPenalty size={16} />}
               />
               <Tile
                 label="Spent"
                 value={isCustomer ? money(stats.spent) : "—"}
-                hint="Completed journeys only"
+                hint="Completed trips only"
                 icon={<IconMoney size={16} />}
               />
             </div>
@@ -357,11 +358,11 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                 ) : null}
               </Section>
 
-              <Section icon={<IconRoute size={14} />} title="Journey history">
+              <Section icon={<IconRoute size={14} />} title="Trip history">
                 {!isCustomer ? (
                   <NotAvailable
-                    title="Journeys are recorded against the customer who booked them"
-                    reason={`A booking stores who requested the ride, not who drove it, so there is nothing to list for a ${user.role} account here. A chauffeur's own record — trips, earnings and penalties — is on the Drivers screen, which reads the driver-scoped reports.`}
+                    title="Trips are recorded against the customer who booked them"
+                    reason={`A booking stores who requested the ride, not who drove it, so there is nothing to list for a ${user.role} account here. A driver's own record — trips, earnings and penalties — is on the Drivers screen, which reads the driver-scoped reports.`}
                   />
                 ) : (
                   <DataTable
@@ -376,11 +377,12 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                       r.drop.address,
                       vehicleLabel(r.vehicleClass),
                     ]}
-                    searchPlaceholder="Search this customer's journeys…"
+                    searchPlaceholder="Search this customer's trips…"
                     rowHref={(r) => `/trips/${r._id}`}
                     empty={{
-                      title: "No journeys yet",
+                      title: "No trips yet",
                       description: "This customer has not booked a ride.",
+                      action: <Link href="/trips" className={emptyActionClass}>Add a trip from Trips</Link>,
                     }}
                   />
                 )}

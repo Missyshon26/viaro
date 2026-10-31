@@ -1,4 +1,4 @@
-import { Bell, CalendarDays, CarFront, ChartNoAxesCombined, Check, ChevronDown, ChevronRight, Clock3, FileText, Headset, House, Inbox, LogOut, MapPin, Menu, Moon, Package, PanelLeftClose, Plane, RadioTower, Route, Search, Star, Sun, Tags, TrendingDown, TrendingUp, TriangleAlert, Users, Wallet, X, type LucideProps } from "lucide-react";
+import { Bell, Building2, CalendarDays, CarFront, ChartNoAxesCombined, Check, ChevronDown, ChevronRight, Clock3, Contact, FileText, Headset, House, IdCard, Inbox, LogOut, MapPin, Menu, Moon, Package, PanelLeftClose, Plane, RadioTower, Route, Search, Star, Sun, Tags, TrendingDown, TrendingUp, TriangleAlert, Users, Wallet, X, type LucideProps } from "lucide-react";
 
 // Keep the existing icon API while sharing Lucide geometry and sizing.
 export const IconHome = (props: LucideProps) => <House size={18} strokeWidth={1.75} aria-hidden {...props} />;
@@ -32,3 +32,6 @@ export const IconInbox = (props: LucideProps) => <Inbox size={18} strokeWidth={1
 export const IconSun = (props: LucideProps) => <Sun size={18} strokeWidth={1.75} aria-hidden {...props} />;
 export const IconMoon = (props: LucideProps) => <Moon size={18} strokeWidth={1.75} aria-hidden {...props} />;
 export const IconPackage = (props: LucideProps) => <Package size={18} strokeWidth={1.75} aria-hidden {...props} />;
+export const IconContact = (props: LucideProps) => <Contact size={18} strokeWidth={1.75} aria-hidden {...props} />;
+export const IconIdCard = (props: LucideProps) => <IdCard size={18} strokeWidth={1.75} aria-hidden {...props} />;
+export const IconBuilding = (props: LucideProps) => <Building2 size={18} strokeWidth={1.75} aria-hidden {...props} />;

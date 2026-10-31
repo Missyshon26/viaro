@@ -4,7 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { Card, Kicker } from "@/components/ui/Surfaces";
 import { Button } from "@/components/ui/Button";
-import { ConsolePage, DataTable, money, formatDateTime, type Column } from "@/components/ui/DataTable";
+import { ConsolePage, DataTable, emptyActionClass, money, formatDateTime, type Column } from "@/components/ui/DataTable";
+import Link from "next/link";
 import {
   getTripsCompleted,
   getEarningsPayout,
@@ -57,6 +58,14 @@ export default function ReportsPage() {
     void load();
     return () => { latestRequest.current += 1; };
   }, [load]);
+
+  // An empty report is usually a date range with nothing in it: offer to clear it, else go to the trips.
+  const emptyAction =
+    range.from || range.to ? (
+      <button type="button" className={emptyActionClass} onClick={() => setRange({})}>Clear dates</button>
+    ) : (
+      <Link href="/trips" className={emptyActionClass}>View trips</Link>
+    );
 
   const tripColumns: Column<TripsCompletedReport["rows"][number]>[] = [
     { key: "trip", header: "Trip", cell: (r) => r.tripId.slice(-6).toUpperCase() },
@@ -142,7 +151,7 @@ export default function ReportsPage() {
               searchPlaceholder="Search trip ID, booking ID or driver…"
               rowKey={(r) => r.tripId}
               minWidth="46rem"
-              empty={{ title: "No completed trips in that range" }}
+              empty={{ title: "No completed trips in that range", action: emptyAction }}
             />
           </>
         ) : null}
@@ -166,7 +175,7 @@ export default function ReportsPage() {
               searchPlaceholder="Search movement or transaction ID…"
               rowKey={(r) => r.transactionId}
               minWidth="46rem"
-              empty={{ title: "Nothing recorded in that range" }}
+              empty={{ title: "Nothing recorded in that range", action: emptyAction }}
             />
           </>
         ) : null}
@@ -190,7 +199,7 @@ export default function ReportsPage() {
               searchPlaceholder="Search trip ID, booking ID or driver…"
               rowKey={(r) => r.tripId}
               minWidth="42rem"
-              empty={{ title: "No cancellations in that range" }}
+              empty={{ title: "No cancellations in that range", action: emptyAction }}
             />
           </>
         ) : null}

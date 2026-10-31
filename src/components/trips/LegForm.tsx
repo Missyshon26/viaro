@@ -194,7 +194,7 @@ export function LegForm({
         {/* The tip is switched off (the fuel surcharge replaces it); flip this flag to bring it back. */}
         {GRATUITY_ENABLED ? (
         <div>
-          <label className={label} htmlFor={id("tip")}>Tip for the chauffeur</label>
+          <label className={label} htmlFor={id("tip")}>Tip for the driver</label>
           <div className="relative"><select id={id("tip")} className={`${field} appearance-none pr-10`} value={form.gratuity} onChange={(e) => set("gratuity", e.target.value)}>
             {GRATUITY_OPTIONS.map((pct) => (
               <option key={pct} value={String(pct)}>

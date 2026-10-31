@@ -79,8 +79,8 @@ export function NoShowButton({
         {noShow ? (
           <>
             <p>
-              The trip goes back to accepted and the chauffeur is on it again. The payment made to the chauffeur
-              and the business&rsquo;s shares are taken back. A chauffeur who has already withdrawn that money is
+              The trip goes back to accepted and the driver is on it again. The payment made to the driver
+              and the business&rsquo;s shares are taken back. A driver who has already withdrawn that money is
               left with a negative balance.
             </p>
             <p>
@@ -91,11 +91,11 @@ export function NoShowButton({
         ) : (
           <>
             <p>
-              The trip closes and is still charged: the chauffeur is paid and freed, and nothing is refunded.{" "}
+              The trip closes and is still charged: the driver is paid and freed, and nothing is refunded.{" "}
               {clientName ?? "The passenger"} is emailed that the reservation was marked a no-show, and operations
               get a copy.
             </p>
-            <p>Only do this if the chauffeur waited at the pickup and could not reach the passenger. It can be undone.</p>
+            <p>Only do this if the driver waited at the pickup and could not reach the passenger. It can be undone.</p>
           </>
         )}
       </ConfirmDialog>

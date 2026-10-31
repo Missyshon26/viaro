@@ -45,7 +45,7 @@ export function RejectRequest({
   return (
     <div className="space-y-3">
       <p className="text-note leading-relaxed text-fg-muted">
-        No chauffeur has taken this ride yet. If it cannot be done, reject it: the customer is
+        No driver has taken this ride yet. If it cannot be done, reject it: the customer is
         emailed your reason{booking.payment ? " and refunded in full" : ""}.
       </p>
       <button
@@ -150,7 +150,7 @@ function RejectDialog({
           maxLength={300}
           rows={3}
           onChange={(event) => setReason(event.target.value)}
-          placeholder="For example: we have no chauffeur available at that time"
+          placeholder="For example: we have no driver available at that time"
           className="mt-1 w-full rounded-field border border-border bg-surface-raised px-3 py-2 text-body text-fg outline-none focus:border-accent"
         />
         <p className="mt-1 text-note text-fg-muted">{trimmed.length}/300</p>

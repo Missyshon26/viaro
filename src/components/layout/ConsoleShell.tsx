@@ -14,6 +14,8 @@ import {
   IconBell,
   IconCalendar,
   IconCar,
+  IconContact,
+  IconIdCard,
   IconChevronDown,
   IconChevronRight,
   IconClose,
@@ -59,7 +61,9 @@ export type NavIcon =
   | "support"
   | "document"
   | "penalty"
-  | "package";
+  | "package"
+  | "contact"
+  | "driver";
 
 export interface NavItem {
   href: string;
@@ -81,6 +85,8 @@ const ICONS: Record<NavIcon, (p: { size?: number; className?: string }) => React
   document: IconDocument,
   penalty: IconPenalty,
   package: IconPackage,
+  contact: IconContact,
+  driver: IconIdCard,
 };
 
 const COLLAPSE_KEY = "abl-console-collapsed";
@@ -254,9 +260,10 @@ export function ConsoleShell({
                 </>
               ) : null}
             </nav>
-            <h1 className="truncate text-[1.0625rem] font-bold tracking-tight text-fg">
+            {/* Not a heading: each page's own title (ConsolePage) is the page's one H1. */}
+            <p className="truncate text-[1.0625rem] font-bold tracking-tight text-fg">
               {pageTitle}
-            </h1>
+            </p>
           </div>
 
           <SearchBox nav={nav} />

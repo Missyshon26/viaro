@@ -19,6 +19,7 @@ import {
   IconCar,
   IconCheck,
   IconClock,
+  IconIdCard,
   IconMoney,
   IconPenalty,
   IconPin,
@@ -65,7 +66,7 @@ type FullBooking = Booking & {
 /** How each actor is described in the console, rather than showing the raw enum. */
 const CANCELLER_ROLE: Record<string, string> = {
   customer: "passenger",
-  driver: "chauffeur",
+  driver: "driver",
   admin: "operations",
 };
 
@@ -111,7 +112,7 @@ export default function BookingDetailPage({
       setTrip(resolved);
       setTripError(null);
     } catch {
-      if (isCurrent()) setTripError("Chauffeur and trip details could not be loaded.");
+      if (isCurrent()) setTripError("Driver and trip details could not be loaded.");
     } finally {
       if (isCurrent()) setTripSearched(true);
     }
@@ -173,7 +174,7 @@ export default function BookingDetailPage({
       : undefined);
 
   const stage = stageOf({ ...booking, trip: trip ?? undefined });
-  const stageLabel = { awaiting: "Awaiting dispatch", pool: "In the pool", assigned: "Chauffeur assigned", in_progress: "In progress", completed: "Completed", cancelled: "Cancelled" }[stage];
+  const stageLabel = { awaiting: "Awaiting dispatch", pool: "In the pool", assigned: "Driver assigned", in_progress: "In progress", completed: "Completed", cancelled: "Cancelled" }[stage];
   const vehicle = findVehicleClass(booking.vehicleClass);
   const customer =
     booking.customerId && typeof booking.customerId === "object" ? booking.customerId : null;
@@ -226,7 +227,7 @@ export default function BookingDetailPage({
       }
     >
       <div className="mb-5 flex flex-wrap items-center justify-between gap-4 rounded-card border border-border bg-surface px-5 py-4">
-        <div><p className="text-label font-bold uppercase tracking-wider text-accent">Journey overview</p><p className="mt-1 text-note text-fg-body">{stage === "awaiting" || stage === "pool" ? "Assign a chauffeur to prepare this journey for pickup." : stage === "completed" ? "Journey complete. Review payment and trip records below." : stage === "cancelled" ? "This journey has been cancelled. Review the cancellation details below." : "Monitor the pickup and keep the trip status up to date."}</p></div>
+        <div><p className="text-label font-bold uppercase tracking-wider text-accent">Trip overview</p><p className="mt-1 text-note text-fg-body">{stage === "awaiting" || stage === "pool" ? "Assign a driver to prepare this trip for pickup." : stage === "completed" ? "Trip complete. Review payment and trip records below." : stage === "cancelled" ? "This trip has been cancelled. Review the cancellation details below." : "Monitor the pickup and keep the trip status up to date."}</p></div>
         {isOverdue({ ...booking, trip: trip ?? undefined }) && <StatusBadge tone="bad">Pickup overdue</StatusBadge>}
         {(stage === "awaiting" || stage === "pool") && tripSearched && !tripError && <AssignDriver bookingId={booking._id} reference={reference(booking._id)} onAssigned={() => void load()} />}
       </div>
@@ -270,7 +271,7 @@ export default function BookingDetailPage({
 
       <div className="trip-details-layout mt-4">
         <TripDetailsGrid>
-          <Section icon={<IconRoute size={14} />} title="Journey" wide={Boolean(booking.stops?.length || booking.pickup.address.length + booking.drop.address.length > 200)}>
+          <Section icon={<IconRoute size={14} />} title="Trip" wide={Boolean(booking.stops?.length || booking.pickup.address.length + booking.drop.address.length > 200)}>
             <ol className="relative space-y-5 pl-6">
               <span aria-hidden className="absolute bottom-2 left-[5px] top-2 w-px bg-border" />
               <Leg
@@ -332,7 +333,7 @@ export default function BookingDetailPage({
                 />
               ) : null}
               <Field
-                label="Favourite chauffeur"
+                label="Favourite driver"
                 value={booking.favoriteDriverId ? "Requested" : "None"}
                 muted={!booking.favoriteDriverId}
               />
@@ -418,7 +419,7 @@ export default function BookingDetailPage({
           ) : null}
 
           {booking.journeyLegs && booking.journeyLegs.length > 1 ? (
-            <Section icon={<IconRoute size={14} />} title="Journey legs" wide>
+            <Section icon={<IconRoute size={14} />} title="Trip legs" wide>
               <p className="text-note text-fg-muted">
                 Leg {(booking.journey?.index ?? 0) + 1} of {booking.journeyLegs.length}, paid together.
               </p>
@@ -470,20 +471,20 @@ export default function BookingDetailPage({
 
 
 
-          <Section icon={<IconCar size={14} />} title="Chauffeur and trip" wide={Boolean(trip)}>
+          <Section icon={<IconIdCard size={14} />} title="Driver and trip" wide={Boolean(trip)}>
             {tripError ? (
               <div role="alert"><p className="text-note text-danger">{tripError}</p><button type="button" onClick={() => void load()} className="mt-2 min-h-11 text-note font-bold text-accent">Retry loading trip</button></div>
             ) : !tripSearched ? (
               <Skeleton className="h-24" />
             ) : !trip ? (
-              <p className="text-note text-fg-muted">No chauffeur assigned yet. Assign a chauffeur from the journey overview above.</p>
+              <p className="text-note text-fg-muted">No driver assigned yet. Assign a driver from the trip overview above.</p>
             ) : (
               <>
                 <div className="flex items-center gap-3">
-                  <Avatar name={trip.driver?.name ?? "Chauffeur"} size={40} />
+                  <Avatar name={trip.driver?.name ?? "Driver"} size={40} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-action font-bold text-fg">
-                      {trip.driver?.name ?? "Chauffeur"}
+                      {trip.driver?.name ?? "Driver"}
                     </p>
                     <p className="truncate text-note text-fg-muted">
                       {vehicleLabel(trip.driver?.vehicleClass)}

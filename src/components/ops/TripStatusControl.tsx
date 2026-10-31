@@ -23,17 +23,17 @@ const ACTIONS: Record<
 > = {
   confirmed: {
     label: "Confirm this trip",
-    blurb: "Tells the passenger the trip is confirmed, with the chauffeur, vehicle and pickup details. The passenger is emailed.",
+    blurb: "Tells the passenger the trip is confirmed, with the driver, vehicle and pickup details. The passenger is emailed.",
     from: ["accepted"],
   },
   enroute: {
     label: "Mark as on the way",
-    blurb: "Records that the chauffeur is heading to the pickup. The passenger is emailed.",
+    blurb: "Records that the driver is heading to the pickup. The passenger is emailed.",
     from: ["accepted"],
   },
   arrived: {
     label: "Mark as arrived",
-    blurb: "Records that the chauffeur is at the pickup. The passenger is emailed.",
+    blurb: "Records that the driver is at the pickup. The passenger is emailed.",
     from: ["accepted"],
   },
   started: {
@@ -44,13 +44,13 @@ const ACTIONS: Record<
   completed: {
     label: "Mark as completed",
     blurb:
-      "Settles the fare — the 60/40 revenue split runs and the chauffeur is paid — and frees them for the next job. This cannot be undone.",
+      "Settles the fare — the 60/40 revenue split runs and the driver is paid — and frees them for the next job. This cannot be undone.",
     from: ["accepted", "started"],
   },
   cancelled: {
     label: "Cancel this trip",
     blurb:
-      "Ends the journey and frees the chauffeur. The chauffeur is NOT penalised: that penalty is for abandoning an accepted ride, not for an office cancellation.",
+      "Ends the trip and frees the driver. The driver is NOT penalised: that penalty is for abandoning an accepted ride, not for an office cancellation.",
     danger: true,
     from: ["accepted", "started"],
   },
@@ -122,7 +122,7 @@ export function TripStatusControl({
     return compact ? null : (
       <p className="text-note leading-relaxed text-fg-muted">
         This trip is {currentStatus}. Terminal states cannot be changed — the API refuses
-        it, so the money and the chauffeur&rsquo;s availability stay consistent.
+        it, so the money and the driver&rsquo;s availability stay consistent.
       </p>
     );
   }

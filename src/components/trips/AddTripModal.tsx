@@ -222,11 +222,11 @@ export function AddTripModal({ onClose, onCreated }: { onClose: () => void; onCr
       <div className="flex max-h-[92dvh] flex-col">
         <header className="flex shrink-0 items-start gap-3 border-b border-border-subtle px-5 py-5 sm:px-7">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-field bg-accent-soft text-accent"><Route size={20} /></span>
-          <div className="min-w-0 flex-1"><h2 id="add-trip-title" tabIndex={-1} className="text-xl font-bold">{confirming ? "Review your trip" : "Add a trip"}</h2><p id="add-trip-description" className="mt-1 text-note text-fg-muted">{confirming ? "Check the details before sending this journey to dispatch." : "Arrange a journey for your client. Payment is collected later."}</p></div>
+          <div className="min-w-0 flex-1"><h2 id="add-trip-title" tabIndex={-1} className="text-xl font-bold">{confirming ? "Review your trip" : "Add a trip"}</h2><p id="add-trip-description" className="mt-1 text-note text-fg-muted">{confirming ? "Check the details before sending this trip to dispatch." : "Arrange a trip for your client. Payment is collected later."}</p></div>
           <button type="button" aria-label="Close add trip" disabled={booking} onClick={close} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-field text-fg-muted hover:bg-surface disabled:opacity-40"><X size={19} /></button>
         </header>
         <div className="flex shrink-0 items-center gap-3 border-b border-border-subtle px-5 py-3 text-label sm:px-7" aria-label="Booking steps">
-          <span aria-current={!confirming ? "step" : undefined} className={!confirming ? "font-bold text-accent" : "text-fg-muted"}>1. Journey details</span><ArrowRight size={13} className="text-fg-muted" /><span aria-current={confirming ? "step" : undefined} className={confirming ? "font-bold text-accent" : "text-fg-muted"}>2. Review & book</span>
+          <span aria-current={!confirming ? "step" : undefined} className={!confirming ? "font-bold text-accent" : "text-fg-muted"}>1. Trip details</span><ArrowRight size={13} className="text-fg-muted" /><span aria-current={confirming ? "step" : undefined} className={confirming ? "font-bold text-accent" : "text-fg-muted"}>2. Review & book</span>
         </div>
         {discarding && <div role="alert" className="flex shrink-0 flex-wrap items-center gap-3 border-b border-border bg-accent-soft px-5 py-3 text-note"><span className="flex-1">Discard this unsaved trip?</span><button type="button" onClick={() => setDiscarding(false)} className="min-h-10 font-bold text-fg">Keep editing</button><button type="button" onClick={onClose} className="min-h-10 rounded-field border border-danger/30 px-3 font-bold text-danger">Discard trip</button></div>}
         <div ref={body} className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-surface p-4 sm:p-6">
@@ -397,7 +397,7 @@ export function AddTripModal({ onClose, onCreated }: { onClose: () => void; onCr
           <p className="text-label font-medium text-fg-muted">Booked for</p><p className="mt-1 text-card font-bold">{client?.name}</p><p className="mt-1 break-words text-note text-fg-muted">{client?.email}</p>
         </section>
         {legs.map((leg, index) => <section key={index} className="rounded-card border border-border bg-surface-raised p-5">
-          <h3 className="text-action font-bold">{journey ? `Leg ${index + 1}` : "Journey"}</h3>
+          <h3 className="text-action font-bold">{journey ? `Leg ${index + 1}` : "Trip"}</h3>
           <dl className="mt-4 grid gap-4 text-note sm:grid-cols-2">
             <div className="sm:col-span-2"><dt className="text-label text-fg-muted">Route</dt><dd className="mt-1 break-words">{[leg.pickup, ...leg.stops, leg.drop].filter(Boolean).join(" → ")}</dd></div>
             <div><dt className="text-label text-fg-muted">Pickup · Pacific time</dt><dd className="mt-1">{leg.when.replace("T", " · ")}</dd></div>

@@ -25,7 +25,7 @@ const inputClass =
   "w-full rounded-field border border-border bg-surface-raised px-3 py-2 text-note text-fg outline-none";
 
 const nameOf = (driver: RosterDriver) =>
-  driver.userId && typeof driver.userId === "object" ? driver.userId.name : "Chauffeur";
+  driver.userId && typeof driver.userId === "object" ? driver.userId.name : "Driver";
 
 /**
  * The platform roster and payout terms.
@@ -44,7 +44,7 @@ export default function DriversPage() {
     /*
      * Settled independently: the roster is the point of this page, so a failing penalties
      * or settings call must not blank it. It used to — one 404 from /admin/settings showed
-     * "No chauffeurs yet" over a full roster.
+     * "No drivers yet" over a full roster.
      */
     const [list, pen, conf] = await Promise.allSettled([
       listDrivers(),
@@ -88,7 +88,7 @@ export default function DriversPage() {
   return (
     <ConsolePage
       title="Drivers"
-      description="Every chauffeur on the platform, their standing and what they are paid."
+      description="Every driver on the platform, their standing and what they are paid."
     >
       {error ? <p className="mb-4 text-note font-bold text-danger">{error}</p> : null}
 
@@ -109,11 +109,11 @@ export default function DriversPage() {
             <p className="p-6 text-note text-fg-muted">Loading…</p>
           ) : drivers.length === 0 ? (
             <p className="p-6 text-note text-fg-muted">
-              No chauffeurs yet. They appear here once they register or a company adds
+              No drivers yet. They appear here once they register or a company adds
               them.
             </p>
           ) : shown.length === 0 ? (
-            <p className="p-6 text-note text-fg-muted">No chauffeur matches &ldquo;{query}&rdquo;.</p>
+            <p className="p-6 text-note text-fg-muted">No driver matches &ldquo;{query}&rdquo;.</p>
           ) : (
             <ul className="mt-4 divide-y divide-border-subtle">
               {shown.map((driver) => (
@@ -156,7 +156,7 @@ export default function DriversPage() {
               {penalties?.totalEvents ?? "—"}
             </p>
             <p className="mt-1.5 text-note text-fg-muted">
-              across {penalties?.totalDrivers ?? 0} chauffeurs
+              across {penalties?.totalDrivers ?? 0} drivers
             </p>
 
             {penalties && penalties.drivers.length > 0 ? (
@@ -227,7 +227,7 @@ function DefaultPayoutCard({
     <Card className="p-5">
       <Kicker>Settings</Kicker>
       <p className="mt-2 text-note leading-relaxed text-fg-muted">
-        Applied from the next trip or request. Rates set on a chauffeur or a company always
+        Applied from the next trip or request. Rates set on a driver or a company always
         win over these defaults.
       </p>
       <form
@@ -251,8 +251,8 @@ function DefaultPayoutCard({
         {state.error && !staged ? <p className="text-label text-danger">{state.error}</p> : null}
 
         <fieldset>
-          <legend className="text-label font-bold text-fg">Default chauffeur payout</legend>
-          <p className="text-note text-fg-muted">For chauffeurs with no rate of their own.</p>
+          <legend className="text-label font-bold text-fg">Default driver payout</legend>
+          <p className="text-note text-fg-muted">For drivers with no rate of their own.</p>
           <div className="mt-2 flex flex-wrap gap-3">
             <select name="mode" defaultValue={settings.driverPayout.mode} className={`${inputClass} w-36`}>
               <option value="percentage">Percentage</option>
@@ -345,7 +345,7 @@ function DefaultPayoutCard({
         {staged ? (
           <ul className="list-disc pl-5">
             <li>
-              Default chauffeur payout:{" "}
+              Default driver payout:{" "}
               <strong>
                 {staged.driverPayout?.mode === "flat" ? `$${staged.driverPayout.value} per trip` : `${staged.driverPayout?.value}%`}
               </strong>
@@ -413,7 +413,7 @@ function PayoutForm({
         </p>
       ) : !driver.payout ? (
         <p className="w-full text-note text-fg-muted">
-          Using the default payout. Save a rate here to give this chauffeur their own.
+          Using the default payout. Save a rate here to give this driver their own.
         </p>
       ) : null}
 
@@ -450,7 +450,7 @@ function PayoutForm({
 
       <ConfirmDialog
         open={staged !== null}
-        title="Change this chauffeur's pay?"
+        title="Change this driver's pay?"
         confirmLabel="Save terms"
         pendingLabel="Saving…"
         pending={pending}
@@ -462,7 +462,7 @@ function PayoutForm({
         }}
       >
         <p>
-          From their next completed trip, this chauffeur will be paid{" "}
+          From their next completed trip, this driver will be paid{" "}
           <strong>{staged?.mode === "flat" ? `$${staged.value} per trip` : `${staged?.value}% of the fare share`}</strong>.
         </p>
       </ConfirmDialog>
