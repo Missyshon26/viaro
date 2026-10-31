@@ -61,7 +61,7 @@ export default function ReportsPage() {
   const tripColumns: Column<TripsCompletedReport["rows"][number]>[] = [
     { key: "trip", header: "Trip", cell: (r) => r.tripId.slice(-6).toUpperCase() },
     { key: "booking", header: "Booking", cell: (r) => r.bookingId.slice(-6).toUpperCase(), secondary: true },
-    { key: "driver", header: "Driver", cell: (r) => r.driverId.slice(-6).toUpperCase(), secondary: true },
+    { key: "driver", header: "Driver", cell: (r) => r.driverName || r.driverId.slice(-6).toUpperCase(), secondary: true },
     { key: "completed", header: "Completed", cell: (r) => formatDateTime(r.completedAt) },
     { key: "fare", header: "Fare", align: "right", cell: (r) => money(r.fareAmount) },
   ];
@@ -76,6 +76,7 @@ export default function ReportsPage() {
 
   const cancelColumns: Column<CancellationsReport["cancellations"][number]>[] = [
     { key: "trip", header: "Trip", cell: (r) => r.tripId.slice(-6).toUpperCase() },
+    { key: "driver", header: "Driver", cell: (r) => r.driverName || r.driverId.slice(-6).toUpperCase(), secondary: true },
     { key: "by", header: "Cancelled by", cell: (r) => r.cancelledBy ?? "—" },
     { key: "reason", header: "Reason", cell: (r) => r.reason ?? "—", secondary: true },
     { key: "refund", header: "Refund", align: "right", cell: (r) => `${r.refundPct}%` },
@@ -137,6 +138,8 @@ export default function ReportsPage() {
               onPageSizeChange={setPageSize}
               rows={error ? [] : trips?.rows ?? null}
               columns={tripColumns}
+              searchable={(r) => [r.tripId, r.tripId.slice(-6), r.bookingId, r.bookingId.slice(-6), `ABL-${r.bookingId.slice(-6)}`, r.driverId, r.driverId.slice(-6), r.driverName]}
+              searchPlaceholder="Search trip ID, booking ID or driver…"
               rowKey={(r) => r.tripId}
               minWidth="46rem"
               empty={{ title: "No completed trips in that range" }}
@@ -159,6 +162,8 @@ export default function ReportsPage() {
               onPageSizeChange={setPageSize}
               rows={error ? [] : earnings?.rows ?? null}
               columns={earningColumns}
+              searchable={(r) => [r.transactionId, r.reason, r.type]}
+              searchPlaceholder="Search movement or transaction ID…"
               rowKey={(r) => r.transactionId}
               minWidth="46rem"
               empty={{ title: "Nothing recorded in that range" }}
@@ -181,6 +186,8 @@ export default function ReportsPage() {
               onPageSizeChange={setPageSize}
               rows={error ? [] : cancels?.cancellations ?? null}
               columns={cancelColumns}
+              searchable={(r) => [r.tripId, r.tripId.slice(-6), r.bookingId, r.bookingId?.slice(-6), r.driverId, r.driverId.slice(-6), r.driverName, r.cancelledBy, r.reason]}
+              searchPlaceholder="Search trip ID, booking ID or driver…"
               rowKey={(r) => r.tripId}
               minWidth="42rem"
               empty={{ title: "No cancellations in that range" }}

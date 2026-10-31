@@ -221,6 +221,7 @@ export interface TripsCompletedReport {
     tripId: string;
     bookingId: string;
     driverId: string;
+    driverName?: string;
     fareAmount?: number;
     completedAt: string | null;
   }[];
@@ -263,7 +264,9 @@ export interface CancellationsReport {
   scope: string;
   cancellations: {
     tripId: string;
+    bookingId?: string;
     driverId: string;
+    driverName?: string;
     status: string;
     cancelledBy: string | null;
     reason: string | null;
