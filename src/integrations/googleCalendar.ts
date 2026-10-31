@@ -6,10 +6,10 @@ import { logger } from '../utils/logger';
  * A thin client for the Google Calendar events API, signed in as a service account.
  *
  * A service account is a robot with no password and no login token to expire, so the sync
- * keeps working until someone removes its access. It can only touch calendars shared with
- * it, which is exactly the one calendar operations choose. It cannot invite attendees
- * (that needs domain-wide delegation), so events carry no guest list: people see them by
- * having the calendar.
+ * keeps working until someone removes its access. By default it can only touch a calendar
+ * shared with it. With GOOGLE_CALENDAR_IMPERSONATE (domain-wide delegation, authorised once by a
+ * Workspace admin) it instead acts as that user and writes straight into their own calendar.
+ * Either way events carry no guest list: people see them by having the calendar.
  *
  * Everything the sync needs is the `CalendarApi` interface below, so tests (and any future
  * provider) can stand in for Google without touching the sync logic.
@@ -80,8 +80,14 @@ export function readCredentials(raw: string | undefined): { ok: true; value: Cre
   };
 }
 
-function googleApi(calendarId: string, credentials: Credentials): CalendarApi {
-  const auth = new JWT({ email: credentials.client_email, key: credentials.private_key, scopes: SCOPE.split(' ') });
+function googleApi(calendarId: string, credentials: Credentials, actAs?: string): CalendarApi {
+  const auth = new JWT({
+    email: credentials.client_email,
+    key: credentials.private_key,
+    scopes: SCOPE.split(' '),
+    // Domain-wide delegation: sign in as this user, not as the robot.
+    ...(actAs ? { subject: actAs } : {}),
+  });
   const events = `${BASE}/calendars/${encodeURIComponent(calendarId)}/events`;
 
   async function call<T>(method: 'GET' | 'POST' | 'PATCH' | 'DELETE', url: string, data?: unknown): Promise<T> {
@@ -132,7 +138,8 @@ export function getCalendarApi(): CalendarApi | null {
   const id = env.GOOGLE_CALENDAR_ID?.trim();
   if (!id) return null;
 
-  const key = `${id}|${env.GOOGLE_SERVICE_ACCOUNT_JSON ?? ''}`;
+  const actAs = env.GOOGLE_CALENDAR_IMPERSONATE?.trim() || undefined;
+  const key = `${id}|${actAs ?? ''}|${env.GOOGLE_SERVICE_ACCOUNT_JSON ?? ''}`;
   if (cached?.key === key) return cached.api;
 
   const creds = readCredentials(env.GOOGLE_SERVICE_ACCOUNT_JSON);
@@ -141,6 +148,6 @@ export function getCalendarApi(): CalendarApi | null {
     cached = { key, api: null };
     return null;
   }
-  cached = { key, api: googleApi(id, creds.value) };
+  cached = { key, api: googleApi(id, creds.value, actAs) };
   return cached.api;
 }

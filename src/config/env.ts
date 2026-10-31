@@ -86,6 +86,13 @@ const envSchema = z.object({
   GOOGLE_CALENDAR_ID: z.string().optional(),
   GOOGLE_SERVICE_ACCOUNT_JSON: z.string().optional(),
   /**
+   * Act AS this Workspace user instead of needing the calendar shared with the robot (domain-wide
+   * delegation): e.g. reservations@allblacklimoseattle.com, with GOOGLE_CALENDAR_ID the same address
+   * (their own calendar). A Workspace admin has to authorise the service account once, in the Admin
+   * console. Empty = the robot uses a calendar shared with it, as before.
+   */
+  GOOGLE_CALENDAR_IMPERSONATE: z.string().optional(),
+  /**
    * Where uploaded images (vehicle photos) are stored on the server's disk. Defaults to
    * ./uploads, which is fine on a laptop and WRONG on a host whose disk is wiped on every
    * deploy: there it must point at a persistent volume, or the photos disappear.
