@@ -236,21 +236,21 @@ export default function AdminDashboard() {
               value={compactMoney(completed?.totalFare ?? 0)}
               hint={`${count(completed?.count ?? 0)} settled trips`}
               icon={<IconMoney size={18} />}
-              href="/revenue"
+              href="/trips?stage=completed"
             />
             <StatCard
               label="Active trips"
               value={count(activeTrips)}
               hint="Assigned or in progress"
               icon={<IconDispatch size={18} />}
-              href="/trips"
+              href="/trips?stage=active"
             />
             <StatCard
               label="Waiting for a driver"
               value={count(pool)}
               hint="Unassigned in the pool"
               icon={<IconCalendar size={18} />}
-              href="/trips"
+              href="/trips?stage=pool"
             />
           </>
         )}
@@ -266,7 +266,7 @@ export default function AdminDashboard() {
               value={count(byRole.company)}
               hint="Fleet operators"
               icon={<IconBuilding size={18} />}
-              href="/users"
+              href="/users?role=company"
             />
             <StatCard
               label="Drivers"
@@ -280,14 +280,14 @@ export default function AdminDashboard() {
               value={count(byRole.customer)}
               hint="Passenger accounts"
               icon={<IconUsers size={18} />}
-              href="/users"
+              href="/users?role=customer"
             />
             <StatCard
               label="Cancellations"
               value={count(cancels?.counts.cancellations)}
               hint={`${cancels?.counts.penalties ?? 0} penalties recorded`}
               icon={<IconPenalty size={18} />}
-              href="/drivers"
+              href="/trips?stage=cancelled"
             />
           </>
         )}
@@ -345,13 +345,15 @@ export default function AdminDashboard() {
                 label: "Completed",
                 value: bookingStatus.completed,
                 color: "var(--chart-good)",
+                href: "/trips?stage=completed",
               },
-              { label: "Active", value: activeTrips, color: "var(--chart-2)" },
-              { label: "Pending", value: (bookingStatus.awaiting + bookingStatus.pool), color: "var(--chart-warn)" },
+              { label: "Active", value: activeTrips, color: "var(--chart-2)", href: "/trips?stage=active" },
+              { label: "Pending", value: (bookingStatus.awaiting + bookingStatus.pool), color: "var(--chart-warn)", href: "/trips?stage=pending" },
               {
                 label: "Cancelled",
                 value: bookingStatus.cancelled,
                 color: "var(--chart-bad)",
+                href: "/trips?stage=cancelled",
               },
             ]}
           />
@@ -497,7 +499,7 @@ export default function AdminDashboard() {
           body="A city without a rule cannot be quoted at all — booking there fails outright."
         />
         <QuickLink
-          href="/trips"
+          href="/trips?stage=pool"
           icon={<IconDispatch size={18} />}
           title="Dispatch pool"
           body="Trips still waiting on a driver — filter Trips by 'In the pool'."

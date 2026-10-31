@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import Link from "next/link";
 
 /**
  * Charts.
@@ -382,6 +383,8 @@ export interface Slice {
   label: string;
   value: number;
   color: string;
+  /** Where clicking this segment (or its legend row) goes. */
+  href?: string;
 }
 
 /**
@@ -437,20 +440,29 @@ export function DonutChart({
             stroke="var(--chart-grid)"
             strokeWidth={18}
           />
-          {arcs.map(({ slice: s, len, offset }) => (
-            <circle
-              key={s.label}
-              cx="80"
-              cy="80"
-              r={R}
-              fill="none"
-              stroke={s.color}
-              strokeWidth={18}
-              strokeDasharray={`${len} ${C - len}`}
-              strokeDashoffset={-offset}
-              strokeLinecap="butt"
-            />
-          ))}
+          {arcs.map(({ slice: s, len, offset }) => {
+            const arc = (
+              <circle
+                cx="80"
+                cy="80"
+                r={R}
+                fill="none"
+                stroke={s.color}
+                strokeWidth={18}
+                strokeDasharray={`${len} ${C - len}`}
+                strokeDashoffset={-offset}
+                strokeLinecap="butt"
+                className={s.href ? "cursor-pointer transition-opacity hover:opacity-80" : undefined}
+              />
+            );
+            return s.href ? (
+              <Link key={s.label} href={s.href} aria-label={`${s.label}: ${NUMBER.format(s.value)}. Open them`}>
+                {arc}
+              </Link>
+            ) : (
+              <g key={s.label}>{arc}</g>
+            );
+          })}
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span className="text-[1.5rem] font-bold tracking-tight text-fg">
@@ -461,22 +473,35 @@ export function DonutChart({
       </div>
 
       <ul className="w-full min-w-0 space-y-2.5">
-        {slices.map((s) => (
-          <li key={s.label} className="flex items-center gap-2.5">
-            <span
-              aria-hidden
-              className="h-2.5 w-2.5 shrink-0 rounded-full"
-              style={{ background: s.color }}
-            />
-            <span className="min-w-0 truncate text-note text-fg-body">{s.label}</span>
-            <span className="ml-auto shrink-0 text-note font-bold text-fg">
-              {NUMBER.format(s.value)}
-            </span>
-            <span className="w-10 shrink-0 text-right text-label text-fg-muted">
-              {Math.round((s.value / sum) * 100)}%
-            </span>
-          </li>
-        ))}
+        {slices.map((s) => {
+          const row = (
+            <>
+              <span
+                aria-hidden
+                className="h-2.5 w-2.5 shrink-0 rounded-full"
+                style={{ background: s.color }}
+              />
+              <span className="min-w-0 truncate text-note text-fg-body">{s.label}</span>
+              <span className="ml-auto shrink-0 text-note font-bold text-fg">
+                {NUMBER.format(s.value)}
+              </span>
+              <span className="w-10 shrink-0 text-right text-label text-fg-muted">
+                {Math.round((s.value / sum) * 100)}%
+              </span>
+            </>
+          );
+          return (
+            <li key={s.label}>
+              {s.href ? (
+                <Link href={s.href} className="-mx-2 flex items-center gap-2.5 rounded-field px-2 py-1 transition-colors hover:bg-surface">
+                  {row}
+                </Link>
+              ) : (
+                <div className="flex items-center gap-2.5">{row}</div>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

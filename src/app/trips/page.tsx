@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   ConsolePage,
@@ -100,7 +101,32 @@ const ORDER: Stage[] = [
  * are both true at once and operations needs both — the stage says what to do next, the
  * flag says how urgent it is. Collapsing them into one column would lose the first.
  */
+/** Every stage the page can be opened on: a real one, 'overdue', or a group the dashboard links to. */
+type StageFilter = Stage | "all" | "overdue" | "active" | "pending";
+const STAGE_FILTERS = ["awaiting", "pool", "assigned", "in_progress", "completed", "cancelled", "overdue", "active", "pending"];
+
+/**
+ * The dashboard's cards and chart segments open this page already filtered, as /trips?stage=pool.
+ * The view is remounted when the address changes, so following a different link (or the plain
+ * "Trips" link in the sidebar) always starts from what that link says rather than from whatever
+ * was last chosen on the page.
+ */
 export default function TripsPage() {
+  return (
+    <Suspense fallback={null}>
+      <TripsFromAddress />
+    </Suspense>
+  );
+}
+
+function TripsFromAddress() {
+  const params = useSearchParams();
+  const asked = params.get("stage") ?? "";
+  const stage = (STAGE_FILTERS.includes(asked) ? asked : "all") as StageFilter;
+  return <TripsView key={stage} initialStage={stage} />;
+}
+
+function TripsView({ initialStage }: { initialStage: StageFilter }) {
   /** The current page, as the API returned it. Filtering, search and paging all happen there. */
   const [data, setData] = useState<{ items: Row[]; total: number; counts: Record<string, number> } | null>(null);
   const rows = data?.items ?? null;
@@ -108,7 +134,7 @@ export default function TripsPage() {
   const [search, setSearch] = useState("");
   const [vehicleOptions, setVehicleOptions] = useState<{ value: string; label: string }[]>([]);
   const [cityOptions, setCityOptions] = useState<string[]>([]);
-  const [filter, setFilter] = useState<Stage | "all" | "overdue">("all");
+  const [filter, setFilter] = useState<StageFilter>(initialStage);
   const [filters, setFilters] = useState<TripFilters>({ ...emptyFilters });
   const [datePreset, setDatePreset] = useState("all");
   const [addingTrip, setAddingTrip] = useState(false);
@@ -442,7 +468,7 @@ export default function TripsPage() {
       <section aria-label="Trip filters" className="mb-4">
         <div className="grid items-center gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
           <FilterSelect label="Pickup period" value={datePreset} onChange={setPeriod} options={[{ value: "all", label: "All dates" }, { value: "today", label: "Today" }, { value: "tomorrow", label: "Tomorrow" }, { value: "week", label: "Next 7 days" }, { value: "custom", label: "Custom range" }]} />
-          <FilterSelect label="Trip stage" value={filter} onChange={(value) => setFilter(value as typeof filter)} options={[{ value: "all", label: "All stages" }, { value: "overdue", label: `Overdue (${counts.overdue})` }, ...ORDER.map((stage) => ({ value: stage, label: `${STAGE[stage].label} (${counts[stage] ?? 0})` }))]} />
+          <FilterSelect label="Trip stage" value={filter} onChange={(value) => setFilter(value as typeof filter)} options={[{ value: "all", label: "All stages" }, { value: "overdue", label: `Overdue (${counts.overdue})` }, { value: "active", label: `Active: assigned or in progress (${(counts.assigned ?? 0) + (counts.in_progress ?? 0)})` }, { value: "pending", label: `Pending: awaiting or in the pool (${(counts.awaiting ?? 0) + (counts.pool ?? 0)})` }, ...ORDER.map((stage) => ({ value: stage, label: `${STAGE[stage].label} (${counts[stage] ?? 0})` }))]} />
           <FilterSelect label="Vehicle class" value={filters.vehicle} onChange={(value) => updateFilter("vehicle", value)} options={[{ value: "", label: "All vehicles" }, ...vehicleOptions]} />
           <div className="flex items-center gap-2">
           <button type="button" aria-expanded={moreFilters} aria-controls="additional-trip-filters" onClick={() => setMoreFilters((open) => !open)} className={`inline-flex h-12 items-center justify-center gap-2 whitespace-nowrap rounded-field border px-4 text-meta font-medium transition-colors ${moreFilters ? "border-accent bg-accent-soft text-accent-strong" : "border-border bg-surface-raised text-fg-body hover:bg-surface"}`}>

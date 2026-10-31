@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { PersonCell, StatusBadge } from "@/components/ui/Dashboard";
 import { ConsolePage, DataTable, emptyActionClass, formatDate, type Column } from "@/components/ui/DataTable";
 import { getUsersDashboard } from "@/lib/api/admin";
@@ -13,9 +14,25 @@ const ROLES = ["all", "customer", "driver", "admin", "company"] as const;
 
 const PAGE_SIZE = 20;
 
+/** The dashboard's Customers and Companies cards open this page on that role, as /users?role=company. */
 export default function UsersPage() {
+  return (
+    <Suspense fallback={null}>
+      <UsersFromAddress />
+    </Suspense>
+  );
+}
+
+function UsersFromAddress() {
+  const asked = useSearchParams().get("role") ?? "";
+  const role = (ROLES as readonly string[]).includes(asked) ? (asked as (typeof ROLES)[number]) : "customer";
+  // Remounted when the address changes, so a new link starts from what it says.
+  return <UsersView key={role} initialRole={role} />;
+}
+
+function UsersView({ initialRole }: { initialRole: (typeof ROLES)[number] }) {
   const [data, setData] = useState<{ items: User[]; total: number } | null>(null);
-  const [role, setRole] = useState<(typeof ROLES)[number]>("customer");
+  const [role, setRole] = useState<(typeof ROLES)[number]>(initialRole);
   const [searchText, setSearchText] = useState("");
   const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
