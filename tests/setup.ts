@@ -92,7 +92,9 @@ vi.mock('ioredis', () => {
     async get(key: string) {
       return this.store.get(key) ?? null;
     }
-    async set(key: string, value: string) {
+    async set(key: string, value: string, ...args: unknown[]) {
+      // SET ... NX: only write when the key is absent, otherwise reply null like Redis.
+      if (args.includes('NX') && this.store.has(key)) return null;
       this.store.set(key, value);
       return 'OK';
     }

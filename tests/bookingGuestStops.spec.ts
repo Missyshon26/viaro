@@ -19,6 +19,7 @@ vi.mock('../src/models/Booking', async (orig) => {
 vi.mock('../src/modules/pricing/pricing.service', () => ({ calculateFare: mocks.calculateFare }));
 vi.mock('../src/modules/vehicle/vehicle.service', () => ({
   resolveBookableClass: vi.fn(async (v: string) => v),
+  labelFor: vi.fn(async (v: string) => v),
 }));
 vi.mock('../src/jobs/cancellationWindow.job', () => ({
   scheduleCancellationWindowCheck: vi.fn(async () => undefined),

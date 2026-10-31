@@ -12,7 +12,7 @@ import { ApiError } from '../../utils/ApiError';
 import type { UserRole } from '../../utils/roles';
 import { getOrCreateWallet } from '../wallet/wallet.service';
 import type { LoginInput, RegisterInput } from './auth.validation';
-import { revokeUserSessions } from './revocation';
+import { isSessionRevoked, revokeUserSessions } from './revocation';
 import { splitName } from '../../utils/profile';
 import { sendWelcomeEmail } from '../notifications/notification.emails';
 import { notifyOps, OPS_NOTIFICATIONS } from '../notifications/ops.notify';
@@ -71,7 +71,7 @@ interface RefreshPayload extends JwtPayload {
 
 function verifyRefreshToken(token: string): RefreshPayload {
   try {
-    const decoded = jwt.verify(token, env.JWT_REFRESH_SECRET);
+    const decoded = jwt.verify(token, env.JWT_REFRESH_SECRET, { algorithms: ['HS256'] });
     if (typeof decoded === 'string') throw new Error('unexpected payload');
     return decoded as RefreshPayload;
   } catch (err) {
@@ -90,6 +90,14 @@ async function blacklistRefreshToken(payload: RefreshPayload): Promise<void> {
   const ttlSeconds = payload.exp - Math.floor(Date.now() / 1000);
   if (ttlSeconds <= 0) return;
   await redis.set(`${BLACKLIST_PREFIX}${payload.jti}`, '1', 'EX', ttlSeconds);
+}
+
+/** Atomically marks the token spent. False when it already was — i.e. this is a replay. */
+async function claimRefreshToken(payload: RefreshPayload): Promise<boolean> {
+  if (!payload.jti || !payload.exp) return true;
+  const ttlSeconds = payload.exp - Math.floor(Date.now() / 1000);
+  if (ttlSeconds <= 0) return true;
+  return (await redis.set(`${BLACKLIST_PREFIX}${payload.jti}`, '1', 'EX', ttlSeconds, 'NX')) === 'OK';
 }
 
 async function isRefreshTokenBlacklisted(jti?: string): Promise<boolean> {
@@ -222,6 +230,11 @@ export async function login(input: LoginInput) {
 export async function refresh(refreshToken: string) {
   const payload = verifyRefreshToken(refreshToken);
 
+  // A refresh token minted before the account's revocation cutoff must not mint new ones.
+  if (await isSessionRevoked(payload.userId, payload.iat)) {
+    throw ApiError.unauthorized('Session has been revoked');
+  }
+
   if (await isRefreshTokenBlacklisted(payload.jti)) {
     /*
      * Reuse detection: this token was already spent (or explicitly logged out). Either
@@ -237,8 +250,12 @@ export async function refresh(refreshToken: string) {
   if (!user) throw ApiError.unauthorized('Account no longer exists');
   if (user.status === 'suspended') throw ApiError.forbidden('This account is suspended');
 
-  // Retire the presented token before issuing its replacement.
-  await blacklistRefreshToken(payload);
+  // Retire the presented token before issuing its replacement. The write is atomic (SET NX),
+  // so of two concurrent refreshes with the same token only one can win; the loser is a replay.
+  if (!(await claimRefreshToken(payload))) {
+    await revokeUserSessions(payload.userId);
+    throw ApiError.unauthorized('Refresh token has been revoked');
+  }
 
   const tokens = issueTokens(String(user._id), user.role);
   return { ...tokens, role: user.role };

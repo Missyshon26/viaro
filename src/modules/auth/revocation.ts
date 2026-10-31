@@ -1,5 +1,5 @@
 import { redis } from '../../config/redis';
-import { ACCESS_TOKEN_TTL } from '../../config/constants';
+import { ACCESS_TOKEN_TTL, REFRESH_TOKEN_TTL } from '../../config/constants';
 import { env } from '../../config/env';
 import { logger } from '../../utils/logger';
 
@@ -30,9 +30,14 @@ export function parseDurationSeconds(value: string, fallback = 900): number {
   return amount * multiplier;
 }
 
-/** A little headroom over the access-token lifetime, for clock skew between processes. */
+/**
+ * The cutoff has to outlive the longest-lived token it must reject. That is the refresh
+ * token, not the access token: a captured refresh token that has not been spent yet would
+ * otherwise start working again the moment a short-lived cutoff key expired. A little
+ * headroom is added for clock skew between processes.
+ */
 function cutoffTtlSeconds(): number {
-  return parseDurationSeconds(ACCESS_TOKEN_TTL) + 60;
+  return Math.max(parseDurationSeconds(ACCESS_TOKEN_TTL), parseDurationSeconds(REFRESH_TOKEN_TTL)) + 60;
 }
 
 /**

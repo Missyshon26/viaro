@@ -38,7 +38,7 @@ export function verifyAccessToken(token: string): AuthUser {
   let decoded: string | JwtPayload;
 
   try {
-    decoded = jwt.verify(token, env.JWT_ACCESS_SECRET);
+    decoded = jwt.verify(token, env.JWT_ACCESS_SECRET, { algorithms: ['HS256'] });
   } catch (err) {
     const message =
       err instanceof jwt.TokenExpiredError ? 'Access token expired' : 'Invalid access token';

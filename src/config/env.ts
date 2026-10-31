@@ -127,6 +127,16 @@ export type Env = z.infer<typeof envSchema>;
 const parsed = envSchema
   .safeParse(process.env);
 
+// A short signing secret can be brute-forced offline from any captured token.
+const weakSecrets =
+  parsed.success && parsed.data.NODE_ENV === 'production'
+    ? (['JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET'] as const).filter((k) => parsed.data[k].length < 32)
+    : [];
+if (weakSecrets.length > 0) {
+  console.error(`Invalid environment configuration:\n  - ${weakSecrets.join(', ')} must be at least 32 characters in production`);
+  process.exit(1);
+}
+
 if (!parsed.success) {
   const details = parsed.error.issues
     .map((issue) => `  - ${issue.path.join('.') || '(root)'}: ${issue.message}`)
