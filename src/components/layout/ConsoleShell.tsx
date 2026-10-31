@@ -289,7 +289,7 @@ function Navigation({ nav, pathname, collapsed, badges }: { nav: NavItem[]; path
   const groups = [
     { label: "Workspace", paths: ["/", "/trips", "/requests", "/schedule", "/drivers"] },
     { label: "Finance & insights", paths: ["/revenue", "/earnings", "/pricing", "/reports", "/penalties", "/cancellations"] },
-    { label: "Management", paths: ["/users", "/clients", "/vehicles", "/documents", "/support", "/apply"] },
+    { label: "Management", paths: ["/users", "/clients", "/vehicles", "/packages", "/documents", "/support", "/apply"] },
   ];
   return <div className={collapsed ? "space-y-4" : "space-y-5"}>{groups.map((group, index) => {
     const items = nav.filter((item) => group.paths.includes(item.href));
