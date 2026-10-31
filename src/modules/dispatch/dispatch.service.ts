@@ -1,6 +1,7 @@
 import { Booking, type BookingDocument } from '../../models/Booking';
 import { Driver, type DriverDocument } from '../../models/Driver';
 import { Trip } from '../../models/Trip';
+import { User } from '../../models/User';
 import { format, now, toDate } from '../../config/timezone';
 import { ApiError } from '../../utils/ApiError';
 import { logger } from '../../utils/logger';
@@ -105,9 +106,21 @@ export async function assignSpecificDriver(bookingId: string, driverId: string) 
   const driver = await Driver.findById(driverId);
   if (!driver) throw ApiError.notFound('Driver not found');
 
-  if (driver.status !== 'available') {
-    throw new ApiError(409, 'That chauffeur is not available', {
+  /*
+   * An operator can put any driver who is free on a job. Drivers are managed from the console
+   * (there is no app to go "online" in), so an 'offline' driver is simply one nobody has put on a
+   * trip; only a driver already on a trip (busy) or one whose account is suspended is refused.
+   */
+  if (driver.status === 'busy') {
+    throw new ApiError(409, 'That driver is already on a trip', {
       code: 'DRIVER_NOT_AVAILABLE',
+      driverStatus: driver.status,
+    });
+  }
+  const account = await User.findById(driver.userId).select('status').lean();
+  if (account?.status === 'suspended') {
+    throw new ApiError(409, 'That driver’s account is suspended', {
+      code: 'DRIVER_SUSPENDED',
       driverStatus: driver.status,
     });
   }
