@@ -78,6 +78,11 @@ export async function dashboardUsers(req: Request, res: Response): Promise<void>
   res.json({ success: true, data });
 }
 
+export async function dashboardUser(req: Request, res: Response): Promise<void> {
+  const data = await adminService.getUserById(String(req.params.id));
+  res.json({ success: true, data });
+}
+
 export async function subscriptionRevenue(_req: Request, res: Response): Promise<void> {
   const data = await adminService.subscriptionRevenue();
   res.json({ success: true, data });

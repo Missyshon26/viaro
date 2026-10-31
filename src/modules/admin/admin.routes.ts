@@ -108,6 +108,13 @@ router.get(
   asyncHandler(controller.dashboardUsers),
 );
 
+router.get(
+  '/dashboard/users/:id',
+  roleGuard('admin'),
+  validate({ params: idParamSchema }),
+  asyncHandler(controller.dashboardUser),
+);
+
 /* --------------------------------- clients ---------------------------------- */
 
 // Registered before '/customers/:id' so "export" is never read as an id.

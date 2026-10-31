@@ -71,6 +71,8 @@ export const journeysQuerySchema = paginationSchema.extend({
   service: text.optional(),
   city: text.optional(),
   payment: text.optional(),
+  /** One customer's bookings (the console's account page). */
+  customerId: z.string().regex(/^[a-fA-F0-9]{24}$/, 'Invalid customer id').optional(),
 });
 
 export type JourneysQuery = z.infer<typeof journeysQuerySchema>;

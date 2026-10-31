@@ -156,3 +156,27 @@ describe('GET /admin/dashboard/summary', () => {
     expect((await request(server).get('/admin/dashboard/summary').set('Authorization', customer.auth)).status).toBe(403);
   });
 });
+
+describe('one account on the console', () => {
+  it("filters journeys to one customer's bookings and reads one user by id", async () => {
+    const admin = await makeUser('admin');
+    const ann = await makeUser('customer', { name: 'Ann Rider' });
+    const bob = await makeUser('customer', { name: 'Bob Traveller' });
+    await book(admin.auth, ann.id);
+    await book(admin.auth, bob.id);
+    await book(admin.auth, bob.id);
+
+    const mine = await get(admin.auth, `customerId=${bob.id}`);
+    expect(mine.status).toBe(200);
+    expect(mine.body.data.total).toBe(2);
+    expect(mine.body.data.items.every((b: { customerId: { name: string } }) => b.customerId.name === 'Bob Traveller')).toBe(true);
+    expect((await get(admin.auth, 'customerId=nope')).status).toBe(400);
+
+    const one = await request(server).get(`/admin/dashboard/users/${ann.id}`).set('Authorization', admin.auth);
+    expect(one.status).toBe(200);
+    expect(one.body.data.name).toBe('Ann Rider');
+    expect(one.body.data.passwordHash).toBeUndefined();
+    expect((await request(server).get(`/admin/dashboard/users/${'a'.repeat(24)}`).set('Authorization', admin.auth)).status).toBe(404);
+    expect((await request(server).get(`/admin/dashboard/users/${ann.id}`).set('Authorization', ann.auth)).status).toBe(403);
+  });
+});

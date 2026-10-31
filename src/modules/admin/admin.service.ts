@@ -1,4 +1,5 @@
 import bcrypt from 'bcrypt';
+import { Types } from 'mongoose';
 import { User } from '../../models/User';
 import { Driver } from '../../models/Driver';
 import { Company } from '../../models/Company';
@@ -222,6 +223,7 @@ export async function listJourneys(q: JourneysQuery) {
 
   /* Filters that only need the booking come first, so the join below runs on fewer documents. */
   const base: Record<string, unknown> = {};
+  if (q.customerId) base.customerId = new Types.ObjectId(q.customerId);
   if (q.vehicle) base.vehicleClass = q.vehicle;
   if (q.service) base.tripType = q.service;
   if (q.city) base.city = q.city;
@@ -404,6 +406,13 @@ export async function listAllUsers(q: PaginationQuery & { role?: string; q?: str
   ]);
 
   return paginated(items, total, q);
+}
+
+/** One account, by id, for the console's account page (it used to page through every user to find it). */
+export async function getUserById(id: string) {
+  const user = await User.findById(id).lean();
+  if (!user) throw ApiError.notFound('User not found');
+  return user;
 }
 
 /** Monthly subscription revenue, aggregated in the database rather than in Node. */

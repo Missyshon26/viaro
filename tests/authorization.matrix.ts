@@ -293,6 +293,7 @@ export const MATRIX: MatrixEntry[] = [
   { method: 'GET', path: '/admin/places/autocomplete', allowed: ['admin'] },
   { method: 'GET', path: '/admin/dashboard/journeys', allowed: ['admin'] },
   { method: 'GET', path: '/admin/dashboard/users', allowed: ['admin'] },
+  { method: 'GET', path: '/admin/dashboard/users/:id', allowed: ['admin'] },
   { method: 'GET', path: '/admin/users/:id/agreement', allowed: ['admin'] },
   { method: 'GET', path: '/admin/customers', allowed: ['admin'] },
   { method: 'GET', path: '/admin/customers/export', allowed: ['admin'] },
