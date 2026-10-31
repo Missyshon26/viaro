@@ -10,9 +10,10 @@ import { IconCheck, IconClose, IconStar } from "@/components/ui/Icons";
  * UML «Assign Driver to Booking» — how a booking gets its driver. A booking is not offered
  * to drivers: it waits until operations picks a particular person for the job here.
  *
- * Only `available` chauffeurs are offered. The API enforces that too — this list is a
- * convenience, not the guard — and a 409 comes back if someone goes busy between the
- * list loading and the click.
+ * Any driver who is not already on a trip can be chosen — drivers are managed from this
+ * console, so "offline" just means nobody has put them on a job. The API enforces that too
+ * (this list is a convenience, not the guard), and a 409 comes back if someone goes busy
+ * between the list loading and the click.
  */
 export function AssignDriver({
   bookingId,
@@ -81,7 +82,13 @@ function AssignDialog({
       .then((result) => {
         if (cancelled) return;
         const items = Array.isArray(result) ? result : (result.items ?? []);
-        setDrivers(items.filter((d) => d.status === "available"));
+        // Free drivers only, those marked available first, then by name.
+        const nameFor = (d: RosterDriver) => (d.userId && typeof d.userId === "object" ? d.userId.name : "");
+        setDrivers(
+          items
+            .filter((d) => d.status !== "busy")
+            .sort((a, b) => Number(b.status === "available") - Number(a.status === "available") || nameFor(a).localeCompare(nameFor(b))),
+        );
       })
       .catch(() => {
         if (!cancelled) {
@@ -132,7 +139,7 @@ function AssignDialog({
           <div className="min-w-0">
             <h2 className="text-action font-bold text-fg">Assign a driver</h2>
             <p className="mt-1 text-note text-fg-muted">
-              {reference} · only drivers who are online right now
+              {reference} · drivers who are not on a trip
             </p>
           </div>
           <button
@@ -157,9 +164,8 @@ function AssignDialog({
             <p className="py-6 text-note text-fg-muted">Loading drivers…</p>
           ) : drivers.length === 0 ? (
             <p className="py-6 text-note leading-relaxed text-fg-muted">
-              Nobody is online. A driver has to be <strong>available</strong> to take
-              an assignment — the API rejects anyone busy or offline, so that a driver
-              mid-trip is never pulled onto a second job.
+              No driver is free. A driver already mid-trip is never pulled onto a second job —
+              try again when one finishes. Drivers appear here once they have registered.
             </p>
           ) : (
             <ul className="space-y-2">
@@ -192,9 +198,8 @@ function AssignDialog({
                         <IconStar size={12} className="text-chart-warn" />
                         {driver.rating.toFixed(1)}
                       </span>
-                    ) : (
-                      <StatusBadge status={driver.status} />
-                    )}
+                    ) : null}
+                    <StatusBadge status={driver.status} />
                   </button>
                 </li>
               ))}
