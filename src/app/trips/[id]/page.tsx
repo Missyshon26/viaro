@@ -501,6 +501,13 @@ export default function BookingDetailPage({
 
                 <dl className="mt-4 grid gap-x-6 gap-y-3 sm:grid-cols-2">
                   <Field label="Trip status" value={trip.status} capitalize strong />
+                  {trip.status === "completed" ? (
+                    <Field
+                      label="Feedback survey"
+                      value={trip.feedbackRequestedAt ? `Requested ${formatDateTime(trip.feedbackRequestedAt)}` : "Not sent"}
+                      muted={!trip.feedbackRequestedAt}
+                    />
+                  ) : null}
                   <Field
                     label="Settled fare"
                     value={trip.fareAmount !== undefined ? money(trip.fareAmount) : "—"}

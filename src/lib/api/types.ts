@@ -230,6 +230,8 @@ export interface Trip {
   penaltyApplied: boolean;
   /** Set once applyRevenueSplit has run; drives the "Collect fare" action. */
   settled?: boolean;
+  /** When the customer was handed to GoHighLevel for the feedback survey. */
+  feedbackRequestedAt?: string;
   /** The passenger never appeared; the trip was closed and is still charged. */
   noShow?: boolean;
   timestamps: {
