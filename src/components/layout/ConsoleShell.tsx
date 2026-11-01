@@ -8,7 +8,7 @@ import { useTheme } from "@/components/theme/ThemeToggle";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { listNotificationPage, markAllNotificationsRead, markNotificationRead } from "@/lib/api/notifications";
 import { notificationHref, notificationText, notificationTime, needsAction } from "@/lib/notifications";
-import { useLiveChanges } from "@/lib/live/useLiveChanges";
+import { useLiveChanges, useLiveStatus } from "@/lib/live/useLiveChanges";
 import { Avatar } from "@/components/ui/Dashboard";
 import { useNavBadges } from "@/lib/nav/useNavBadges";
 import type { Notification } from "@/lib/api/types";
@@ -271,6 +271,7 @@ export function ConsoleShell({
           </div>
 
           <SearchBox nav={nav} />
+          <LiveLight />
           <NotificationBell />
           <ThemeButton />
           <ProfileMenu
@@ -446,6 +447,27 @@ function SearchBox({ nav }: { nav: NavItem[] }) {
         </ul>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * Whether this screen is hearing about changes as they happen. Green: the live connection is up,
+ * and a new booking, a cancellation or an assignment shows up within a second or two. Amber: it
+ * could not hold, so the screen asks again every ten seconds instead.
+ */
+function LiveLight() {
+  const status = useLiveStatus();
+  const text = { live: "Live", polling: "Updating every 10 s", connecting: "Connecting…" }[status];
+  const dot = { live: "bg-success", polling: "bg-chart-warn", connecting: "bg-fg-faint" }[status];
+  return (
+    <span
+      role="status"
+      title={status === "live" ? "Changes appear here as they happen" : status === "polling" ? "The live connection could not be held, so this screen checks for changes every 10 seconds" : "Connecting to live updates"}
+      className="hidden h-9 shrink-0 items-center gap-2 rounded-full border border-border bg-surface px-3 text-label font-bold text-fg-muted md:inline-flex"
+    >
+      <span aria-hidden className={`h-2 w-2 rounded-full ${dot} ${status === "live" ? "shadow-[0_0_0_3px_color-mix(in_srgb,var(--success)_22%,transparent)]" : ""}`} />
+      {text}
+    </span>
   );
 }
 

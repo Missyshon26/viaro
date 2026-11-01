@@ -22,6 +22,7 @@ import {
 import { IconCheck, IconMoney, IconPenalty, IconRoute, IconUsers } from "@/components/ui/Icons";
 import { errorText } from "@/lib/api/client";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { useLiveChanges } from "@/lib/live/useLiveChanges";
 import {
   fetchAllPages,
   getJourneys,
@@ -128,6 +129,9 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
       cancelled = true;
     };
   }, [load]);
+
+  // This customer's trips follow the bookings and trips as they change.
+  useLiveChanges(["booking", "trip"], () => void load());
 
   const stats = useMemo(() => {
     const list = rows ?? [];
