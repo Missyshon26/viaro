@@ -4,6 +4,7 @@ import * as pricingService from '../pricing/pricing.service';
 import * as vehicleService from '../vehicle/vehicle.service';
 import { assertVehicleRules } from '../booking/booking.rules';
 import { createBooking } from '../booking/booking.service';
+import { nextTripNo } from '../booking/booking.tripNo';
 import type { CreateBookingInput } from '../booking/booking.validation';
 
 /**
@@ -86,12 +87,14 @@ export async function createJourneyForCustomer(adminId: string, customerId: stri
   await quoteJourney(customerId, legs);
 
   const bookings = [];
+  // One trip number for the whole journey: its legs are one trip, as on the old site.
+  const tripNo = await nextTripNo();
   for (const [index, leg] of legs.entries()) {
     try {
       const { booking } = await createBooking(customerId, leg, undefined, {
         adminId,
         journey: { index, count: legs.length },
-      });
+      }, tripNo);
       bookings.push(booking);
     } catch (err) {
       if (index === 0) throw err;

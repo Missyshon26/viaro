@@ -34,7 +34,7 @@ export interface DocumentLine {
 
 export interface DocumentData {
   kind: DocumentKind;
-  /** ABL-AB12CD → INV-AB12CD / RCT-AB12CD */
+  /** The trip number, e.g. 13776 (as on the old site); INV-/RCT- plus the reference when there is none. */
   number: string;
   reference: string;
   issuedAt: Date;
@@ -211,7 +211,9 @@ export function buildDocument(kind: DocumentKind, input: DocumentInput): Documen
 
   return {
     kind,
-    number: `${kind === 'invoice' ? 'INV' : 'RCT'}-${ref.slice(4)}`,
+    // The old site printed the trip number on both. Bookings made before numbering, and any
+    // without one, keep the earlier INV-/RCT- form so their documents never change.
+    number: booking.tripNo ?? booking.legacy?.tripNo ?? `${kind === 'invoice' ? 'INV' : 'RCT'}-${ref.slice(4)}`,
     reference: ref,
     issuedAt: input.issuedAt ?? toDate(now()),
     customer: {

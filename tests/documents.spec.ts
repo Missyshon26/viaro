@@ -121,6 +121,17 @@ describe('buildDocument — invoice', () => {
     expect(doc.number).toBe('INV-' + bookingReference(ID).slice(4));
   });
 
+  it('prints the booking\'s running trip number, as the old site did, on invoice and receipt', () => {
+    const booking = { ...baseBooking(), tripNo: '13776', payment: card() as never } as ReturnType<typeof baseBooking>;
+    expect(buildDocument('invoice', input(booking)).number).toBe('13776');
+    expect(buildDocument('receipt', input(booking)).number).toBe('13776');
+  });
+
+  it('keeps an imported old booking\'s own trip number', () => {
+    const booking = { ...baseBooking(), legacy: { tripId: ID, tripNo: '13001', legIndex: 0, legCount: 1 } } as never;
+    expect(buildDocument('invoice', input(booking)).number).toBe('13001');
+  });
+
   it('shows an unpaid ride as due', () => {
     const doc = buildDocument('invoice', input());
     expect(doc).toMatchObject({ status: 'due', amountPaid: 0, balanceDue: 195 });

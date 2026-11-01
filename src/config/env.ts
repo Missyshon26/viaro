@@ -115,6 +115,11 @@ const envSchema = z.object({
    */
   UPLOAD_DIR: z.string().optional(),
   /**
+   * The old booking site's last trip number. Invoice numbers here carry on from it (or from the
+   * highest imported old number, if that is higher). Set it at cutover; see booking.tripNo.ts.
+   */
+  TRIP_NO_START: z.coerce.number().int().min(0).optional(),
+  /**
    * The public address of THIS API (e.g. https://api.example.com), used to turn a stored
    * image path into a link the browser can load. Required in production for photos to show.
    */

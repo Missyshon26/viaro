@@ -16,6 +16,7 @@ vi.mock('../src/models/Booking', async (orig) => {
   const actual = await orig<typeof import('../src/models/Booking')>();
   return { ...actual, Booking: Object.assign(actual.Booking, { create: mocks.bookingCreate }) };
 });
+vi.mock('../src/modules/booking/booking.tripNo', () => ({ nextTripNo: async () => '13776' }));
 vi.mock('../src/modules/pricing/pricing.service', () => ({ calculateFare: mocks.calculateFare }));
 vi.mock('../src/modules/vehicle/vehicle.service', () => ({
   resolveBookableClass: vi.fn(async (v: string) => v),

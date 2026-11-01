@@ -14,6 +14,7 @@ import type { AuthUser } from '../../middlewares/authGuard';
 import { format, now, toDate } from '../../config/timezone';
 import { paginated, toSkipLimit, type PaginationQuery } from '../../utils/pagination';
 import { logger } from '../../utils/logger';
+import { nextTripNo } from './booking.tripNo';
 import * as pricingService from '../pricing/pricing.service';
 import * as vehicleService from '../vehicle/vehicle.service';
 import type { Address } from '../../utils/profile';
@@ -122,6 +123,8 @@ export async function createBooking(
   paid?: { payment: IBookingPayment; chargedFare: number; journey?: IBookingJourney },
   /** Set when an operator books on the customer's behalf (admin.trips.ts). */
   madeBy?: { adminId: string; journey?: IBookingJourney },
+  /** The trip number the legs of a journey share; absent = take the next one. */
+  tripNo?: string,
 ) {
   /*
    * Checked against the catalogue before anything is priced or stored.
@@ -187,6 +190,7 @@ export async function createBooking(
 
   const booking = await Booking.create({
     customerId,
+    tripNo: tripNo ?? (await nextTripNo()),
     ...(customer?.isGuest ? { isGuest: true } : {}),
     ...(madeBy ? { source: 'admin' as const, createdBy: madeBy.adminId } : {}),
     ...(customer?.agreement

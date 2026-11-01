@@ -255,6 +255,8 @@ export interface IBooking {
   source?: 'customer' | 'admin';
   createdBy?: Types.ObjectId;
   paymentLink?: IBookingPaymentLink;
+  /** The running number printed on the invoice and receipt, like the old site's trip number. */
+  tripNo?: string;
   /** Present only on bookings carried over from the old system. */
   legacy?: IBookingLegacy;
   /** Where this booking stands on the operations calendar (modules/calendar). */
@@ -399,6 +401,7 @@ const bookingSchema = new Schema<IBooking>(
     cruisePort: { type: String, enum: CRUISE_PORT_KEYS },
     cruiseShip: { type: String, trim: true, maxlength: 80 },
     isGuest: { type: Boolean, default: false },
+    tripNo: { type: String },
     legacy: {
       type: new Schema<IBookingLegacy>(
         {
@@ -536,6 +539,17 @@ bookingSchema.index(
   { 'payment.intentId': 1, 'payment.leg': 1 },
   { unique: true, partialFilterExpression: { 'payment.intentId': { $exists: true } } },
 );
+
+/**
+ * A trip number is never on two bookings, except as the legs of one journey (a round trip or
+ * multi-city trip is one trip with several legs, as on the old site). The partial filter keeps
+ * bookings without a number, and imported old ones (which keep theirs under `legacy`), out of it.
+ */
+bookingSchema.index(
+  { tripNo: 1, 'journey.index': 1 },
+  { unique: true, partialFilterExpression: { tripNo: { $exists: true } } },
+);
+bookingSchema.index({ 'legacy.tripNo': 1 }, { sparse: true });
 
 /** One booking per old trip leg: re-running the import can never create a leg twice. */
 bookingSchema.index(

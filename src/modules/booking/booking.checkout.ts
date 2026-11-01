@@ -14,6 +14,7 @@ import { ensureStripeCustomer, saveCardFromIntent } from '../payments/cardPaymen
 import * as pricingService from '../pricing/pricing.service';
 import * as vehicleService from '../vehicle/vehicle.service';
 import { createBooking } from './booking.service';
+import { nextTripNo } from './booking.tripNo';
 import { assertVehicleRules } from './booking.rules';
 import type { CreateBookingInput } from './booking.validation';
 
@@ -147,6 +148,8 @@ export async function completeCheckout(
 
   const pm = typeof intent.payment_method === 'object' ? intent.payment_method : null;
   const bookings: BookingDocument[] = [];
+  // One trip number for the whole journey: its legs are one trip, as on the old site.
+  const tripNo = await nextTripNo();
 
   for (const [leg, input] of draft.legs.entries()) {
     try {
@@ -167,7 +170,7 @@ export async function completeCheckout(
           refundIds: [],
           paidAt: toDate(now()),
         },
-      });
+      }, undefined, tripNo);
       bookings.push(booking);
     } catch (err) {
       if (isDuplicateKey(err)) {
