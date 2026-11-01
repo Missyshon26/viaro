@@ -5,11 +5,11 @@ import { logger } from '../../utils/logger';
 /**
  * How often a comment frame is written to keep the connection from being reaped.
  *
- * Proxies and load balancers close idle connections, typically at 60 s. A quiet fleet at
- * 3 a.m. is exactly when a dropped stream would go unnoticed, so the heartbeat is well
- * inside that.
+ * Proxies and load balancers close idle connections (Cloudflare after 100 s, others at 60 s).
+ * A quiet fleet at 3 a.m. is exactly when a dropped stream would go unnoticed, so the
+ * heartbeat is well inside that.
  */
-const HEARTBEAT_MS = 25_000;
+const HEARTBEAT_MS = 15_000;
 
 /**
  * Server-Sent Events stream of change announcements.
@@ -38,7 +38,14 @@ export function stream(req: Request, res: Response): void {
   });
 
   // Flushes headers immediately so the client's stream reader resolves rather than
-  // sitting on an open request with nothing to read.
+  // sitting on an open request with nothing to read. Nagle's algorithm is switched off so a
+  // small frame is sent the moment it is written, not held back waiting to fill a packet:
+  // that wait is the difference between "instantly" and "a moment later".
+  res.flushHeaders();
+  req.socket.setNoDelay(true);
+  req.socket.setKeepAlive(true, 15_000);
+  // Tells the browser's own reconnect (EventSource) to come back after 3 s if this drops.
+  res.write(`retry: 3000\n`);
   res.write(`: connected\n\n`);
 
   const send = (event: ChangeEvent) => {
@@ -52,7 +59,9 @@ export function stream(req: Request, res: Response): void {
   };
 
   const unsubscribe = subscribe(send);
-  const heartbeat = setInterval(() => res.write(`: ping\n\n`), HEARTBEAT_MS);
+  const heartbeat = setInterval(() => {
+    if (!res.writableEnded) res.write(`: ping\n\n`);
+  }, HEARTBEAT_MS);
 
   const close = () => {
     clearInterval(heartbeat);

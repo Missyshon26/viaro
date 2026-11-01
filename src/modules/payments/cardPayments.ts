@@ -12,6 +12,7 @@ import {
   type StripePaymentIntentFull,
 } from '../../integrations/paymentGateway';
 import * as notify from '../notifications/notifications.service';
+import * as events from '../events/events.bus';
 import { NOTIFICATION_TYPES } from '../notifications/notifications.service';
 
 /**
@@ -198,6 +199,15 @@ export async function refundBookingAmount(input: {
   });
 
   logger.info(`Admin ${input.adminId} refunded ${amount} to card for booking ${String(fresh._id)}`);
+
+  // The trip page's payment section changes for both the operator and the passenger.
+  events.publish({
+    topic: 'booking',
+    action: 'refunded',
+    id: String(fresh._id),
+    roles: ['admin', 'company'],
+    userIds: [String(fresh.customerId)],
+  });
   const p = fresh.payment!;
   return { refunded: amount, payment: { amount: p.amount, refundedAmount: p.refundedAmount, status: p.status } };
 }
