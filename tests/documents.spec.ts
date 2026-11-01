@@ -132,6 +132,46 @@ describe('buildDocument — invoice', () => {
     expect(buildDocument('invoice', input(booking)).number).toBe('13001');
   });
 
+  it('itemises a fare with every extra, and the lines still add up to the total charged', () => {
+    // trip 226 = 129 + 12 miles + 20 primetime + 25 meet and greet + 40 stop; then fuel, tip, discount, tax
+    const booking = baseBooking({
+      estimatedFare: 305.96,
+      fareBreakdown: {
+        classFare: 129,
+        distanceFee: 12,
+        extraMiles: 4,
+        perMileRate: 3,
+        primetimeSurcharge: 20,
+        meetAndGreetFee: 25,
+        stopCount: 1,
+        stopFee: 40,
+        fuelSurchargePct: 10,
+        fuelSurcharge: 23,
+        gratuityPct: 20,
+        gratuity: 46,
+        discountKind: 'welcome',
+        discount: 10,
+        taxPct: 8,
+        tax: 20.96,
+        pricingModel: 'flat',
+      },
+    });
+    const doc = buildDocument('invoice', input(booking));
+    expect(doc.lines.map((l) => l.label)).toEqual([
+      'Point to point · Business Sedan',
+      'Additional miles (4 × $3.00)',
+      'Primetime surcharge (10pm to 7am)',
+      'Meet and Greet',
+      'Additional stop',
+      'Fuel surcharge (10%)',
+      'Gratuity (20%)',
+      'Welcome discount',
+      'Tax (8%)',
+    ]);
+    expect(Math.round(doc.lines.reduce((s, l) => s + l.amount, 0) * 100) / 100).toBe(doc.total);
+    expect(doc.total).toBe(305.96);
+  });
+
   it('shows an unpaid ride as due', () => {
     const doc = buildDocument('invoice', input());
     expect(doc).toMatchObject({ status: 'due', amountPaid: 0, balanceDue: 195 });
