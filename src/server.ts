@@ -1,3 +1,4 @@
+import { logGoHighLevelStatus } from './integrations/goHighLevel';
 import fs from 'node:fs/promises';
 import { constants as fsConstants } from 'node:fs';
 import http from 'node:http';
@@ -124,6 +125,7 @@ async function bootstrap(): Promise<void> {
   registerPayoutWorker(); //             weekly driver payout run (spec §1)
   registerReportWorker(); //             async CSV/PDF report exports (spec §4.10)
   await schedulePayoutRuns(); //         upserts the repeatable Monday 09:00 PT scheduler
+  logGoHighLevelStatus(); //             feedback survey tag on completed trips (off until the token is set)
   startCalendarSync(); //                bookings -> the shared operations calendar (off until configured)
 
   await listen(env.PORT);

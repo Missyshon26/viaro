@@ -23,6 +23,7 @@ import { paginated, toSkipLimit, type PaginationQuery } from '../../utils/pagina
 import * as walletService from '../wallet/wallet.service';
 import * as flightService from '../flight/flight.service';
 import * as notify from '../notifications/notifications.service';
+import { requestFeedback } from './trip.feedback';
 import { notifyOps, OPS_NOTIFICATIONS, bookingRef } from '../notifications/ops.notify';
 import { NOTIFICATION_TYPES } from '../notifications/notifications.service';
 import type { ChangeLocationInput, RateInput } from './trip.validation';
@@ -516,6 +517,8 @@ export async function completeTrip(tripId: string, userId: string) {
   }
 
   publishTripChange('completed', trip, { customerId: booking?.customerId, driverUserId: userId });
+  // Asks GoHighLevel to send the feedback survey. Nobody waits for it.
+  void requestFeedback(String(trip._id));
 
   // Same staleness as the admin path: the split saved its own copy, so re-read rather
   // than telling the driver settled:false about a trip that just settled.
@@ -891,6 +894,8 @@ export async function adminSetTripStatus(
     customerId: booking?.customerId,
     driverUserId: driver?.userId,
   });
+  // A trip an operator closes as completed gets the same feedback survey as one the driver closes.
+  if (status === 'completed') void requestFeedback(String(trip._id));
 
   logger.info(`Admin ${adminUserId} set trip ${tripId} to '${status}'`);
 

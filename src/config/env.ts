@@ -99,6 +99,15 @@ const envSchema = z.object({
    * being kept up to date whatever its age.
    */
   GOOGLE_CALENDAR_SYNC_FROM: z.string().optional(),
+
+  // GoHighLevel (the CRM): when a trip is completed the customer is added as a contact tagged
+  // "service completed", and a workflow set up in GoHighLevel sends the feedback survey from that
+  // tag. GHL_API_TOKEN is a Private Integration token (Settings > Private Integrations, scope
+  // contacts.write) and GHL_LOCATION_ID the sub-account's id. Either blank = off.
+  GHL_API_TOKEN: z.string().optional(),
+  GHL_LOCATION_ID: z.string().optional(),
+  /** The tag the workflow watches for. Defaults to "service completed". */
+  GHL_SERVICE_COMPLETED_TAG: z.string().optional(),
   /**
    * Where uploaded images (vehicle photos) are stored on the server's disk. Defaults to
    * ./uploads, which is fine on a laptop and WRONG on a host whose disk is wiped on every

@@ -52,6 +52,8 @@ export interface ITrip {
   /** Wallet credit applied by the customer toward this trip (spec §4.7 use-credit). */
   creditApplied: number;
   settled: boolean;
+  /** When the customer was handed to GoHighLevel for the feedback survey; absent = not yet. */
+  feedbackRequestedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -93,6 +95,7 @@ const tripSchema = new Schema<ITrip>(
     creditApplied: { type: Number, default: 0, min: 0 },
     // Guards against double-crediting wallets if /complete is retried.
     settled: { type: Boolean, default: false },
+    feedbackRequestedAt: { type: Date },
   },
   { timestamps: true },
 );
