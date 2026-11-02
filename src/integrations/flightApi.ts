@@ -34,6 +34,12 @@ export interface FlightDetails {
   provider: string;
   /** True when this is generated data, not a real lookup. */
   placeholder: boolean;
+  /**
+   * Why there is no real data, when `placeholder` is true: no provider set up, the provider has
+   * no record of that flight and day yet (it usually appears close to the travel date), or the
+   * lookup itself failed.
+   */
+  unavailableReason?: 'not-configured' | 'not-found' | 'error';
 }
 
 /** When the plane is really expected down: what happened, else the forecast, else the schedule. */
@@ -42,6 +48,9 @@ export function expectedArrival(flight: FlightDetails): Date {
 }
 
 const REQUEST_TIMEOUT_MS = 10_000;
+
+/** The provider answered, but has no flight for that number and day. */
+class NoFlightRecordError extends Error {}
 
 export interface FlightLookupOptions {
   /** yyyy-mm-dd, the day the flight lands (airport-local, which for Seattle is Pacific). */
@@ -57,7 +66,7 @@ export async function fetchFlightDetails(
   const flight = flightNumber.toUpperCase().replace(/[\s-]+/g, '');
   const provider = (env.FLIGHT_API_PROVIDER || '').toLowerCase();
 
-  if (!provider || !env.FLIGHT_API_KEY) return mockFlight(flight, provider || 'mock');
+  if (!provider || !env.FLIGHT_API_KEY) return mockFlight(flight, provider || 'mock', 'not-configured');
 
   try {
     switch (provider) {
@@ -67,12 +76,13 @@ export async function fetchFlightDetails(
         return await fromFlightAware(flight, options);
       default:
         logger.warn(`Unknown FLIGHT_API_PROVIDER '${provider}' — falling back to mock data`);
-        return mockFlight(flight, provider);
+        return mockFlight(flight, provider, 'not-configured');
     }
   } catch (err) {
     // A flight lookup must never break a booking or a driver's trip view.
-    logger.error(`Flight lookup failed for ${flight} via ${provider}`, err);
-    return mockFlight(flight, provider);
+    const notFound = err instanceof NoFlightRecordError;
+    logger[notFound ? 'warn' : 'error'](`Flight lookup failed for ${flight} via ${provider}`, err);
+    return mockFlight(flight, provider, notFound ? 'not-found' : 'error');
   }
 }
 
@@ -146,7 +156,7 @@ async function fromAviationStack(flightNumber: string, options: FlightLookupOpti
   const body = (await getJson(url.toString(), {}, options.timeoutMs)) as AviationStackResponse;
   const record = pickAviationRecord(body.data, options.date);
 
-  if (!record) throw new Error(`No aviationstack record for ${flightNumber}${options.date ? ` on ${options.date}` : ''}`);
+  if (!record) throw new NoFlightRecordError(`No aviationstack record for ${flightNumber}${options.date ? ` on ${options.date}` : ''}`);
 
   const zone = record.arrival?.timezone;
   return {
@@ -201,7 +211,7 @@ async function fromFlightAware(flightNumber: string, options: FlightLookupOption
   )) as FlightAwareResponse;
 
   const record = pickFlightAwareRecord(body.flights, options.date);
-  if (!record) throw new Error(`No flightaware record for ${flightNumber}${options.date ? ` on ${options.date}` : ''}`);
+  if (!record) throw new NoFlightRecordError(`No flightaware record for ${flightNumber}${options.date ? ` on ${options.date}` : ''}`);
 
   return {
     flightNumber,
@@ -252,8 +262,12 @@ function parseDate(value?: string | null): Date | null {
 }
 
 /** Deterministic stand-in used until a provider and key are configured. */
-function mockFlight(flightNumber: string, provider: string): FlightDetails {
-  logger.info('flightApi: returning mock data — no provider/key configured', { flightNumber, provider });
+function mockFlight(
+  flightNumber: string,
+  provider: string,
+  unavailableReason: NonNullable<FlightDetails['unavailableReason']>,
+): FlightDetails {
+  logger.info('flightApi: returning mock data', { flightNumber, provider, unavailableReason });
 
   return {
     flightNumber,
@@ -265,5 +279,6 @@ function mockFlight(flightNumber: string, provider: string): FlightDetails {
     arrivalAirport: null,
     provider: provider || 'mock',
     placeholder: true,
+    unavailableReason,
   };
 }
