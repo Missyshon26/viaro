@@ -255,8 +255,8 @@ export const MATRIX: MatrixEntry[] = [
   {
     method: 'GET',
     path: '/flight/:flightNumber',
-    allowed: ['driver', 'admin', 'customer'],
-    note: 'customers check their own flight from the booking form; rate-limited per user',
+    allowed: PUBLIC,
+    note: 'visitors check a flight from the booking form before signing in; rate-limited, cached, and capped per hour',
   },
 
   /* -------------------------------- support --------------------------------- */
