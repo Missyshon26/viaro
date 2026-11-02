@@ -173,13 +173,15 @@ export async function removeFavorite(userId: string, driverId: string) {
  * revision: someone who signed an older wording is asked again.
  */
 export async function getAgreementStatus(userId: string, opts: { withSignature?: boolean } = {}) {
-  const query = User.findById(userId).select('role agreement');
+  const query = User.findById(userId).select('role agreement isGuest');
   const user = await (opts.withSignature ? query.select('+signature') : query).lean();
   if (!user) throw ApiError.notFound('User not found');
 
   const signed = user.agreement?.version === AGREEMENT_VERSION;
   return {
     currentVersion: AGREEMENT_VERSION,
+    /** A guest accepts with the ticked box alone; everyone else also draws a signature. */
+    guest: Boolean(user.isGuest),
     signed,
     version: user.agreement?.version ?? null,
     signedAt: user.agreement?.signedAt ?? null,
@@ -193,16 +195,29 @@ export async function signAgreement(userId: string, input: SignAgreementInput) {
     throw ApiError.conflict('The agreement has been updated. Please reload and read the new version.');
   }
 
-  try {
-    assertPngDataUrl(input.signature);
-  } catch (err) {
-    throw ApiError.badRequest((err as Error).message);
+  const existing = await User.findById(userId).select('isGuest').lean();
+  if (!existing) throw ApiError.notFound('User not found');
+
+  // A guest accepts by ticking the box; a registered customer must also have drawn a signature.
+  if (input.signature) {
+    try {
+      assertPngDataUrl(input.signature);
+    } catch (err) {
+      throw ApiError.badRequest((err as Error).message);
+    }
+  } else if (!existing.isGuest) {
+    throw ApiError.badRequest('Please sign the agreement');
   }
 
   const signedAt = toDate(now());
   const user = await User.findByIdAndUpdate(
     userId,
-    { $set: { signature: input.signature, agreement: { version: AGREEMENT_VERSION, signedAt } } },
+    {
+      $set: {
+        ...(input.signature ? { signature: input.signature } : {}),
+        agreement: { version: AGREEMENT_VERSION, signedAt },
+      },
+    },
     { new: true },
   ).select('agreement');
   if (!user) throw ApiError.notFound('User not found');

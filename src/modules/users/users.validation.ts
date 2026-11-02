@@ -40,7 +40,8 @@ export type ObjectIdParam = z.infer<typeof objectIdParamSchema>;
  * stale tab cannot sign terms that have since changed.
  */
 export const signAgreementSchema = z.object({
-  signature: z.string().min(40).max(250_000),
+  /** Required for a registered customer; a guest accepts with the ticked box alone (users.service). */
+  signature: z.string().min(40).max(250_000).optional(),
   accepted: z.literal(true, { message: 'You must accept the agreement' }),
   version: z.string().min(1).max(40),
 });

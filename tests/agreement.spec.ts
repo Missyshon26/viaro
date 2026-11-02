@@ -65,10 +65,33 @@ describe('rental agreement', () => {
   });
 
   it('refuses something that is not a PNG', async () => {
+    mocks.findById.mockReturnValue(query({ isGuest: false }));
     await expect(
       signAgreement('u1', { signature: 'data:image/png;base64,AAAA', accepted: true, version: AGREEMENT_VERSION }),
     ).rejects.toMatchObject({ statusCode: 400 });
     expect(mocks.findByIdAndUpdate).not.toHaveBeenCalled();
+  });
+
+  it('refuses a registered customer who has not signed', async () => {
+    mocks.findById.mockReturnValue(query({ isGuest: false }));
+    await expect(signAgreement('u1', { accepted: true, version: AGREEMENT_VERSION })).rejects.toMatchObject({
+      statusCode: 400,
+    });
+    expect(mocks.findByIdAndUpdate).not.toHaveBeenCalled();
+  });
+
+  it('lets a guest accept with the ticked box alone, storing no signature', async () => {
+    mocks.findByIdAndUpdate.mockReturnValue(query({ _id: 'g1' }));
+    mocks.findById.mockReturnValue(
+      query({ isGuest: true, agreement: { version: AGREEMENT_VERSION, signedAt: new Date() } }),
+    );
+
+    const status = await signAgreement('g1', { accepted: true, version: AGREEMENT_VERSION });
+
+    const update = mocks.findByIdAndUpdate.mock.calls[0][1].$set;
+    expect(update).not.toHaveProperty('signature');
+    expect(update.agreement.version).toBe(AGREEMENT_VERSION);
+    expect(status).toMatchObject({ signed: true, guest: true });
   });
 
   it('stores the signature and stamps the current version', async () => {
