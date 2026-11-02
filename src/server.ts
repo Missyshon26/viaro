@@ -103,18 +103,28 @@ async function checkUploadStorage(): Promise<void> {
   }
 }
 
+/** Runs one startup step and logs how long it took, so a slow boot points at its cause. */
+async function timed<T>(label: string, step: () => Promise<T>): Promise<T> {
+  const started = Date.now();
+  try {
+    return await step();
+  } finally {
+    logger.info(`Startup: ${label} took ${Date.now() - started} ms`);
+  }
+}
+
 async function bootstrap(): Promise<void> {
   // Queues are built lazily, so installing this before the first one is constructed
   // catches every copy of BullMQ's eviction-policy warning.
   collapseBullmqEvictionWarning();
 
-  await connectMongo();
-  await connectRedis();
-  await checkUploadStorage();
+  await timed('connectMongo', connectMongo);
+  await timed('connectRedis', connectRedis);
+  await timed('checkUploadStorage', checkUploadStorage);
 
   // Fills an empty vehicle catalogue from config/vehicles.ts. Insert-only, so it never
   // overwrites a multiplier operations has tuned; safe on every boot.
-  await seedVehicleClasses();
+  await timed('seedVehicleClasses', seedVehicleClasses);
 
   setIo(io);
   attachTrackingNamespace(io); // /tracking/:tripId
@@ -124,11 +134,11 @@ async function bootstrap(): Promise<void> {
   registerCancellationWindowWorker(); // refund-window closing alerts (spec §8 rule 6)
   registerPayoutWorker(); //             weekly driver payout run (spec §1)
   registerReportWorker(); //             async CSV/PDF report exports (spec §4.10)
-  await schedulePayoutRuns(); //         upserts the repeatable Monday 09:00 PT scheduler
+  await timed('schedulePayoutRuns', schedulePayoutRuns); //         upserts the repeatable Monday 09:00 PT scheduler
   logGoHighLevelStatus(); //             feedback survey tag on completed trips (off until the token is set)
   startCalendarSync(); //                bookings -> the shared operations calendar (off until configured)
 
-  await listen(env.PORT);
+  await timed('listen', () => listen(env.PORT));
   logger.info(`abl-backend listening on port ${env.PORT} (${env.NODE_ENV})`);
 }
 
