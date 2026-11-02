@@ -22,6 +22,8 @@ vi.mock('../../src/integrations/paymentGateway', async (orig) => ({
 
 import { Booking } from '../../src/models/Booking';
 import { User } from '../../src/models/User';
+import { StripeError } from '../../src/integrations/paymentGateway';
+import { ensureStripeCustomer } from '../../src/modules/payments/cardPayments';
 import { handleLegacyCheckoutCompleted, lookupLegacyLink, startLegacyLink } from '../../src/modules/payments/legacyLink';
 import { resetData, startDatabase, stopDatabase } from './harness';
 
@@ -159,8 +161,6 @@ describe('old emailed pay links', () => {
   });
 
   it('replaces a saved Stripe customer that live mode cannot see, instead of failing the payment', async () => {
-    const { ensureStripeCustomer } = await import('../../src/modules/payments/cardPayments');
-    const { StripeError } = await import('../../src/integrations/paymentGateway');
     const user = await User.create({ role: 'customer', name: 'Old Test', email: 'oldtest@example.com', phone: '+12065550101', passwordHash: 'x', stripeCustomerId: 'cus_FromTestMode' });
     mocks.customer.mockRejectedValue(new StripeError("No such customer: 'cus_FromTestMode'", 404, 'resource_missing'));
     expect(await ensureStripeCustomer(String(user._id))).toBe('cus_test');
