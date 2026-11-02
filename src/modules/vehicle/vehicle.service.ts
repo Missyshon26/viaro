@@ -352,7 +352,15 @@ export async function assertClassOffered(value: string | undefined, tripType: Tr
 export async function seedDefaults(): Promise<number> {
   let inserted = 0;
 
+  /*
+   * One read up front: on a database across the network each separate check cost most of a
+   * second, which held the API down for ~30s on every restart. Now nothing is written when the
+   * catalogue is complete, which is the normal case.
+   */
+  const existing = new Map((await repo.findAll(true)).map((row) => [row.value, row] as const));
+
   for (const [index, vehicle] of DEFAULT_CLASSES.entries()) {
+    if (existing.has(vehicle.value)) continue;
     const created = await repo.createIfAbsent({
       value: vehicle.value,
       label: vehicle.label,
@@ -378,9 +386,11 @@ export async function seedDefaults(): Promise<number> {
    */
   let backfilled = 0;
   for (const vehicle of DEFAULT_CLASSES) {
+    const row = existing.get(vehicle.value) as Record<string, unknown> | undefined;
+    if (!row) continue; // just created above, with its rates
     for (const field of ['flatRate', 'hourlyRate', 'minimumFare'] as const) {
       const rate = vehicle[field];
-      if (rate === undefined) continue;
+      if (rate === undefined || field in row) continue;
       if (await repo.setIfAbsent(vehicle.value, field, rate)) backfilled += 1;
     }
   }
