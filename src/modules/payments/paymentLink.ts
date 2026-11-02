@@ -95,18 +95,20 @@ export async function sendPaymentLink(bookingId: string, adminId: string) {
     expiresLabel: format(toDate(expiresAt)),
   });
 
-  booking.paymentLink = {
+  // A targeted update, not save(): imported and hand-made bookings may lack fare-breakdown
+  // fields, and full-document validation would fail after the email has already gone out.
+  const paymentLink = {
     sessionId: session.id,
     url: session.url,
     amount,
     sentAt: toDate(now()),
     expiresAt: toDate(expiresAt),
-    sentBy: adminId as unknown as NonNullable<typeof booking.paymentLink>['sentBy'],
+    sentBy: adminId,
     emailed,
   };
-  await booking.save();
+  await Booking.updateOne({ _id: booking._id }, { $set: { paymentLink } });
 
-  return { url: session.url, amount, expiresAt: booking.paymentLink.expiresAt, emailed, sentTo: customer.email };
+  return { url: session.url, amount, expiresAt: paymentLink.expiresAt, emailed, sentTo: customer.email };
 }
 
 async function emailLink(input: {
