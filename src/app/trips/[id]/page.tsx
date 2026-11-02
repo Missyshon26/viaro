@@ -31,6 +31,7 @@ import {
 import { downloadFile, errorText } from "@/lib/api/client";
 import { getBooking } from "@/lib/api/booking";
 import { getFlight, type FlightDetails } from "@/lib/api/admin";
+import { Button } from "@/components/ui/Button";
 import { Amendments } from "@/components/ops/Amendments";
 import { ReleaseCredit } from "@/components/ops/ReleaseCredit";
 import { PaymentLink } from "@/components/ops/PaymentLink";
@@ -806,30 +807,51 @@ function Leg({
 function FlightBoard({ flightNumber, date }: { flightNumber: string; date?: string }) {
   const [flight, setFlight] = useState<FlightDetails | null>(null);
   const [failed, setFailed] = useState(false);
+  const [checking, setChecking] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
+  // Looked up only when someone asks: each lookup uses the flight provider's quota, and the
+  // booked details above are what the page needs until then.
+  function check() {
+    setChecking(true);
+    setFailed(false);
     getFlight(flightNumber, date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : undefined)
-      .then((data) => {
-        if (!cancelled) setFlight(data);
-      })
-      .catch(() => {
-        if (!cancelled) setFailed(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [flightNumber, date]);
+      .then((data) => setFlight(data))
+      .catch(() => setFailed(true))
+      .finally(() => setChecking(false));
+  }
 
-  if (failed) {
+  if (!flight) {
     return (
-      <p className="mt-4 border-t border-border-subtle pt-4 text-note text-fg-muted">
-        Live status is unavailable for this flight right now.
-      </p>
+      <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-border-subtle pt-4">
+        <Button type="button" variant="secondary" onClick={check} loading={checking}>
+          Check flight details
+        </Button>
+        {failed ? (
+          <p className="text-note text-fg-muted">Live status is unavailable for this flight right now.</p>
+        ) : null}
+      </div>
     );
   }
 
-  if (!flight) return <Skeleton className="mt-4 h-16" />;
+  // Generated stand-in times are never shown as the flight's own.
+  if (flight.placeholder || flight.verified === false) {
+    const why =
+      flight.unavailableReason === "not-configured"
+        ? "No flight provider is set up, so there is no live data."
+        : flight.unavailableReason === "not-found"
+          ? "The flight provider has no record of this flight for that day yet. Live tracking usually appears close to the travel date."
+          : "The flight provider could not be reached for this flight.";
+    return (
+      <div className="mt-4 border-t border-border-subtle pt-4">
+        <p className="rounded-field border border-chart-warn/30 bg-chart-warn/5 px-3.5 py-2.5 text-note leading-relaxed text-chart-warn">
+          {why}
+        </p>
+        <Button type="button" variant="secondary" className="mt-3" onClick={check} loading={checking}>
+          Check again
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="mt-4 border-t border-border-subtle pt-4">
@@ -842,6 +864,9 @@ function FlightBoard({ flightNumber, date }: { flightNumber: string; date?: stri
         >
           {flight.status}
         </StatusBadge>
+        <Button type="button" variant="secondary" className="ml-auto" onClick={check} loading={checking}>
+          Refresh
+        </Button>
       </div>
 
       <dl className="mt-3 grid gap-x-6 gap-y-3 sm:grid-cols-2">
@@ -869,12 +894,6 @@ function FlightBoard({ flightNumber, date }: { flightNumber: string; date?: stri
         ) : null}
       </dl>
 
-      {flight.placeholder ? (
-        <p className="mt-3 rounded-field border border-chart-warn/30 bg-chart-warn/5 px-3.5 py-2.5 text-note leading-relaxed text-chart-warn">
-          No flight provider is configured, so these times are generated rather than
-          tracked. Set the provider credentials to make this real.
-        </p>
-      ) : null}
     </div>
   );
 }

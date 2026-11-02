@@ -350,6 +350,8 @@ export interface FlightDetails {
   provider: string;
   placeholder?: boolean;
   verified?: boolean;
+  /** Why there is no real data: no provider set up, no record for that day yet, or the lookup failed. */
+  unavailableReason?: "not-configured" | "not-found" | "error";
 }
 
 /** `date` (yyyy-mm-dd, Pacific) asks for THAT day's flight; the number is reused daily. */
