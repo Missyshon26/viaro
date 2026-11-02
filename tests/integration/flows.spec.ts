@@ -360,13 +360,17 @@ describe('flights, against a real database', () => {
     expect(res.status).toBe(400);
   });
 
-  it('lets a customer look a flight up by hand, and keeps it behind a login', async () => {
+  it('lets a customer, or a visitor who has not signed in, look a flight up by hand', async () => {
     const { auth } = await newGuest();
     const res = await request(server).get('/flight/as%20123').query({ date: pickupIn(2).slice(0, 10) }).set('Authorization', auth);
     expect(res.status).toBe(200);
     // No provider here, so it is honest about the data being generated.
     expect(res.body.data).toMatchObject({ flightNumber: 'AS123', verified: false, placeholder: true });
-    expect((await request(server).get('/flight/AS123')).status).toBe(401);
+    // A visitor filling in the booking form can check too; the answer is the same, and a bad date is still refused.
+    const visitor = await request(server).get('/flight/AS123');
+    expect(visitor.status).toBe(200);
+    expect(visitor.body.data).toMatchObject({ flightNumber: 'AS123', verified: false });
+    expect((await request(server).get('/flight/AS123').query({ date: 'tomorrow' })).status).toBe(400);
     expect((await request(server).get('/flight/AS123').query({ date: 'tomorrow' }).set('Authorization', auth)).status).toBe(400);
   });
 });
