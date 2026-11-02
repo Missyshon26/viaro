@@ -227,6 +227,8 @@ export const MATRIX: MatrixEntry[] = [
 
   /* ------------------------------- payments --------------------------------- */
   { method: 'POST', path: '/payments/webhook', allowed: PUBLIC, note: 'signature-verified' },
+  { method: 'POST', path: '/payments/legacy-link/lookup', allowed: PUBLIC, note: 'an old emailed pay link; its secret is checked with Stripe; rate-limited' },
+  { method: 'POST', path: '/payments/legacy-link/start', allowed: PUBLIC, note: 'an old emailed pay link; its secret is checked with Stripe; rate-limited' },
   { method: 'POST', path: '/payments/collect', allowed: ['admin', 'company'] },
   {
     method: 'GET',

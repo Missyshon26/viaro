@@ -3,6 +3,7 @@ import { logger } from '../../utils/logger';
 import { completeCheckout } from '../booking/booking.checkout';
 import { syncStripeRefunds } from './cardPayments';
 import { handleCheckoutCompleted } from './paymentLink';
+import { handleLegacyCheckoutCompleted } from './legacyLink';
 import type { StripeCheckoutSession } from '../../integrations/paymentGateway';
 
 /**
@@ -38,6 +39,8 @@ export async function handleStripeEvent(event: {
     } else if (event.type === 'checkout.session.completed') {
       // A payment link an operator sent was paid.
       await handleCheckoutCompleted(object as unknown as StripeCheckoutSession);
+      // …or an old emailed pay link, opened again through the new site.
+      await handleLegacyCheckoutCompleted(object as unknown as StripeCheckoutSession);
     } else if (event.type === 'charge.refunded') {
       const intentId = object.payment_intent;
       if (typeof intentId === 'string') await syncStripeRefunds(intentId);

@@ -194,6 +194,7 @@ export interface StripePaymentIntentFull {
   currency: string;
   customer: string | null;
   client_secret: string;
+  description: string | null;
   metadata: Record<string, string>;
   latest_charge: string | null;
   payment_method:
@@ -291,6 +292,11 @@ export function retrievePaymentIntent(id: string): Promise<StripePaymentIntentFu
   return stripeRequest('GET', `payment_intents/${encodeURIComponent(id)}`, {
     'expand[]': 'payment_method',
   });
+}
+
+/** Closes a payment that was opened but never paid, so it cannot be paid a second time. */
+export function cancelPaymentIntent(id: string): Promise<StripePaymentIntentFull> {
+  return stripeRequest('POST', `payment_intents/${encodeURIComponent(id)}/cancel`);
 }
 
 export function createStripeCustomer(input: {

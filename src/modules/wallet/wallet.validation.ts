@@ -59,3 +59,9 @@ export const methodIdParamSchema = z.object({
 });
 
 export type MethodIdParam = z.infer<typeof methodIdParamSchema>;
+
+/** An old emailed pay link: the Stripe payment's client secret and the old trip's id. */
+export const legacyPayLinkSchema = z.object({
+  clientSecret: z.string().min(20).max(200).regex(/^pi_[A-Za-z0-9]+_secret_[A-Za-z0-9]+$/, 'Not a payment link'),
+  tripId: z.string().regex(/^[a-f0-9]{24}$/i, 'Not a trip id'),
+});

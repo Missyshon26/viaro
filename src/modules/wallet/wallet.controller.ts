@@ -6,6 +6,7 @@ import type { MethodIdParam, SavePaymentMethodInput } from './wallet.validation'
 import { verifyWebhookSignature } from '../../integrations/paymentGateway';
 import { ApiError } from '../../utils/ApiError';
 import { handleStripeEvent } from '../payments/stripeEvents';
+import { lookupLegacyLink, startLegacyLink } from '../payments/legacyLink';
 import type {
   CollectPaymentInput,
   ReleaseCreditInput,
@@ -87,4 +88,16 @@ export async function webhook(req: Request, res: Response): Promise<void> {
 
   // Gateways retry anything that is not a fast 2xx, so acknowledge immediately.
   res.json({ success: true, received: true, type: event.type ?? null });
+}
+
+/** POST /payments/legacy-link/lookup — what an old emailed pay link is for (public; the link itself is the proof). */
+export async function lookupLegacyPayLink(req: Request, res: Response): Promise<void> {
+  const { clientSecret, tripId } = body<{ clientSecret: string; tripId: string }>(req);
+  res.json({ success: true, data: await lookupLegacyLink(clientSecret, tripId) });
+}
+
+/** POST /payments/legacy-link/start — opens a Stripe payment page for that trip's unpaid total. */
+export async function startLegacyPayLink(req: Request, res: Response): Promise<void> {
+  const { clientSecret, tripId } = body<{ clientSecret: string; tripId: string }>(req);
+  res.json({ success: true, data: await startLegacyLink(clientSecret, tripId) });
 }

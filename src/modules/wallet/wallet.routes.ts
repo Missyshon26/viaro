@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as controller from './wallet.controller';
 import {
   collectPaymentSchema,
+  legacyPayLinkSchema,
   methodIdParamSchema,
   savePaymentMethodSchema,
   releaseCreditSchema,
@@ -13,6 +14,7 @@ import { validate } from '../../utils/validate';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { authGuard } from '../../middlewares/authGuard';
 import { roleGuard } from '../../middlewares/roleGuard';
+import { createRateLimiter } from '../../middlewares/rateLimiter';
 
 /** Mounted at /wallet */
 export const walletRouter = Router();
@@ -89,3 +91,19 @@ paymentsRouter.delete(
 
 // Public, but signature-verified inside the controller.
 paymentsRouter.post('/webhook', asyncHandler(controller.webhook));
+
+// Old emailed pay links. Public: the link's secret, checked with Stripe, is the proof. Every call
+// asks Stripe a question, so a caller is held to a modest number per minute.
+const legacyLinkLimiter = createRateLimiter({ windowMs: 60_000, max: 20, keyPrefix: 'ratelimit:legacy-pay-link' });
+paymentsRouter.post(
+  '/legacy-link/lookup',
+  legacyLinkLimiter,
+  validate({ body: legacyPayLinkSchema }),
+  asyncHandler(controller.lookupLegacyPayLink),
+);
+paymentsRouter.post(
+  '/legacy-link/start',
+  legacyLinkLimiter,
+  validate({ body: legacyPayLinkSchema }),
+  asyncHandler(controller.startLegacyPayLink),
+);
