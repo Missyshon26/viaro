@@ -103,6 +103,15 @@ function applyRefund(booking: BookingDocument, refundId: string, amount: number)
 }
 
 /**
+ * The money has already left Stripe, so recording it must not be blocked by unrelated
+ * fields. Imported and hand-made bookings can lack a fare breakdown, and full validation
+ * would then reject the save and leave the refund unrecorded.
+ */
+async function saveRefund(booking: BookingDocument) {
+  await booking.save({ validateBeforeSave: false });
+}
+
+/**
  * Refund `refundPct`% of what this booking paid by card, back to the card.
  *
  * Capped at what is still unrefunded, and keyed per booking and reason, so a retried
@@ -132,7 +141,7 @@ export async function refundBookingToCard(
   // A replayed idempotent request returns the same refund — count it once.
   if (!payment.refundIds.includes(refund.id)) {
     applyRefund(booking, refund.id, refund.amount / 100);
-    await booking.save();
+    await saveRefund(booking);
   }
 
   await notify.send(booking.customerId, NOTIFICATION_TYPES.REFUND_ISSUED, {
@@ -199,7 +208,7 @@ export async function refundBookingAmount(input: {
   const fresh = (await Booking.findById(input.bookingId)) ?? booking;
   if (!fresh.payment!.refundIds.includes(refund.id)) {
     applyRefund(fresh, refund.id, refund.amount / 100);
-    await fresh.save();
+    await saveRefund(fresh);
   }
 
   await notify.send(fresh.customerId, NOTIFICATION_TYPES.REFUND_ISSUED, {
@@ -254,7 +263,7 @@ export async function syncStripeRefunds(paymentIntentId: string): Promise<void> 
       if (share <= 0) continue;
       applyRefund(booking, refund.id, share);
       left = round2(left - share);
-      await booking.save();
+      await saveRefund(booking);
 
       if (!refund.metadata?.bookingId) {
         // Made in the Stripe dashboard: nobody in the app has told the customer yet.
