@@ -7,6 +7,7 @@ import { round2 } from '../../utils/money';
 import {
   createStripeCustomer,
   listRefunds,
+  retrieveStripeCustomer,
   refundToCard,
   StripeError,
   type StripePaymentIntentFull,
@@ -27,7 +28,17 @@ import { NOTIFICATION_TYPES } from '../notifications/notifications.service';
 export async function ensureStripeCustomer(userId: string): Promise<string> {
   const user = await User.findById(userId).select('name email stripeCustomerId');
   if (!user) throw ApiError.notFound('Account not found');
-  if (user.stripeCustomerId) return user.stripeCustomerId;
+  if (user.stripeCustomerId) {
+    // The id saved on the account may come from Stripe's test mode (or a deleted customer), and
+    // the live key cannot see it: "No such customer". Check, and make a fresh one when it is gone.
+    try {
+      const saved = await retrieveStripeCustomer(user.stripeCustomerId);
+      if (!saved.deleted) return user.stripeCustomerId;
+    } catch (err) {
+      if (!(err instanceof StripeError) || (err.status !== 404 && err.code !== 'resource_missing')) throw err;
+    }
+    logger.warn(`Stripe customer ${user.stripeCustomerId} is not in this Stripe mode; creating a new one for ${userId}`);
+  }
 
   const customer = await createStripeCustomer({ email: user.email, name: user.name, userId });
   user.stripeCustomerId = customer.id;

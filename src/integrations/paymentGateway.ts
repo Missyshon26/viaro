@@ -299,6 +299,11 @@ export function cancelPaymentIntent(id: string): Promise<StripePaymentIntentFull
   return stripeRequest('POST', `payment_intents/${encodeURIComponent(id)}/cancel`);
 }
 
+/** A saved customer id can belong to another Stripe mode (test) or have been deleted; this finds out. */
+export function retrieveStripeCustomer(id: string): Promise<{ id: string; deleted?: boolean }> {
+  return stripeRequest('GET', `customers/${encodeURIComponent(id)}`);
+}
+
 export function createStripeCustomer(input: {
   email: string;
   name: string;

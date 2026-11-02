@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   session: vi.fn(),
   refund: vi.fn(),
   cancel: vi.fn(),
+  customer: vi.fn(),
 }));
 
 vi.mock('../../src/integrations/paymentGateway', async (orig) => ({
@@ -16,6 +17,7 @@ vi.mock('../../src/integrations/paymentGateway', async (orig) => ({
   refundToCard: mocks.refund,
   cancelPaymentIntent: mocks.cancel,
   createStripeCustomer: async () => ({ id: 'cus_test' }),
+  retrieveStripeCustomer: mocks.customer,
 }));
 
 import { Booking } from '../../src/models/Booking';
@@ -65,6 +67,7 @@ describe('old emailed pay links', () => {
     mocks.retrieve.mockResolvedValue(intent());
     mocks.session.mockResolvedValue({ id: 'cs_1', url: 'https://checkout.stripe.com/c/pay/cs_1' });
     mocks.cancel.mockResolvedValue({});
+    mocks.customer.mockResolvedValue({ id: 'cus_test' });
     const user = await User.create({ role: 'customer', name: 'Pat Rider', email: 'pat@example.com', phone: '+12065550100', passwordHash: 'x' });
     customerId = user._id as Types.ObjectId;
   });
@@ -154,4 +157,17 @@ describe('old emailed pay links', () => {
     await handleLegacyCheckoutCompleted({ id: 'cs_3', payment_status: 'paid', metadata: { kind: 'booking_link', bookingId: 'x' } } as never);
     expect(mocks.retrieve).not.toHaveBeenCalled();
   });
+
+  it('replaces a saved Stripe customer that live mode cannot see, instead of failing the payment', async () => {
+    const { ensureStripeCustomer } = await import('../../src/modules/payments/cardPayments');
+    const { StripeError } = await import('../../src/integrations/paymentGateway');
+    const user = await User.create({ role: 'customer', name: 'Old Test', email: 'oldtest@example.com', phone: '+12065550101', passwordHash: 'x', stripeCustomerId: 'cus_FromTestMode' });
+    mocks.customer.mockRejectedValue(new StripeError("No such customer: 'cus_FromTestMode'", 404, 'resource_missing'));
+    expect(await ensureStripeCustomer(String(user._id))).toBe('cus_test');
+    expect((await User.findById(user._id).lean())?.stripeCustomerId).toBe('cus_test');
+
+    mocks.customer.mockResolvedValue({ id: 'cus_test' });
+    expect(await ensureStripeCustomer(String(user._id))).toBe('cus_test');
+  });
+
 });
