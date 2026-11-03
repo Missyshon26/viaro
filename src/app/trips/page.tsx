@@ -36,6 +36,7 @@ import { IconPlane } from "@/components/ui/Icons";
 import { buttonClass } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { AssignDriver } from "@/components/ops/AssignDriver";
+import { ConfirmBooking } from "@/components/ops/ConfirmBooking";
 import { TripStatusControl } from "@/components/ops/TripStatusControl";
 import type { Booking, Trip } from "@/lib/api/types";
 import { stageOf, isOverdue, type TripStage as Stage } from "@/lib/trips/stage";
@@ -305,7 +306,8 @@ function TripsView({ initialStage }: { initialStage: StageFilter }) {
       key: "stage",
       header: "Stage",
       cell: (r) => {
-        const stage = STAGE[stageOf(r)];
+        // A request nobody has confirmed yet reads as new, not as waiting on a driver.
+        const stage = stageOf(r) === "awaiting" && !r.confirmedAt ? { label: "New request", tone: "warn" as BadgeTone } : STAGE[stageOf(r)];
         const movable = r.trip && (r.trip.status === "accepted" || r.trip.status === "started");
 
         return (
@@ -373,11 +375,16 @@ function TripsView({ initialStage }: { initialStage: StageFilter }) {
         if (stage === "awaiting") {
           return (
             <span className="flex justify-end gap-2">
-              <AssignDriver
-                bookingId={r._id}
-                reference={reference(r._id)}
-                onAssigned={() => void load()}
-              />
+              {/* Confirm first (the customer is told); a driver can be assigned once it is confirmed. */}
+              {r.confirmedAt ? (
+                <AssignDriver
+                  bookingId={r._id}
+                  reference={reference(r._id)}
+                  onAssigned={() => void load()}
+                />
+              ) : (
+                <ConfirmBooking bookingId={r._id} onConfirmed={() => void load()} />
+              )}
             </span>
           );
         }

@@ -136,6 +136,8 @@ export interface Booking {
   status: BookingStatus;
   /** Present only once status is 'cancelled'. */
   cancellation?: BookingCancellation;
+  /** When operations confirmed the request (the customer was told). Happens before a driver is assigned. */
+  confirmedAt?: string;
   /**
    * Wallet credit the passenger asked to put towards this ride, chosen at booking.
    * Not yet spent — it is applied when a chauffeur is assigned and a Trip exists.

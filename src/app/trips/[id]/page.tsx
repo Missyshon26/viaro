@@ -3,6 +3,7 @@
 import { use, useCallback, useEffect, useState, type ReactNode } from "react";
 import { stageOf, isOverdue } from "@/lib/trips/stage";
 import { AssignDriver } from "@/components/ops/AssignDriver";
+import { ConfirmBooking } from "@/components/ops/ConfirmBooking";
 import { formatPhone } from "@/lib/format";
 import Link from "next/link";
 import { ConsolePage, formatDate, formatDateTime, money } from "@/components/ui/DataTable";
@@ -92,8 +93,24 @@ export default function BookingDetailPage({
    * a reload. AssignDriver.tsx in this same codebase already guards the identical shape.
    */
   const load = useCallback(async (isCurrent: () => boolean = () => true) => {
+    /*
+     * Both requests start now. The trip lookup only needs the booking's id, which is in the
+     * URL, so it no longer waits for the booking to arrive: with a second or so per request
+     * that wait was a visible part of opening a trip.
+     */
+    const bookingRequest = getBooking(id);
+    // Best effort: the booking is the page, the trip is extra context.
+    const tripRequest = (async () => {
+      // Just this booking's trip, not every trip on the platform.
+      const page = await listMyTrips({ bookingId: id, limit: 1 });
+      const match = (page.items ?? []).find((t) => String(t.bookingId) === id);
+      return match ? await getTrip(match._id) : null;
+    })();
+    // Nobody awaits it if the booking fails first; its own failure is handled below.
+    tripRequest.catch(() => undefined);
+
     try {
-      const result = await getBooking(id);
+      const result = await bookingRequest;
       if (!isCurrent()) return;
       setBooking(result as FullBooking);
       setError(null);
@@ -103,12 +120,8 @@ export default function BookingDetailPage({
       return;
     }
 
-    // Best effort: the booking is the page, the trip is extra context.
     try {
-      // Just this booking's trip, not every trip on the platform.
-      const page = await listMyTrips({ bookingId: id, limit: 1 });
-      const match = (page.items ?? []).find((t) => String(t.bookingId) === id);
-      const resolved = match ? await getTrip(match._id) : null;
+      const resolved = await tripRequest;
       if (!isCurrent()) return;
       setTrip(resolved);
       setTripError(null);
@@ -175,7 +188,7 @@ export default function BookingDetailPage({
       : undefined);
 
   const stage = stageOf({ ...booking, trip: trip ?? undefined });
-  const stageLabel = { awaiting: "Awaiting a driver", assigned: "Driver assigned", in_progress: "In progress", completed: "Completed", cancelled: "Cancelled" }[stage];
+  const stageLabel = { awaiting: booking.confirmedAt ? "Confirmed · awaiting a driver" : "New request", assigned: "Driver assigned", in_progress: "In progress", completed: "Completed", cancelled: "Cancelled" }[stage];
   const vehicle = findVehicleClass(booking.vehicleClass);
   const customer =
     booking.customerId && typeof booking.customerId === "object" ? booking.customerId : null;
@@ -229,9 +242,9 @@ export default function BookingDetailPage({
       }
     >
       <div className="mb-5 flex flex-wrap items-center justify-between gap-4 rounded-card border border-border bg-surface px-5 py-4">
-        <div><p className="text-label font-bold uppercase tracking-wider text-accent">Trip overview</p><p className="mt-1 text-note text-fg-body">{stage === "awaiting" ? "Assign a driver to prepare this trip for pickup." : stage === "completed" ? "Trip complete. Review payment and trip records below." : stage === "cancelled" ? "This trip has been cancelled. Review the cancellation details below." : "Monitor the pickup and keep the trip status up to date."}</p></div>
+        <div><p className="text-label font-bold uppercase tracking-wider text-accent">Trip overview</p><p className="mt-1 text-note text-fg-body">{stage === "awaiting" ? (booking.confirmedAt ? "The customer has been told this trip is confirmed. Assign a driver to prepare it for pickup." : "Confirm this request to tell the customer their trip is confirmed. You can assign a driver after that.") : stage === "completed" ? "Trip complete. Review payment and trip records below." : stage === "cancelled" ? "This trip has been cancelled. Review the cancellation details below." : "Monitor the pickup and keep the trip status up to date."}</p></div>
         {isOverdue({ ...booking, trip: trip ?? undefined }) && <StatusBadge tone="bad">Pickup overdue</StatusBadge>}
-        {stage === "awaiting" && tripSearched && !tripError && <AssignDriver bookingId={booking._id} reference={reference(booking._id)} onAssigned={() => void load()} />}
+        {stage === "awaiting" && tripSearched && !tripError && (booking.confirmedAt ? <AssignDriver bookingId={booking._id} reference={reference(booking._id)} onAssigned={() => void load()} /> : <ConfirmBooking bookingId={booking._id} onConfirmed={() => void load()} />)}
       </div>
       {/* ------------------------------ headline strip ------------------------- */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -501,7 +514,7 @@ export default function BookingDetailPage({
                       tripId={trip._id}
                       currentStatus={trip.status}
                       onChanged={load}
-                      reached={{ confirmed: Boolean(trip.timestamps?.confirmed), enroute: Boolean(trip.timestamps?.enroute), arrived: Boolean(trip.timestamps?.arrived) }}
+                      reached={{ confirmed: Boolean(trip.timestamps?.confirmed || booking.confirmedAt), enroute: Boolean(trip.timestamps?.enroute), arrived: Boolean(trip.timestamps?.arrived) }}
                     />
                   </div>
                   <div className="mt-3">
@@ -530,7 +543,7 @@ export default function BookingDetailPage({
                         ["completed", trip.status === "cancelled" ? "Cancelled" : "Completed"],
                       ] as const
                     ).map(([key, label]) => {
-                      const at = trip.timestamps?.[key];
+                      const at = key === "confirmed" ? (trip.timestamps?.confirmed ?? booking.confirmedAt) : trip.timestamps?.[key];
                       return (
                         <li key={key} className="flex items-center gap-3">
                           <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full ${at ? "bg-chart-good" : "bg-border"}`} />

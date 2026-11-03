@@ -530,6 +530,10 @@ export const emailInvoice = (bookingId: string, withPaymentLink: boolean) =>
  * a card payment is refunded in full. `refundError` is set when the booking was rejected but
  * the refund failed — the operator finishes it with Refund.
  */
+/** Accepts a new request: the customer is told their trip is confirmed. Assigning a driver comes after. */
+export const confirmBookingRequest = (bookingId: string) =>
+  api.post<{ booking: { _id: string; confirmedAt?: string } }>(`/admin/bookings/${bookingId}/confirm`);
+
 export const rejectBookingRequest = (bookingId: string, reason: string) =>
   api.post<{ refunded: number; refundError?: string }>(`/admin/bookings/${bookingId}/reject`, { reason });
 
