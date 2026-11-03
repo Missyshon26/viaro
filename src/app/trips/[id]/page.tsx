@@ -3,7 +3,6 @@
 import { use, useCallback, useEffect, useState, type ReactNode } from "react";
 import { stageOf, isOverdue } from "@/lib/trips/stage";
 import { AssignDriver } from "@/components/ops/AssignDriver";
-import { fetchAllPages } from "@/lib/api/admin";
 import { formatPhone } from "@/lib/format";
 import Link from "next/link";
 import { ConsolePage, formatDate, formatDateTime, money } from "@/components/ui/DataTable";
@@ -106,7 +105,8 @@ export default function BookingDetailPage({
 
     // Best effort: the booking is the page, the trip is extra context.
     try {
-      const page = await fetchAllPages((page, limit) => listMyTrips({ page, limit }));
+      // Just this booking's trip, not every trip on the platform.
+      const page = await listMyTrips({ bookingId: id, limit: 1 });
       const match = (page.items ?? []).find((t) => String(t.bookingId) === id);
       const resolved = match ? await getTrip(match._id) : null;
       if (!isCurrent()) return;
@@ -839,16 +839,16 @@ function FlightBoard({ flightNumber, date }: { flightNumber: string; date?: stri
  * on an unpaid ride answers with a plain explanation, shown here as it is.
  */
 function DocumentDownloads({ bookingId }: { bookingId: string }) {
-  const [busy, setBusy] = useState<"invoice" | "receipt" | "email" | null>(null);
+  const [busy, setBusy] = useState<"invoice" | "receipt" | "email" | "emailLink" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [emailed, setEmailed] = useState<string | null>(null);
 
-  const email = async () => {
-    setBusy("email");
+  const email = async (withPaymentLink: boolean) => {
+    setBusy(withPaymentLink ? "emailLink" : "email");
     setError(null);
     setEmailed(null);
     try {
-      const result = await emailInvoice(bookingId);
+      const result = await emailInvoice(bookingId, withPaymentLink);
       setEmailed(`Invoice emailed to ${result.sentTo}${result.paymentLinkIncluded ? ", with a payment link" : ""}.`);
     } catch (err) {
       setError(errorText(err, "Could not email the invoice"));
@@ -878,8 +878,11 @@ function DocumentDownloads({ bookingId }: { bookingId: string }) {
           {busy === kind ? "Preparing…" : kind === "invoice" ? "Download invoice" : "Download receipt"}
         </button>
       ))}
-      <button type="button" disabled={busy !== null} onClick={() => void email()} className={buttonCls}>
-        {busy === "email" ? "Sending…" : "Email invoice"}
+      <button type="button" disabled={busy !== null} onClick={() => void email(false)} className={buttonCls}>
+        {busy === "email" ? "Sending…" : "Send invoice"}
+      </button>
+      <button type="button" disabled={busy !== null} onClick={() => void email(true)} className={buttonCls}>
+        {busy === "emailLink" ? "Sending…" : "Send invoice & payment link"}
       </button>
       {/* The result of the last action, as a pinned notice so it does not push the header around. */}
       {emailed || error ? (

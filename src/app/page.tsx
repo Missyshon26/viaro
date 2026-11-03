@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLiveChanges } from "@/lib/live/useLiveChanges";
 import Link from "next/link";
 import { ConsolePage, emptyActionClass } from "@/components/ui/DataTable";
@@ -41,11 +41,9 @@ import {
   IconUsers,
 } from "@/components/ui/Icons";
 import {
-  getCancellations,
   getDashboardSummary,
   getSubscriptionRevenue,
   getTripsCompleted,
-  type CancellationsReport,
   type DashboardSummary,
   type RosterDriver,
   type SubscriptionRevenue,
@@ -78,9 +76,10 @@ const driverName = (driver: RosterDriver) =>
 export default function AdminDashboard() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [revenue, setRevenue] = useState<SubscriptionRevenue | null>(null);
-  const [cancels, setCancels] = useState<CancellationsReport | null>(null);
-  const [completed, setCompleted] = useState<TripsCompletedReport | null>(null);
+  // `retry` reloads everything (the Retry button); `tick` is a live change, which only needs the
+  // figures that can move — not the subscription history, which does not change with a booking.
   const [retry, setRetry] = useState(0);
+  const [tick, setTick] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   const [range, setRange] = useState<RangeKey>("30d");
@@ -92,41 +91,43 @@ export default function AdminDashboard() {
    * a moment later, without blanking them (the load below only ever replaces data).
    * "reconnected" is skipped because the first load has just happened.
    */
-  const liveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  useLiveChanges(["booking", "trip", "dispatch", "user", "driver", "wallet"], (event) => {
-    if (event.action === "reconnected") return;
-    clearTimeout(liveTimer.current);
-    liveTimer.current = setTimeout(() => setRetry((n) => n + 1), 800);
-  });
-  useEffect(() => () => clearTimeout(liveTimer.current), []);
+  useLiveChanges(
+    ["booking", "trip", "dispatch", "user", "driver", "wallet"],
+    (event) => {
+      if (event.action !== "reconnected") setTick((n) => n + 1);
+    },
+    2500,
+  );
 
-  /* ---------------------------- one-off page load --------------------------- */
+  /* ---------------------------- the headline figures ------------------------ */
 
+  // One request: the server counts stages, roles, drivers, settled trips and cancellations.
   useEffect(() => {
     let cancelled = false;
+    getDashboardSummary().then(
+      (value) => {
+        if (!cancelled) setSummary(value);
+      },
+      () => {
+        if (!cancelled) setError("Some dashboard data could not be loaded.");
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [retry, tick]);
 
-    (async () => {
-      // Each tile has its own source; one failure must not blank the dashboard, and each
-      // fills the moment its own answer lands rather than waiting for the slowest.
-      let failed = false;
-      const settle = <T,>(request: Promise<T>, apply: (value: T) => void) =>
-        request.then(
-          (value) => {
-            if (!cancelled) apply(value);
-          },
-          () => {
-            failed = true;
-          },
-        );
-      await Promise.all([
-        settle(getDashboardSummary(), setSummary),
-        settle(getSubscriptionRevenue(), setRevenue),
-        settle(getCancellations(), setCancels),
-        settle(getTripsCompleted(), setCompleted),
-      ]);
-      if (!cancelled && failed) setError("Some dashboard data could not be loaded.");
-    })();
-
+  // Subscription history: loaded on arrival and on Retry only.
+  useEffect(() => {
+    let cancelled = false;
+    getSubscriptionRevenue().then(
+      (value) => {
+        if (!cancelled) setRevenue(value);
+      },
+      () => {
+        if (!cancelled) setError("Some dashboard data could not be loaded.");
+      },
+    );
     return () => {
       cancelled = true;
     };
@@ -141,7 +142,7 @@ export default function AdminDashboard() {
     const days = RANGES.find((r) => r.key === range)?.days ?? 30;
     // The range filter is served by the API, not sliced from a cached list — the
     // report endpoint takes `from`, so the numbers stay right beyond the page limit.
-    getTripsCompleted({ from: since(days) })
+    getTripsCompleted({ from: since(days), slim: "true" })
       .then((report) => {
         if (!cancelled) setRanged(report);
       })
@@ -155,7 +156,7 @@ export default function AdminDashboard() {
     return () => {
       cancelled = true;
     };
-  }, [range, retry]);
+  }, [range, retry, tick]);
 
   /* -------------------------------- derived -------------------------------- */
 
@@ -233,8 +234,8 @@ export default function AdminDashboard() {
             <StatCard
               tone="feature"
               label="Trip revenue"
-              value={compactMoney(completed?.totalFare ?? 0)}
-              hint={`${count(completed?.count ?? 0)} settled trips`}
+              value={compactMoney(summary?.completed.totalFare ?? 0)}
+              hint={`${count(summary?.completed.count ?? 0)} settled trips`}
               icon={<IconMoney size={18} />}
               href="/trips?stage=completed"
             />
@@ -284,8 +285,8 @@ export default function AdminDashboard() {
             />
             <StatCard
               label="Cancellations"
-              value={count(cancels?.counts.cancellations)}
-              hint={`${cancels?.counts.penalties ?? 0} penalties recorded`}
+              value={count(summary?.cancellations.count)}
+              hint={`${summary?.cancellations.penalties ?? 0} penalties recorded`}
               icon={<IconPenalty size={18} />}
               href="/trips?stage=cancelled"
             />

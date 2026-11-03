@@ -47,21 +47,39 @@ export function useLiveStatus(): LiveStatus {
   return useSyncExternalStore(stream.onStatus, stream.getStatus, () => "connecting" as LiveStatus);
 }
 
+/** A burst of events (one booking touches booking, trip and notification at once) is one reload. */
+const DEFAULT_DEBOUNCE_MS = 800;
+
 export function useLiveChanges(
   topics: ChangeTopic[],
   onChange: (event: ChangeEvent) => void,
+  /** How long to wait for the burst to finish before calling `onChange` once, with the last event. */
+  debounceMs: number = DEFAULT_DEBOUNCE_MS,
 ): void {
   // Held in a ref so a caller passing an inline arrow does not tear the subscription down on
   // every render — the effect depends on the topic list only.
-  const handler = useRef(onChange);
+  const latest = useRef(onChange);
   useEffect(() => {
-    handler.current = onChange;
+    latest.current = onChange;
   });
 
   const wanted = topics.join(",");
 
   useEffect(() => {
     const list = wanted.split(",").filter(Boolean) as ChangeTopic[];
-    return stream.subscribe({ topics: new Set(list), primary: list[0] ?? "booking", handler });
-  }, [wanted]);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    // What the stream calls: it waits for quiet, then hands the newest event to the screen.
+    const handler = {
+      current: (event: ChangeEvent) => {
+        if (debounceMs <= 0) return latest.current(event);
+        clearTimeout(timer);
+        timer = setTimeout(() => latest.current(event), debounceMs);
+      },
+    };
+    const unsubscribe = stream.subscribe({ topics: new Set(list), primary: list[0] ?? "booking", handler });
+    return () => {
+      clearTimeout(timer);
+      unsubscribe();
+    };
+  }, [wanted, debounceMs]);
 }

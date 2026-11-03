@@ -139,8 +139,15 @@ export interface DashboardSummary {
   };
   users: { customer: number; driver: number; company: number; admin: number };
   drivers: { total: number; available: number; busy: number; offline: number; penalised: number; top: RosterDriver[] };
+  /** All-time settled trips and their fare, counted by the server. */
+  completed: { count: number; totalFare: number };
+  /** Cancelled (or penalised) trips and penalty events, counted by the server. */
+  cancellations: { count: number; penalties: number };
 }
 export const getDashboardSummary = () => api.get<DashboardSummary>("/admin/dashboard/summary");
+
+/** The ids behind the sidebar badges: one small request in place of four list downloads. */
+export const getNavBadges = () => api.get<Record<string, string[]>>("/admin/nav-badges");
 
 export const getUsersDashboard = (page = 1, limit = 20, filters: { role?: string; q?: string } = {}) =>
   api.get<Paginated<User>>("/admin/dashboard/users", { query: { page, limit, ...filters } });
@@ -207,6 +214,8 @@ export const assignDriverToBooking = (bookingId: string, driverId: string) =>
 export interface ReportRange {
   from?: string;
   to?: string;
+  /** "true": leave out chauffeur names, for charts that only need dates and fares. */
+  slim?: "true";
 }
 
 export interface TripsCompletedReport {
@@ -507,9 +516,12 @@ export const syncBookingToCalendar = (bookingId: string) =>
     `/admin/bookings/${bookingId}/calendar-sync`,
   );
 
-/** Emails the client their invoice (PDF attached), with a Pay Now link when the trip is unpaid. */
-export const emailInvoice = (bookingId: string) =>
-  api.post<{ sentTo: string; paymentLinkIncluded?: boolean }>(`/admin/bookings/${bookingId}/email-invoice`);
+/**
+ * Emails the client their invoice (PDF attached). With `withPaymentLink` an unpaid trip also
+ * gets a Pay Now link; without it, the PDF goes alone.
+ */
+export const emailInvoice = (bookingId: string, withPaymentLink: boolean) =>
+  api.post<{ sentTo: string; paymentLinkIncluded?: boolean }>(`/admin/bookings/${bookingId}/email-invoice`, { withPaymentLink });
 
 /* ------------------------------- reject a request ------------------------------- */
 

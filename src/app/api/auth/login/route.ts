@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { API_BASE_URL } from "@/lib/api/client";
+import { SERVER_API_URL } from "@/lib/api/server";
 import { REFRESH_COOKIE, refreshCookieOptions } from "@/lib/auth/cookies";
 
 /**
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
 
   let upstream: Response;
   try {
-    upstream = await fetch(`${API_BASE_URL}/auth/login`, {
+    upstream = await fetch(`${SERVER_API_URL}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: body.email, password: body.password }),

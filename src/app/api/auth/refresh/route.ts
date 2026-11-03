@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { API_BASE_URL } from "@/lib/api/client";
+import { SERVER_API_URL } from "@/lib/api/server";
 import { REFRESH_COOKIE, clearRefreshCookie, refreshCookieOptions } from "@/lib/auth/cookies";
 
 /** Exchanges the httpOnly refresh cookie for a fresh access token. */
@@ -14,7 +14,7 @@ export async function POST() {
 
   let upstream: Response;
   try {
-    upstream = await fetch(`${API_BASE_URL}/auth/refresh`, {
+    upstream = await fetch(`${SERVER_API_URL}/auth/refresh`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refreshToken }),

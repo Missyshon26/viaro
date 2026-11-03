@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { API_BASE_URL } from "@/lib/api/client";
+import { SERVER_API_URL } from "@/lib/api/server";
 import { REFRESH_COOKIE, clearRefreshCookie } from "@/lib/auth/cookies";
 
 /**
@@ -13,7 +13,7 @@ export async function POST(request: Request) {
   const accessToken = request.headers.get("authorization");
 
   if (refreshToken && accessToken) {
-    await fetch(`${API_BASE_URL}/auth/logout`, {
+    await fetch(`${SERVER_API_URL}/auth/logout`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: accessToken },
       body: JSON.stringify({ refreshToken }),

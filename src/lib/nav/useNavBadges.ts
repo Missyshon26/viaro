@@ -77,7 +77,7 @@ export function useNavBadges(): Record<string, number> {
    * stream announces the change; the hook keeps a slower poll of its own as a fallback,
    * so nothing is lost if the connection cannot be held.
    */
-  useLiveChanges(["booking", "trip", "dispatch", "notification"], () => void poll());
+  useLiveChanges(["booking", "trip", "dispatch", "notification"], () => void poll(), 1500);
 
   /**
    * Opening a section marks everything currently in it as seen.

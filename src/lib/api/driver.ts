@@ -32,7 +32,7 @@ export function setMyStatus(
 
 /* --------------------------------- trips ---------------------------------- */
 
-export function listMyTrips(params: { status?: TripStatus; page?: number; limit?: number } = {}) {
+export function listMyTrips(params: { status?: TripStatus; bookingId?: string; page?: number; limit?: number } = {}) {
   return api.get<Paginated<Trip>>("/trips", { query: { ...params } });
 }
 
