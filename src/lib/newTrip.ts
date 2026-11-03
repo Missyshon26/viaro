@@ -38,7 +38,7 @@ const CENTRES: Record<string, { lat: number; lng: number }> = {
   everett: { lat: 47.979, lng: -122.2021 },
   "los angeles": { lat: 34.0522, lng: -118.2437 },
 };
-const centreOf = (city: string) => CENTRES[city.trim().toLowerCase()] ?? CENTRES.seattle;
+export const centreOf = (city: string) => CENTRES[city.trim().toLowerCase()] ?? CENTRES.seattle;
 
 export interface TripForm {
   clientId: string;

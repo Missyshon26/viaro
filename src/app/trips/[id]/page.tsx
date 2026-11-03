@@ -34,6 +34,7 @@ import { Button } from "@/components/ui/Button";
 import { Amendments } from "@/components/ops/Amendments";
 import { ReleaseCredit } from "@/components/ops/ReleaseCredit";
 import { PaymentLink } from "@/components/ops/PaymentLink";
+import { EditTripButton } from "@/components/ops/EditTrip";
 import { bookedBy, paymentSummary } from "@/lib/trips/origin";
 import { RejectRequest } from "@/components/ops/RejectRequest";
 import { NoShowButton } from "@/components/ops/NoShowButton";
@@ -220,6 +221,7 @@ export default function BookingDetailPage({
       action={
         <div className="flex flex-col items-start gap-2 sm:items-end">
           <div className="flex flex-wrap items-center gap-2">
+            {stage !== "cancelled" && stage !== "completed" ? <EditTripButton booking={booking} onChanged={() => void load()} /> : null}
             <DocumentDownloads bookingId={booking._id} />
             <StatusBadge tone={stage === "completed" ? "good" : stage === "cancelled" ? "bad" : "info"}>{stageLabel}</StatusBadge>
           </div>

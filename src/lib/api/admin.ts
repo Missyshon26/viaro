@@ -584,3 +584,27 @@ export const createJourneyForClient = (body: AdminJourneyBody) =>
 /** Books the trip for the client. It is unpaid until the fare is collected. */
 export const createTripForClient = (body: AdminTripBody) =>
   api.post<{ booking: { _id: string; estimatedFare: number } }>("/admin/bookings", body);
+
+/** What an operator can change on a booking. Send only what moved: each change is recorded. */
+export interface BookingChanges {
+  pickup?: { lat: number; lng: number; address: string };
+  drop?: { lat: number; lng: number; address: string };
+  stops?: { lat: number; lng: number; address: string }[];
+  vehicleClass?: string;
+  /** Pacific wall time, yyyy-mm-ddThh:mm:ss. */
+  scheduledAt?: string;
+  passengers?: number;
+  checkedBags?: number;
+  carryOnBags?: number;
+  flightNumber?: string;
+  occasion?: string | null;
+  occasionDetails?: string | null;
+  passengerName?: string | null;
+  passengerPhone?: string | null;
+  description?: string | null;
+  /** Email the client about the change. Defaults to yes. */
+  notifyCustomer?: boolean;
+}
+
+export const updateBookingDetails = (bookingId: string, changes: BookingChanges) =>
+  api.patch<Booking>(`/admin/bookings/${bookingId}`, changes);

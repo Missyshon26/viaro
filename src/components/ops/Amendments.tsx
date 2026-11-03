@@ -21,6 +21,8 @@ const FIELD_LABEL: Record<string, string> = {
   occasion: "Occasion",
   luggage: "Luggage",
   passenger: "Passenger",
+  passengers: "Passengers",
+  notes: "Notes",
 };
 
 export function Amendments({ booking }: { booking: Booking }) {

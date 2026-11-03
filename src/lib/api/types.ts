@@ -122,7 +122,9 @@ export interface Booking {
       | "flight"
       | "occasion"
       | "luggage"
-      | "passenger";
+      | "passenger"
+      | "passengers"
+      | "notes";
     from: string;
     to: string;
     by: "customer" | "admin";
@@ -197,6 +199,8 @@ export interface Booking {
   checkedBags?: number;
   passengerName?: string;
   passengerPhone?: string;
+  /** What the customer or operator wrote about the ride. */
+  description?: string;
   cruisePort?: "pier66" | "pier91";
   cruiseShip?: string;
   /** Meet and Greet, car seats, cruise meeting point — what the chauffeur is told. */
