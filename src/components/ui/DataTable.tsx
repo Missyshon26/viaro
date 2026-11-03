@@ -381,8 +381,9 @@ export function ConsolePage({
 }) {
   return (
     <div className={`mx-auto ${width === "wide" ? "max-w-[1400px]" : "max-w-[1100px]"}`}>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-        <div className="min-w-0">
+      {/* The actions wrap under the title when they do not fit beside it, instead of squeezing the title to a sliver. */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+        <div className="min-w-0 sm:min-w-[18rem]">
           <h1 className="text-[1.75rem] font-semibold tracking-tight text-fg">{title}</h1>
           {description ? (
             <p className="mt-2 max-w-2xl text-body leading-relaxed text-fg-muted">
@@ -390,7 +391,7 @@ export function ConsolePage({
             </p>
           ) : null}
         </div>
-        {action ? <div className="sm:ml-auto sm:shrink-0">{action}</div> : null}
+        {action ? <div className="max-w-full sm:ml-auto">{action}</div> : null}
       </div>
 
       <div className="mt-6">{children}</div>
