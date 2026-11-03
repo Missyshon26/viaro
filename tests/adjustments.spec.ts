@@ -40,8 +40,17 @@ describe('applyAdjustments', () => {
   it('takes tax on the price plus tip', () => {
     const r = applyAdjustments({ subtotal: 140, gratuityPct: 10, taxPct: 8.5 });
     expect(r.gratuity).toBe(14);
-    expect(r.tax).toBe(13.09); // 154 × 8.5%
-    expect(r.total).toBe(167.09);
+    expect(r.tax).toBe(14); // 154 × 8.5% = 13.09, up to the next whole dollar
+    expect(r.total).toBe(168);
+  });
+
+  it('rounds every line up to a whole dollar, so a total never has cents', () => {
+    const r = applyAdjustments({ subtotal: 133, gratuityPct: 15, taxPct: 10.1, fuelPct: 3 });
+    expect(Number.isInteger(r.fuelSurcharge)).toBe(true);
+    expect(Number.isInteger(r.gratuity)).toBe(true);
+    expect(Number.isInteger(r.tax)).toBe(true);
+    expect(Number.isInteger(r.total)).toBe(true);
+    expect(r.total).toBe(133 + r.fuelSurcharge + r.gratuity + r.tax);
   });
 
   it('takes the discount off before tax, so a discount lowers the tax too', () => {

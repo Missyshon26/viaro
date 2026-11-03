@@ -92,7 +92,7 @@ describe('classes without a fixed rate', () => {
   it('still price by city base × class multiplier', async () => {
     const fare = await quote('suv', '14:00');
     expect(fare.pricingModel).toBe('multiplier');
-    expect(fare.fare).toBe(180.6);
+    expect(fare.fare).toBe(181); // 180.6, up to the next whole dollar
   });
 });
 

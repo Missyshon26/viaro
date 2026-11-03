@@ -1,5 +1,5 @@
 import { Booking } from '../../models/Booking';
-import { round2 } from '../../utils/money';
+import { ceilDollars, round2 } from '../../utils/money';
 import { MAX_GRATUITY_PCT } from '../../config/services';
 import { getSettingsValues } from '../admin/settings.service';
 
@@ -16,8 +16,8 @@ import { getSettingsValues } from '../admin/settings.service';
  *   = total        what is charged
  *
  * Tax is worked out AFTER the discount: a discount lowers the price, so it lowers the
- * taxable amount too. Money is rounded to the cent at every step, so the lines on an invoice
- * always add up to its total.
+ * taxable amount too. Every line is rounded UP to a whole dollar (fares are quoted and charged in
+ * whole dollars), so the lines on an invoice always add up to its total.
  */
 export type DiscountKind = 'welcome' | 'loyalty';
 
@@ -52,12 +52,12 @@ export function applyAdjustments(input: {
 
   const fuelSurchargePct = Math.min(Math.max(input.fuelPct ?? 0, 0), 30);
   // Whole dollars, rounded up: the old site's rule, kept so a customer sees the same figure.
-  const fuelSurcharge = fuelSurchargePct > 0 ? Math.ceil(round2((input.subtotal * fuelSurchargePct) / 100)) : 0;
-  const gratuity = round2((input.subtotal * gratuityPct) / 100);
+  const fuelSurcharge = fuelSurchargePct > 0 ? ceilDollars((input.subtotal * fuelSurchargePct) / 100) : 0;
+  const gratuity = ceilDollars((input.subtotal * gratuityPct) / 100);
   const gross = round2(input.subtotal + fuelSurcharge + gratuity);
-  const discount = round2(Math.min(Math.max(input.discount?.amount ?? 0, 0), gross));
+  const discount = ceilDollars(Math.min(Math.max(input.discount?.amount ?? 0, 0), gross));
   const taxable = round2(gross - discount);
-  const tax = round2((taxable * taxPct) / 100);
+  const tax = ceilDollars((taxable * taxPct) / 100);
 
   return {
     fuelSurchargePct,

@@ -101,18 +101,18 @@ describe('gratuity and tax in a quote', () => {
     await setSettings({ taxPct: 8.5 });
     const client = await makeUser('customer');
     const q = await quote(client.id, { gratuityPct: 10 });
-    expect(q).toMatchObject({ subtotal: 140, gratuity: 14, taxPct: 8.5, tax: 13.09, fare: 167.09 });
+    expect(q).toMatchObject({ subtotal: 140, gratuity: 14, taxPct: 8.5, tax: 14, fare: 168 }); // tax 154 × 8.5% = 13.09, up to 14
   });
 
   it('adds the fuel surcharge as its own line, whole dollars rounded up, before tax', async () => {
     await setSettings({ fuelSurchargePct: 8, taxPct: 10 });
     const client = await makeUser('customer');
     const q = await quote(client.id);
-    // 140 × 8% = 11.20 → 12; (140 + 12) × 10% = 15.20
-    expect(q).toMatchObject({ subtotal: 140, fuelSurchargePct: 8, fuelSurcharge: 12, taxPct: 10, tax: 15.2, fare: 167.2 });
+    // 140 × 8% = 11.20 → 12; (140 + 12) × 10% = 15.20 → 16
+    expect(q).toMatchObject({ subtotal: 140, fuelSurchargePct: 8, fuelSurcharge: 12, taxPct: 10, tax: 16, fare: 168 });
     const booked = await book(client.id);
     expect(booked.fareBreakdown).toMatchObject({ fuelSurchargePct: 8, fuelSurcharge: 12 });
-    expect(booked.estimatedFare).toBe(167.2);
+    expect(booked.estimatedFare).toBe(168);
   });
 
   it('refuses a fuel surcharge that is almost certainly a typo', async () => {
@@ -137,7 +137,7 @@ describe('gratuity and tax in a quote', () => {
       .query({ city: 'seattle', tripType: 'point2point', vehicleClass: 'sedan', requestedAt: pickupIn(5, 14), gratuity: 20 })
       .set('Authorization', client.auth);
     expect(res.status).toBe(200);
-    expect(res.body.data).toMatchObject({ subtotal: 140, gratuity: 28, tax: 16.8, fare: 184.8 });
+    expect(res.body.data).toMatchObject({ subtotal: 140, gratuity: 28, tax: 17, fare: 185 });
   });
 });
 
@@ -250,9 +250,9 @@ describe('what a booking stores', () => {
       .set('Authorization', client.auth)
       .send({ ...trip({ gratuityPct: 10 }) });
     expect(res.status).toBe(201);
-    // 140 + 14 tip − 20 welcome = 134; tax 13.40; total 147.40
-    expect(res.body.data.booking.estimatedFare).toBe(147.4);
-    expect(res.body.data.fareBreakdown).toMatchObject({ subtotal: 140, gratuity: 14, discount: 20, tax: 13.4, fare: 147.4 });
+    // 140 + 14 tip − 20 welcome = 134; tax 13.40 → 14; total 148
+    expect(res.body.data.booking.estimatedFare).toBe(148);
+    expect(res.body.data.fareBreakdown).toMatchObject({ subtotal: 140, gratuity: 14, discount: 20, tax: 14, fare: 148 });
     const stored = await Booking.findById(res.body.data.booking._id).lean();
     expect(stored!.fareBreakdown).toMatchObject({
       subtotal: 140,
@@ -261,7 +261,7 @@ describe('what a booking stores', () => {
       discountKind: 'welcome',
       discount: 20,
       taxPct: 10,
-      tax: 13.4,
+      tax: 14,
     });
   });
 
@@ -289,7 +289,7 @@ describe('amending a booking', () => {
     await setSettings({ taxPct: 10, welcomeDiscount: 20 });
     const client = await makeUser('customer');
     const made = await request(server).post('/bookings').set('Authorization', client.auth).send(trip({ gratuityPct: 10 }));
-    expect(made.body.data.booking.estimatedFare).toBe(147.4);
+    expect(made.body.data.booking.estimatedFare).toBe(148);
 
     // Operations change everything afterwards.
     await setSettings({ taxPct: 0, welcomeDiscount: 0 });
@@ -299,8 +299,8 @@ describe('amending a booking', () => {
       .set('Authorization', client.auth)
       .send({ vehicleClass: 'mpv' });
     expect(changed.status).toBe(200);
-    // MPV flat $172 + 10% tip 17.20 − the same $20 welcome = 169.20; the same 10% tax 16.92.
-    expect(changed.body.data.estimatedFare).toBe(186.12);
+    // MPV flat $172 + 10% tip 17.20 → 18 − the same $20 welcome = 170; the same 10% tax 17; total 187.
+    expect(changed.body.data.estimatedFare).toBe(187);
     expect(changed.body.data.fareBreakdown).toMatchObject({ gratuityPct: 10, taxPct: 10, discount: 20 });
   });
 

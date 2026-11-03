@@ -3,7 +3,7 @@ import { Subscription } from '../../models/Subscription';
 import type { TripType } from '../../models/Booking';
 import { hourOfDay, now, toAppTime, toDate, type DateInput } from '../../config/timezone';
 import { ApiError } from '../../utils/ApiError';
-import { round2 } from '../../utils/money';
+import { ceilDollars, round2 } from '../../utils/money';
 import * as vehicleService from '../vehicle/vehicle.service';
 import * as packageService from '../package/package.service';
 import { collectPayment, isStripeEnabled } from '../../integrations/paymentGateway';
@@ -216,14 +216,14 @@ export async function calculateFare(opts: {
       : (rates.fixedRate as number) * (hours ?? 1);
 
   const floored = !pkg && rates.minimumFare !== null && computed < rates.minimumFare;
-  const classFare = round2(floored ? (rates.minimumFare as number) : computed);
+  const classFare = ceilDollars(floored ? (rates.minimumFare as number) : computed);
 
   const primetime = !pkg && isPrimetime(when);
   const primetimeSurcharge = primetime ? PRIMETIME.surcharge : 0;
   const meetAndGreetFee = opts.meetAndGreet && !pkg ? MEET_AND_GREET_FEE : 0;
   // Stops belong to transfers: an hourly charter goes wherever the hours take it.
   const stopCount = opts.tripType === 'hourly' || pkg ? 0 : Math.max(0, Math.floor(opts.stopCount ?? 0));
-  const stopFee = round2(stopCount * rates.stopFee);
+  const stopFee = ceilDollars(stopCount * rates.stopFee);
 
   /*
    * By the mile: a flat transfer rate covers the first `baseMiles`; each mile after costs
@@ -256,7 +256,7 @@ export async function calculateFare(opts: {
           included: rates.baseMiles as number,
           extra,
           rate: rates.perMileRate as number,
-          fee: round2(extra * (rates.perMileRate as number)),
+          fee: ceilDollars(extra * (rates.perMileRate as number)),
         };
       }
     }
