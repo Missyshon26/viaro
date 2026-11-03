@@ -238,8 +238,7 @@ export const completeCheckoutSchema = z.object({
 
 export type CompleteCheckoutInput = z.infer<typeof completeCheckoutSchema>;
 
-export const updateBookingSchema = z
-  .object({
+const updateBookingFields = z.object({
     pickup: geoPointSchema.optional(),
     drop: geoPointSchema.optional(),
     vehicleClass: z.string().min(1).max(60).optional(),
@@ -262,10 +261,28 @@ export const updateBookingSchema = z
     passengerPhone: z.string().trim().min(6).max(30).nullable().optional(),
     /** Airport bookings only. */
     flightNumber: z.string().trim().min(2).max(10).optional(),
-  })
-  .refine((d) => Object.keys(d).length > 0, { message: 'No updatable fields supplied' });
+});
+
+const hasAField = (d: Record<string, unknown>) => Object.keys(d).length > 0;
+
+export const updateBookingSchema = updateBookingFields.refine(hasAField, { message: 'No updatable fields supplied' });
 
 export type UpdateBookingInput = z.infer<typeof updateBookingSchema>;
+
+/**
+ * What operations can change on any booking: everything a customer can, plus the head count
+ * and the notes. `notifyCustomer` is not a booking field: it only decides whether the
+ * customer is emailed about the change.
+ */
+export const adminUpdateBookingSchema = updateBookingFields
+  .extend({
+    passengers: z.coerce.number().int().min(1).max(60).optional(),
+    description: z.string().trim().max(500).nullable().optional(),
+    notifyCustomer: z.boolean().optional(),
+  })
+  .refine((d) => Object.keys(d).some((k) => k !== 'notifyCustomer'), { message: 'No updatable fields supplied' });
+
+export type AdminUpdateBookingInput = z.infer<typeof adminUpdateBookingSchema>;
 
 export const favoriteDriverSchema = z.object({
   driverId: z.string().regex(/^[a-fA-F0-9]{24}$/, 'Invalid driver id'),

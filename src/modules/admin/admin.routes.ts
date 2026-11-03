@@ -21,6 +21,7 @@ import {
   listCustomersQuerySchema,
   updateCustomerSchema,
 } from './admin.customers.validation';
+import { adminUpdateBookingSchema } from '../booking/booking.validation';
 import { validate } from '../../utils/validate';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { authGuard } from '../../middlewares/authGuard';
@@ -157,6 +158,12 @@ router.post(
   roleGuard('admin'),
   validate({ params: idParamSchema, body: adminRejectSchema }),
   asyncHandler(controller.rejectBookingRequest),
+);
+router.patch(
+  '/bookings/:id',
+  roleGuard('admin'),
+  validate({ params: idParamSchema, body: adminUpdateBookingSchema }),
+  asyncHandler(controller.updateBooking),
 );
 router.post(
   '/bookings/:id/refund',

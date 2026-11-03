@@ -1,7 +1,7 @@
 import { ApiError } from '../../utils/ApiError';
 import type { BookingDocument, GeoPoint } from '../../models/Booking';
 import { recordChange } from './booking.amendments';
-import type { UpdateBookingInput } from './booking.validation';
+import type { AdminUpdateBookingInput, UpdateBookingInput } from './booking.validation';
 
 /**
  * The details of a booking a customer can still change after making it: stops, occasion,
@@ -41,10 +41,13 @@ export interface DetailChanges {
  * the caller saves once, after the vehicle rules have been checked against the finished
  * state, so a refused edit leaves the stored booking untouched.
  */
-export function applyDetailChanges(booking: BookingDocument, input: UpdateBookingInput): DetailChanges {
+export function applyDetailChanges(
+  booking: BookingDocument,
+  input: UpdateBookingInput & Pick<AdminUpdateBookingInput, 'passengers' | 'description'>,
+  by: 'customer' | 'admin' = 'customer',
+): DetailChanges {
   let changed = false;
   let stopCountChanged = false;
-  const by = 'customer' as const;
 
   /* ------------------------------- stops --------------------------------- */
   if (input.stops !== undefined) {
@@ -144,6 +147,23 @@ export function applyDetailChanges(booking: BookingDocument, input: UpdateBookin
       booking.passengerName = name;
       booking.passengerPhone = phone;
       changed = recordChange(booking, 'passenger', from, to, by) || changed;
+    }
+  }
+
+  /* ------------------------------ head count ----------------------------- */
+  if (input.passengers !== undefined && input.passengers !== booking.passengers) {
+    const from = String(booking.passengers ?? NONE);
+    booking.passengers = input.passengers;
+    changed = recordChange(booking, 'passengers', from, String(input.passengers), by) || changed;
+  }
+
+  /* -------------------------------- notes -------------------------------- */
+  if (input.description !== undefined) {
+    const next = input.description?.trim() || undefined;
+    const current = booking.description?.trim() || undefined;
+    if (next !== current) {
+      booking.description = next;
+      changed = recordChange(booking, 'notes', current ?? NONE, next ?? NONE, by) || changed;
     }
   }
 

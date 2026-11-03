@@ -39,6 +39,8 @@ export const AMENDMENT_FIELDS = [
   'occasion',
   'luggage',
   'passenger',
+  'passengers',
+  'notes',
 ] as const;
 export type AmendmentField = (typeof AMENDMENT_FIELDS)[number];
 

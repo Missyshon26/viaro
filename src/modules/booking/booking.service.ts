@@ -25,7 +25,7 @@ import { scheduleCancellationWindowCheck } from '../../jobs/cancellationWindow.j
 import * as notify from '../notifications/notifications.service';
 import { notifyOps, OPS_NOTIFICATIONS, bookingRef } from '../notifications/ops.notify';
 import { NOTIFICATION_TYPES } from '../notifications/notifications.service';
-import type { CreateBookingInput, UpdateBookingInput } from './booking.validation';
+import type { AdminUpdateBookingInput, CreateBookingInput, UpdateBookingInput } from './booking.validation';
 import { applyAmendment, assertChangeable } from './booking.amendments';
 import { companyOwnsDriver } from '../../utils/roster';
 import { recordBookingCancellation } from './booking.cancellation';
@@ -343,6 +343,37 @@ export async function updateBooking(bookingId: string, customerId: string, input
    */
   assertChangeable(booking);
 
+  return applyBookingUpdate(booking, input, 'customer', true);
+}
+
+/**
+ * Operations changing any booking, whoever made it. There is no deadline here: the people
+ * who dispatch the job are the ones who would otherwise be told to "call us", so they can
+ * fix a pickup an hour before it is due. A finished or cancelled booking stays as it was.
+ * The customer is emailed unless `notifyCustomer` is false.
+ */
+export async function adminUpdateBooking(bookingId: string, input: AdminUpdateBookingInput) {
+  const booking = await Booking.findById(bookingId);
+  if (!booking) throw ApiError.notFound('Booking not found');
+  if (booking.status === 'cancelled') {
+    throw ApiError.conflict('This booking has been cancelled and can no longer be changed');
+  }
+  const trip = await Trip.findOne({ bookingId: booking._id }).select('status').lean();
+  if (trip?.status === 'completed') {
+    throw ApiError.conflict('This trip is finished, so its details can no longer be changed');
+  }
+
+  const { notifyCustomer, ...fields } = input;
+  return applyBookingUpdate(booking, fields, 'admin', notifyCustomer ?? true);
+}
+
+/** The shared change: one set of rules, re-pricing, trail and live updates for both actors. */
+async function applyBookingUpdate(
+  booking: BookingDocument,
+  input: UpdateBookingInput & Pick<AdminUpdateBookingInput, 'passengers' | 'description'>,
+  by: 'customer' | 'admin',
+  notifyCustomer: boolean,
+) {
   // What the vehicle rules read, before this edit touches it. They are judged only if one
   // of these actually ends up different — the edit screen posts every field every time, so
   // "the vehicle was in the request" would block an unrelated change to an older booking
@@ -355,18 +386,18 @@ export async function updateBooking(bookingId: string, customerId: string, input
   };
 
   let changed = false;
-  if (input.pickup) changed = applyAmendment(booking, 'pickup', input.pickup, 'customer') || changed;
-  if (input.drop) changed = applyAmendment(booking, 'drop', input.drop, 'customer') || changed;
+  if (input.pickup) changed = applyAmendment(booking, 'pickup', input.pickup, by) || changed;
+  if (input.drop) changed = applyAmendment(booking, 'drop', input.drop, by) || changed;
   if (input.vehicleClass) {
     const next = await vehicleService.resolveBookableClass(input.vehicleClass, booking.tripType);
-    changed = applyAmendment(booking, 'vehicleClass', next, 'customer') || changed;
+    changed = applyAmendment(booking, 'vehicleClass', next, by) || changed;
   }
   if (input.scheduledAt) {
-    changed = applyAmendment(booking, 'scheduledAt', input.scheduledAt, 'customer') || changed;
+    changed = applyAmendment(booking, 'scheduledAt', input.scheduledAt, by) || changed;
   }
 
   // Stops, occasion, luggage, passenger and flight — see booking.details.ts.
-  const details = applyDetailChanges(booking, input);
+  const details = applyDetailChanges(booking, input, by);
   changed = details.changed || changed;
 
   // The vehicle has to suit the finished booking, whichever field moved. Only judged when
@@ -466,7 +497,7 @@ export async function updateBooking(bookingId: string, customerId: string, input
     await booking.save();
 
     const fareMoved = previousFare !== undefined && previousFare !== booking.estimatedFare;
-    if (fareMoved) {
+    if (fareMoved && notifyCustomer) {
       // The customer must learn the price moved from the same change that moved it.
       await afterCommit('Re-price notice', booking._id, () =>
         notify.send(booking.customerId, NOTIFICATION_TYPES.BOOKING_REPRICED, {
@@ -479,12 +510,12 @@ export async function updateBooking(bookingId: string, customerId: string, input
     }
 
     void notifyOps(OPS_NOTIFICATIONS.BOOKING_CHANGED, {
-      message: `${bookingRef(booking._id)} was changed by the customer${fareMoved ? ` (fare $${previousFare?.toFixed(2)} → $${booking.estimatedFare?.toFixed(2)})` : ''}`,
+      message: `${bookingRef(booking._id)} was changed by ${by === 'admin' ? 'operations' : 'the customer'}${fareMoved ? ` (fare $${previousFare?.toFixed(2)} → $${booking.estimatedFare?.toFixed(2)})` : ''}`,
       bookingId: String(booking._id),
     });
 
     // The updated-booking email: the new details, and the fare change when there was one.
-    await afterCommit('Update notice', booking._id, () =>
+    if (notifyCustomer) await afterCommit('Update notice', booking._id, () =>
       notify.send(booking.customerId, NOTIFICATION_TYPES.BOOKING_UPDATED, {
         message: `Your booking for ${format(booking.scheduledAt)} was updated`,
         bookingId: String(booking._id),

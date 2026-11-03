@@ -10,6 +10,8 @@ import * as adminTrips from './admin.trips';
 import * as paymentLinks from '../payments/paymentLink';
 import { refundBookingAmount } from '../payments/cardPayments';
 import { rejectBooking } from '../booking/booking.reject';
+import { adminUpdateBooking } from '../booking/booking.service';
+import type { AdminUpdateBookingInput } from '../booking/booking.validation';
 import { calendarStatus, explain, syncInOrder } from '../calendar/calendar.sync';
 import { ApiError } from '../../utils/ApiError';
 import { emailInvoiceToCustomer } from '../booking/booking.invoiceMail';
@@ -173,6 +175,12 @@ export async function createJourney(req: Request, res: Response): Promise<void> 
   const { customerId, legs } = body<AdminJourneyInput>(req);
   const data = await adminTrips.createJourneyForCustomer(req.user!.userId, customerId, legs);
   res.status(201).json({ success: true, data });
+}
+
+/** PATCH /admin/bookings/:id — operations changing any detail of a booking. */
+export async function updateBooking(req: Request, res: Response): Promise<void> {
+  const data = await adminUpdateBooking(params<IdParam>(req).id, body<AdminUpdateBookingInput>(req));
+  res.json({ success: true, data });
 }
 
 /** POST /admin/bookings/:id/payment-link — emails the client a link to pay this booking. */

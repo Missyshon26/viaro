@@ -188,6 +188,7 @@ export const MATRIX: MatrixEntry[] = [
   { method: 'DELETE', path: '/admin/vehicle-classes/:id', allowed: ['admin'] },
   { method: 'POST', path: '/admin/bookings', allowed: ['admin'] },
   { method: 'POST', path: '/admin/bookings/quote', allowed: ['admin'] },
+  { method: 'PATCH', path: '/admin/bookings/:id', allowed: ['admin'] },
   { method: 'POST', path: '/admin/bookings/:id/payment-link', allowed: ['admin'] },
   { method: 'POST', path: '/admin/bookings/:id/refund', allowed: ['admin'] },
   { method: 'POST', path: '/admin/bookings/:id/reject', allowed: ['admin'] },
