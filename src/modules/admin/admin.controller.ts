@@ -10,6 +10,7 @@ import * as adminTrips from './admin.trips';
 import * as paymentLinks from '../payments/paymentLink';
 import { refundBookingAmount } from '../payments/cardPayments';
 import { rejectBooking } from '../booking/booking.reject';
+import { confirmBooking } from '../booking/booking.confirm';
 import { adminUpdateBooking } from '../booking/booking.service';
 import type { AdminUpdateBookingInput } from '../booking/booking.validation';
 import { calendarStatus, explain, syncInOrder } from '../calendar/calendar.sync';
@@ -204,6 +205,12 @@ export async function refundBooking(req: Request, res: Response): Promise<void> 
     adminId: req.user!.userId,
     note,
   });
+  res.json({ success: true, data });
+}
+
+/** POST /admin/bookings/:id/confirm — accepts a new request and tells the customer their trip is confirmed. */
+export async function confirmBookingRequest(req: Request, res: Response): Promise<void> {
+  const data = await confirmBooking(params<IdParam>(req).id, req.user!.userId);
   res.json({ success: true, data });
 }
 

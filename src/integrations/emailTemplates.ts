@@ -838,7 +838,7 @@ export const EMAIL_TEMPLATES = {
   invoiceEmail: { to: 'customer', sent: 'when an operator presses "Send invoice" or "Send invoice & payment link"' },
   reminderEmail: { to: 'customer', sent: 'before the free-cancellation window closes' },
   chauffeurAssignedEmail: { to: 'customer', sent: 'when a chauffeur accepts the ride' },
-  tripConfirmedEmail: { to: 'customer', sent: 'when an operator confirms a trip' },
+  tripConfirmedEmail: { to: 'customer', sent: 'when an operator confirms a new booking request (before a chauffeur is assigned)' },
   chauffeurEnrouteEmail: { to: 'customer', sent: 'when the chauffeur (or operations) marks "on the way"' },
   chauffeurArrivedEmail: { to: 'customer', sent: 'when the chauffeur (or operations) marks "arrived"' },
   onboardEmail: { to: 'customer', sent: 'when the chauffeur starts the ride' },

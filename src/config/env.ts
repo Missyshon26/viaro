@@ -129,6 +129,11 @@ const envSchema = z.object({
    * set in the admin console; neither set = no alert.
    */
   BOOKINGS_INBOX_EMAIL: z.string().optional(),
+  /**
+   * Blind-copied on every invoice and payment-link email an operator sends to a customer, so
+   * reservations keeps its own copy of what the customer was sent. Set it blank to turn it off.
+   */
+  INVOICE_BCC_EMAIL: z.string().default('reservations@allblacklimoseattle.com'),
 
   // PLACEHOLDER — driver document storage
   S3_BUCKET: z.string().optional(),
@@ -216,7 +221,18 @@ export const publicApiUrl = (
  * A wildcard is therefore refused outright in production, and everywhere else it is
  * honoured only WITHOUT credentials — the combination the CORS spec itself forbids.
  */
-export function corsOptions(): { origin: true | string[]; credentials: boolean } {
+/**
+ * How long a browser may reuse the answer to a CORS preflight.
+ *
+ * The consoles call this API from another origin with an Authorization header, so before each
+ * request the browser asks "may I?" (an OPTIONS round trip). Without a max-age that answer is
+ * kept for only 5 seconds, so almost every call paid for two round trips to the server; from
+ * far away that is about a second per call. Browsers cap this (Chrome 2 h, Firefox 24 h), so
+ * the value below is the highest that is honoured everywhere.
+ */
+export const CORS_PREFLIGHT_MAX_AGE_SECONDS = 7200;
+
+export function corsOptions(): { origin: true | string[]; credentials: boolean; maxAge: number } {
   const wildcard = env.CORS_ORIGIN.trim() === '*';
 
   if (wildcard && env.NODE_ENV === 'production') {
@@ -225,11 +241,12 @@ export function corsOptions(): { origin: true | string[]; credentials: boolean }
     );
   }
 
-  if (wildcard) return { origin: true, credentials: false };
+  if (wildcard) return { origin: true, credentials: false, maxAge: CORS_PREFLIGHT_MAX_AGE_SECONDS };
 
   return {
     origin: env.CORS_ORIGIN.split(',').map((o) => o.trim()).filter(Boolean),
     credentials: true,
+    maxAge: CORS_PREFLIGHT_MAX_AGE_SECONDS,
   };
 }
 export const isTest = env.NODE_ENV === 'test';

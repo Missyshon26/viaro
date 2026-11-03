@@ -6,6 +6,7 @@ import { invoiceEmail } from '../../integrations/emailTemplates';
 import { renderStoredDocument } from './booking.documents.load';
 import { linkForInvoice } from '../payments/paymentLink';
 import { format, toDate } from '../../config/timezone';
+import { copyFor } from '../../integrations/emailCopy';
 
 /**
  * Emails the customer their invoice, on request (an operator pressing "Send invoice" or
@@ -27,6 +28,7 @@ export async function emailInvoiceToCustomer(bookingId: string, adminId = 'syste
   const link = withPaymentLink ? await linkForInvoice(bookingId, adminId) : null;
   const result = await sendEmail({
     to: customer.email,
+    ...copyFor(customer.email),
     ...invoiceEmail(link ? { amount: link.amount, link: link.url, expiresLabel: format(toDate(link.expiresAt)) } : null),
     attachments: [{ filename: doc.filename, content: doc.buffer, contentType: 'application/pdf' }],
   });

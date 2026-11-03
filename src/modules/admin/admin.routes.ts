@@ -156,6 +156,12 @@ router.post(
   asyncHandler(controller.quoteTrip),
 );
 router.post(
+  '/bookings/:id/confirm',
+  roleGuard('admin'),
+  validate({ params: idParamSchema }),
+  asyncHandler(controller.confirmBookingRequest),
+);
+router.post(
   '/bookings/:id/reject',
   roleGuard('admin'),
   validate({ params: idParamSchema, body: adminRejectSchema }),

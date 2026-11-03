@@ -3,6 +3,7 @@ import request from 'supertest';
 import app from '../../src/app';
 import { Booking } from '../../src/models/Booking';
 import { User } from '../../src/models/User';
+import { Notification } from '../../src/models/Notification';
 import * as mail from '../../src/modules/notifications/notification.emails';
 import * as email from '../../src/integrations/email';
 import { AGREEMENT_VERSION } from '../../src/config/agreement';
@@ -66,6 +67,52 @@ describe('the phone number changing', () => {
   });
 });
 
+describe('Confirming a new booking request', () => {
+  async function booked() {
+    const admin = await makeUser('admin');
+    const client = await makeUser('customer');
+    const made = await request(server).post('/admin/bookings').set('Authorization', admin.auth).send({
+      customerId: client.id,
+      trip: { pickup: point('Hotel Andra, Seattle'), drop: point('Sea-Tac Airport'), vehicleClass: 'sedan', tripType: 'point2point', city: 'seattle', scheduledAt: pickupIn(5) },
+    });
+    return { admin, client, id: String(made.body.data.booking._id) };
+  }
+
+  it('marks the booking confirmed and emails the customer "Trip Confirmed", with no driver yet', async () => {
+    const { admin, client, id } = await booked();
+    vi.mocked(email.sendEmail).mockClear();
+    const res = await request(server).post(`/admin/bookings/${id}/confirm`).set('Authorization', admin.auth);
+    expect(res.status).toBe(200);
+    const saved = await Booking.findById(id).lean();
+    expect(saved!.confirmedAt).toBeInstanceOf(Date);
+    expect(saved!.status).toBe('pending');
+    // The customer is notified in the app; the "Trip Confirmed" email is built from the same event
+    // (real senders skip themselves under test), and it reads fine before any driver exists.
+    await vi.waitFor(async () => {
+      expect(await Notification.countDocuments({ userId: client.id, type: 'trip.confirmed' })).toBe(1);
+    });
+    const customer = await User.findById(client.id).lean();
+    const ctx = await mail.loadContext({ bookingId: id });
+    const built = await mail.emailFor('trip.confirmed', { name: customer!.name, email: customer!.email, role: 'customer' }, ctx, { bookingId: id });
+    expect(built!.message.subject).toBe('Trip Confirmed');
+    expect(built!.message.text).toContain('Pickup Location');
+  });
+
+  it('refuses a second confirmation, and one for a cancelled booking', async () => {
+    const { admin, id } = await booked();
+    expect((await request(server).post(`/admin/bookings/${id}/confirm`).set('Authorization', admin.auth)).status).toBe(200);
+    expect((await request(server).post(`/admin/bookings/${id}/confirm`).set('Authorization', admin.auth)).status).toBe(409);
+    await Booking.updateOne({ _id: id }, { $set: { status: 'cancelled' }, $unset: { confirmedAt: 1 } });
+    expect((await request(server).post(`/admin/bookings/${id}/confirm`).set('Authorization', admin.auth)).status).toBe(409);
+  });
+
+  it('is admin only, for a booking that exists', async () => {
+    const { admin, client, id } = await booked();
+    expect((await request(server).post(`/admin/bookings/${id}/confirm`).set('Authorization', client.auth)).status).toBe(403);
+    expect((await request(server).post('/admin/bookings/5f9d88b8b54764421b7156c9/confirm').set('Authorization', admin.auth)).status).toBe(404);
+  });
+});
+
 describe('Email invoice', () => {
   async function booked() {
     const admin = await makeUser('admin');
@@ -90,6 +137,8 @@ describe('Email invoice', () => {
     expect(sent.attachments).toHaveLength(1);
     expect(sent.attachments![0].filename).toMatch(/^abl-invoice-ABL-/);
     expect(sent.attachments![0].content.subarray(0, 4).toString()).toBe('%PDF');
+    // Reservations keeps a blind copy of what the customer was sent.
+    expect(sent.bcc).toBe('reservations@allblacklimoseattle.com');
   });
 
   it('sends the invoice alone, with no payment link, when asked', async () => {

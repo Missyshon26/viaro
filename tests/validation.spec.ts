@@ -203,6 +203,19 @@ describe('CORS never pairs a reflected origin with credentials', () => {
   });
 });
 
+describe('CORS preflight answers are cacheable', () => {
+  it('tells the browser to reuse a preflight for two hours, not the default five seconds', async () => {
+    const res = await request(server)
+      .options('/health')
+      .set('Origin', 'https://evil.example')
+      .set('Access-Control-Request-Method', 'GET')
+      .set('Access-Control-Request-Headers', 'authorization');
+
+    expect(res.status).toBe(204);
+    expect(res.headers['access-control-max-age']).toBe('7200');
+  });
+});
+
 describe('429 responses tell the caller when to retry', () => {
   /**
    * Driven against a purpose-built limiter rather than the app's global one: the deployed

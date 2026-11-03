@@ -16,6 +16,7 @@ import {
   type StripeCheckoutSession,
 } from '../../integrations/paymentGateway';
 import { sendEmail } from '../../integrations/email';
+import { copyFor } from '../../integrations/emailCopy';
 import { paymentRequestedEmail } from '../../integrations/emailTemplates';
 import * as events from '../events/events.bus';
 import * as vehicleService from '../vehicle/vehicle.service';
@@ -184,7 +185,7 @@ async function emailLink(input: {
       expiresLabel: input.expiresLabel,
       trip: { pickup: input.pickup, drop: input.drop, when: input.scheduledAt, vehicle: input.vehicle },
     });
-    const result = await sendEmail({ to: input.to, ...message });
+    const result = await sendEmail({ to: input.to, ...copyFor(input.to), ...message });
     return result.sent;
   } catch (err) {
     logger.warn('[email] could not send the payment link', err);

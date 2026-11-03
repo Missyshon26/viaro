@@ -292,6 +292,9 @@ export interface IBooking {
   amendments: IBookingAmendment[];
   /** Set when status becomes 'cancelled'. Absent on every other status. */
   cancellation?: IBookingCancellation;
+  /** Operations accepted the request and told the customer "your trip is confirmed". Happens before a driver is assigned. */
+  confirmedAt?: Date;
+  confirmedBy?: Types.ObjectId;
   /**
    * Wallet credit the passenger asked to put towards this ride, chosen at booking.
    *
@@ -371,6 +374,8 @@ const bookingSchema = new Schema<IBooking>(
     passengers: { type: Number, min: 1, max: 60 },
     amendments: { type: [amendmentSchema], default: [] },
     cancellation: { type: cancellationSchema, default: undefined },
+    confirmedAt: { type: Date },
+    confirmedBy: { type: Schema.Types.ObjectId, ref: 'User' },
     walletCreditRequested: { type: Number, min: 0 },
     tripType: { type: String, enum: TRIP_TYPES, required: true, index: true },
     packageId: { type: Schema.Types.ObjectId, ref: 'Package', index: true },

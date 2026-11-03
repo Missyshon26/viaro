@@ -15,6 +15,8 @@ export interface EmailMessage {
   to: string;
   subject: string;
   text: string;
+  /** Blind copy: receives the message without the recipient seeing the address. */
+  bcc?: string;
   /** Replies go here rather than to the no-reply sender, e.g. the customer on a case alert. */
   replyTo?: string;
   /** Optional HTML body (see emailTemplates.ts); `text` stays as the plain-text part. */
@@ -85,6 +87,7 @@ async function sendViaSmtp(message: EmailMessage): Promise<SendResult> {
     await smtp.sendMail({
       from: env.EMAIL_FROM || `ABL <${env.SMTP_USER}>`,
       to: message.to,
+      ...(message.bcc ? { bcc: message.bcc } : {}),
       replyTo: message.replyTo,
       subject: message.subject,
       text: message.text,

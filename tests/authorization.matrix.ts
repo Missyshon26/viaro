@@ -192,6 +192,7 @@ export const MATRIX: MatrixEntry[] = [
   { method: 'POST', path: '/admin/bookings/:id/payment-link', allowed: ['admin'] },
   { method: 'POST', path: '/admin/bookings/:id/refund', allowed: ['admin'] },
   { method: 'POST', path: '/admin/bookings/:id/reject', allowed: ['admin'] },
+  { method: 'POST', path: '/admin/bookings/:id/confirm', allowed: ['admin'] },
   { method: 'POST', path: '/admin/bookings/:id/email-invoice', allowed: ['admin'] },
   { method: 'POST', path: '/admin/bookings/:id/calendar-sync', allowed: ['admin'] },
   { method: 'GET', path: '/admin/calendar/status', allowed: ['admin'] },
