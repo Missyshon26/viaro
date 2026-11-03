@@ -16,7 +16,10 @@ import {
 import { LegForm } from "@/components/trips/LegForm";
 import { listClients, type Client } from "@/lib/api/clients";
 import { listVehicleClasses, type VehicleClass } from "@/lib/api/vehicles";
+import { discountLabel } from "@/lib/fareLines";
 import {
+  discountProblem,
+  emptyDiscount,
   emptyTripForm,
   journeyPayload,
   MAX_LEGS,
@@ -24,6 +27,7 @@ import {
   nextLeg,
   returnLeg,
   tripPayload,
+  type DiscountForm,
   type TripForm,
 } from "@/lib/newTrip";
 
@@ -63,6 +67,8 @@ export function AddTripModal({ onClose, onCreated }: { onClose: () => void; onCr
 
   const [legs, setLegs] = useState<TripForm[]>(() => [emptyTripForm()]);
   const [clientId, setClientId] = useState("");
+  const [discount, setDiscount] = useState<DiscountForm>(emptyDiscount);
+  const discountError = discountProblem(discount);
   const [vehicles, setVehicles] = useState<VehicleClass[]>([]);
   const [cities, setCities] = useState<PricingRule[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -131,10 +137,10 @@ export function AddTripModal({ onClose, onCreated }: { onClose: () => void; onCr
     };
   }, [search, client]);
 
-  const missing = missingForJourney(clientId, legs);
+  const missing = missingForJourney(clientId, legs) ?? discountError;
   const payload = useMemo(
-    () => (missing ? null : journey ? journeyPayload(clientId, legs) : tripPayload({ ...legs[0], clientId })),
-    [clientId, legs, missing, journey],
+    () => (missing ? null : journey ? journeyPayload(clientId, legs, discount) : tripPayload({ ...legs[0], clientId }, discount)),
+    [clientId, legs, missing, journey, discount],
   );
 
   // The live quote.
@@ -158,7 +164,7 @@ export function AddTripModal({ onClose, onCreated }: { onClose: () => void; onCr
               ...(q.fuelSurcharge ? [{ label: `Fuel surcharge (${q.fuelSurchargePct}%)`, amount: q.fuelSurcharge }] : []),
               ...(q.gratuity ? [{ label: `Tip (${q.gratuityPct}%)`, amount: q.gratuity }] : []),
               ...(q.discount
-                ? [{ label: q.discountKind === "welcome" ? "Welcome discount" : "Loyalty discount", amount: -q.discount }]
+                ? [{ label: discountLabel(q.discountKind), amount: -q.discount }]
                 : []),
               ...(q.tax ? [{ label: `Tax (${q.taxPct}%)`, amount: q.tax }] : []),
             ],
@@ -348,6 +354,43 @@ export function AddTripModal({ onClose, onCreated }: { onClose: () => void; onCr
             </button>
           </div>
         ) : null}
+
+        {/* ----------------------------- discount ----------------------------- */}
+        <section className="rounded-card border border-border bg-surface-raised p-5">
+          <h3 className="text-action font-bold text-fg">Discount</h3>
+          <p className="mt-1 text-label text-fg-muted">
+            Optional. Replaces the automatic welcome or loyalty discount on this booking.
+            {journey ? " On a journey, a % applies to every leg; a $ amount comes off the first leg." : ""}
+          </p>
+          <div className="mt-3 flex items-center gap-2">
+            <input
+              type="number"
+              inputMode="decimal"
+              min={0}
+              step="any"
+              aria-label="Discount amount"
+              aria-invalid={discountError ? true : undefined}
+              className="h-11 w-32 rounded-field border border-border bg-surface px-3 text-note"
+              placeholder="0"
+              value={discount.value}
+              onChange={(e) => setDiscount((d) => ({ ...d, value: e.target.value }))}
+            />
+            <div role="group" aria-label="Discount type" className="inline-flex overflow-hidden rounded-field border border-border">
+              {(["percent", "flat"] as const).map((type) => (
+                <button
+                  key={type}
+                  type="button"
+                  aria-pressed={discount.type === type}
+                  onClick={() => setDiscount((d) => ({ ...d, type }))}
+                  className={`h-11 w-12 text-note font-bold ${discount.type === type ? "bg-primary text-primary-fg" : "bg-surface text-fg"}`}
+                >
+                  {type === "percent" ? "%" : "$"}
+                </button>
+              ))}
+            </div>
+          </div>
+          {discountError ? <p className="mt-2 text-note font-bold text-danger">{discountError}</p> : null}
+        </section>
 
         {/* ------------------------------- price ------------------------------ */}
         <section className="rounded-card border border-border bg-surface-raised p-5" aria-live="polite">

@@ -156,7 +156,7 @@ export interface Booking {
     fuelSurcharge?: number;
     gratuityPct?: number;
     gratuity?: number;
-    discountKind?: "welcome" | "loyalty";
+    discountKind?: "welcome" | "loyalty" | "manual";
     discount?: number;
     taxPct?: number;
     tax?: number;

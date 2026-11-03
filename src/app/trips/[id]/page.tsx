@@ -849,7 +849,7 @@ function DocumentDownloads({ bookingId }: { bookingId: string }) {
     setEmailed(null);
     try {
       const result = await emailInvoice(bookingId);
-      setEmailed(`Invoice emailed to ${result.sentTo}.`);
+      setEmailed(`Invoice emailed to ${result.sentTo}${result.paymentLinkIncluded ? ", with a payment link" : ""}.`);
     } catch (err) {
       setError(errorText(err, "Could not email the invoice"));
     } finally {

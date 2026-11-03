@@ -507,9 +507,9 @@ export const syncBookingToCalendar = (bookingId: string) =>
     `/admin/bookings/${bookingId}/calendar-sync`,
   );
 
-/** Emails the client their invoice (PDF attached). */
+/** Emails the client their invoice (PDF attached), with a Pay Now link when the trip is unpaid. */
 export const emailInvoice = (bookingId: string) =>
-  api.post<{ sentTo: string }>(`/admin/bookings/${bookingId}/email-invoice`);
+  api.post<{ sentTo: string; paymentLinkIncluded?: boolean }>(`/admin/bookings/${bookingId}/email-invoice`);
 
 /* ------------------------------- reject a request ------------------------------- */
 
@@ -564,7 +564,7 @@ export const quoteTripForClient = (body: AdminTripBody) =>
     fuelSurcharge?: number;
     gratuityPct: number;
     gratuity: number;
-    discountKind?: "welcome" | "loyalty";
+    discountKind?: "welcome" | "loyalty" | "manual";
     discount: number;
     taxPct: number;
     tax: number;

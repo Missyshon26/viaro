@@ -110,8 +110,31 @@ export function missingFrom(form: TripForm): string | null {
 /** `datetime-local` has no seconds; the API reads an offset-less time as Pacific wall time. */
 export const pickupTime = (when: string) => (/T\d{2}:\d{2}$/.test(when) ? `${when}:00` : when);
 
+/** A discount typed in by the operator: a percentage or a flat dollar amount. */
+export interface DiscountForm {
+  type: "percent" | "flat";
+  /** What was typed; empty or 0 = no discount. */
+  value: string;
+}
+export const emptyDiscount = (): DiscountForm => ({ type: "percent", value: "" });
+
+/** The discount as the API takes it, or nothing when none was entered. */
+export function discountPayload(d?: DiscountForm) {
+  const value = Number(d?.value);
+  return d && Number.isFinite(value) && value > 0 ? { discount: { type: d.type, value } } : {};
+}
+
+/** Why the discount cannot be used, in plain words; null = fine or none. */
+export function discountProblem(d: DiscountForm): string | null {
+  if (d.value.trim() === "") return null;
+  const value = Number(d.value);
+  if (!Number.isFinite(value) || value < 0) return "Enter a discount of zero or more.";
+  if (d.type === "percent" && value > 100) return "A percentage discount cannot be more than 100.";
+  return null;
+}
+
 /** The body for POST /admin/bookings (and /admin/bookings/quote). */
-export function tripPayload(form: TripForm) {
+export function tripPayload(form: TripForm, discount?: DiscountForm) {
   const centre = centreOf(form.city);
   const at = (address: string) => ({ lat: centre.lat, lng: centre.lng, address: text(address) });
   const hourly = form.service === "hourly";
@@ -124,6 +147,7 @@ export function tripPayload(form: TripForm) {
 
   return {
     customerId: form.clientId,
+    ...discountPayload(discount),
     trip: {
       pickup: at(form.pickup),
       drop: at(form.drop),
@@ -215,6 +239,6 @@ export function missingForJourney(clientId: string, legs: TripForm[]): string | 
 }
 
 /** The body for POST /admin/bookings/journey (and its /quote). */
-export function journeyPayload(clientId: string, legs: TripForm[]) {
-  return { customerId: clientId, legs: legs.map((leg) => tripPayload({ ...leg, clientId }).trip) };
+export function journeyPayload(clientId: string, legs: TripForm[], discount?: DiscountForm) {
+  return { customerId: clientId, ...discountPayload(discount), legs: legs.map((leg) => tripPayload({ ...leg, clientId }).trip) };
 }

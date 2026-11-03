@@ -21,7 +21,7 @@ export function fareLines(
         fuelSurcharge?: number;
         gratuityPct?: number;
         gratuity?: number;
-        discountKind?: "welcome" | "loyalty";
+        discountKind?: "welcome" | "loyalty" | "manual";
         discount?: number;
         taxPct?: number;
         tax?: number;
@@ -38,11 +38,16 @@ export function fareLines(
   if (breakdown.gratuity) lines.push({ label: `Tip (${breakdown.gratuityPct}%)`, amount: breakdown.gratuity });
   if (breakdown.discount) {
     lines.push({
-      label: breakdown.discountKind === "welcome" ? "Welcome discount" : "Loyalty discount",
+      label: discountLabel(breakdown.discountKind),
       amount: -breakdown.discount,
     });
   }
   if (breakdown.tax) lines.push({ label: `Tax (${breakdown.taxPct}%)`, amount: breakdown.tax });
   lines.push({ label: "Total", amount: total, total: true });
   return lines;
+}
+
+/** What a discount line is called on screen. */
+export function discountLabel(kind?: "welcome" | "loyalty" | "manual"): string {
+  return kind === "welcome" ? "Welcome discount" : kind === "manual" ? "Discount" : "Loyalty discount";
 }
