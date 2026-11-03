@@ -38,19 +38,21 @@ import { ensureStripeCustomer } from './cardPayments';
 /** Stripe allows a Checkout Session to live for at most 24 hours. */
 const LINK_LIFETIME_SECONDS = 24 * 60 * 60 - 60;
 
-export async function sendPaymentLink(bookingId: string, adminId: string) {
-  if (!isStripeEnabled()) throw ApiError.badRequest('Card payments are not switched on');
-
-  const booking = await Booking.findById(bookingId);
-  if (!booking) throw ApiError.notFound('Booking not found');
+/** The unpaid, uncancelled booking a link can be made for, and the fare it would ask. */
+function payableAmount(booking: { status: string; payment?: unknown; estimatedFare?: number | null }) {
   if (booking.status === 'cancelled') throw ApiError.conflict('This booking is cancelled, so there is nothing to pay.');
   if (booking.payment) throw ApiError.conflict('This booking is already paid.');
-
   const amount = round2(booking.estimatedFare ?? 0);
   if (!(amount > 0)) throw ApiError.badRequest('This booking has no fare to charge.');
+  return amount;
+}
 
-  const customer = await User.findById(booking.customerId).select('name email');
-  if (!customer?.email) throw ApiError.notFound('The client has no email address to send a link to');
+/**
+ * Makes a fresh Stripe payment page for the booking (retiring the previous one) and records
+ * it on the booking. Does not email anything: callers decide how the link reaches the client.
+ */
+async function openLink(booking: InstanceType<typeof Booking>, adminId: string) {
+  const amount = payableAmount(booking);
 
   // Retire the previous link first. If it was paid in the meantime, say so instead.
   if (booking.paymentLink?.sessionId) {
@@ -82,21 +84,8 @@ export async function sendPaymentLink(bookingId: string, adminId: string) {
   });
   if (!session.url) throw new ApiError(502, 'Stripe did not return a payment page. Please try again.');
 
-  const emailed = await emailLink({
-    name: customer.name,
-    to: customer.email,
-    link: session.url,
-    ref,
-    scheduledAt: format(booking.scheduledAt),
-    pickup: booking.pickup.address,
-    drop: booking.drop.address,
-    vehicle: label,
-    amount,
-    expiresLabel: format(toDate(expiresAt)),
-  });
-
   // A targeted update, not save(): imported and hand-made bookings may lack fare-breakdown
-  // fields, and full-document validation would fail after the email has already gone out.
+  // fields, and full-document validation would fail after the link has already been made.
   const paymentLink = {
     sessionId: session.id,
     url: session.url,
@@ -104,11 +93,74 @@ export async function sendPaymentLink(bookingId: string, adminId: string) {
     sentAt: toDate(now()),
     expiresAt: toDate(expiresAt),
     sentBy: adminId,
-    emailed,
+    emailed: false,
   };
   await Booking.updateOne({ _id: booking._id }, { $set: { paymentLink } });
+  return { paymentLink, label, ref, expiresAt };
+}
 
-  return { url: session.url, amount, expiresAt: paymentLink.expiresAt, emailed, sentTo: customer.email };
+export async function sendPaymentLink(bookingId: string, adminId: string) {
+  if (!isStripeEnabled()) throw ApiError.badRequest('Card payments are not switched on');
+
+  const booking = await Booking.findById(bookingId);
+  if (!booking) throw ApiError.notFound('Booking not found');
+  payableAmount(booking);
+
+  const customer = await User.findById(booking.customerId).select('name email');
+  if (!customer?.email) throw ApiError.notFound('The client has no email address to send a link to');
+
+  const { paymentLink, label, ref, expiresAt } = await openLink(booking, adminId);
+  const emailed = await emailLink({
+    name: customer.name,
+    to: customer.email,
+    link: paymentLink.url,
+    ref,
+    scheduledAt: format(booking.scheduledAt),
+    pickup: booking.pickup.address,
+    drop: booking.drop.address,
+    vehicle: label,
+    amount: paymentLink.amount,
+    expiresLabel: format(toDate(expiresAt)),
+  });
+  await Booking.updateOne({ _id: booking._id }, { $set: { 'paymentLink.emailed': emailed } });
+
+  return { url: paymentLink.url, amount: paymentLink.amount, expiresAt: paymentLink.expiresAt, emailed, sentTo: customer.email };
+}
+
+/** A live link must have at least this long left to be worth putting in an email. */
+const MIN_REUSE_SECONDS = 2 * 60 * 60;
+
+/**
+ * The payment link to put in an invoice email, or null when the booking cannot be paid by
+ * link (already paid, cancelled, no fare, card payments off) or Stripe fails. An invoice is
+ * never held back for want of a link: the caller sends it without one.
+ *
+ * A link still valid for the current fare is reused, so pressing "Email invoice" twice does
+ * not retire the link the client already has; otherwise a new one is made.
+ */
+export async function linkForInvoice(bookingId: string, adminId: string): Promise<{ url: string; amount: number; expiresAt: Date } | null> {
+  if (!isStripeEnabled()) return null;
+  try {
+    const booking = await Booking.findById(bookingId);
+    if (!booking || booking.status === 'cancelled' || booking.payment) return null;
+    const amount = round2(booking.estimatedFare ?? 0);
+    if (!(amount > 0)) return null;
+
+    const existing = booking.paymentLink;
+    if (
+      existing?.url &&
+      existing.expiresAt &&
+      round2(existing.amount ?? 0) === amount &&
+      existing.expiresAt.getTime() - Date.now() > MIN_REUSE_SECONDS * 1000
+    ) {
+      return { url: existing.url, amount, expiresAt: existing.expiresAt };
+    }
+    const { paymentLink } = await openLink(booking, adminId);
+    return { url: paymentLink.url, amount, expiresAt: paymentLink.expiresAt };
+  } catch (err) {
+    logger.warn('[invoice] could not make a payment link; sending the invoice without one', err);
+    return null;
+  }
 }
 
 async function emailLink(input: {

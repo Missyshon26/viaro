@@ -153,27 +153,27 @@ export async function exportCustomers(req: Request, res: Response): Promise<void
 
 /** POST /admin/bookings/quote — the price of a trip for a client; nothing is saved. */
 export async function quoteTrip(req: Request, res: Response): Promise<void> {
-  const { customerId, trip } = body<AdminTripInput>(req);
-  res.json({ success: true, data: await adminTrips.quoteTrip(customerId, trip) });
+  const { customerId, trip, discount } = body<AdminTripInput>(req);
+  res.json({ success: true, data: await adminTrips.quoteTrip(customerId, trip, 0, discount) });
 }
 
 /** POST /admin/bookings — books a trip on a client's behalf (unpaid until collected). */
 export async function createTrip(req: Request, res: Response): Promise<void> {
-  const { customerId, trip } = body<AdminTripInput>(req);
-  const data = await adminTrips.createTripForCustomer(req.user!.userId, customerId, trip);
+  const { customerId, trip, discount } = body<AdminTripInput>(req);
+  const data = await adminTrips.createTripForCustomer(req.user!.userId, customerId, trip, discount);
   res.status(201).json({ success: true, data });
 }
 
 /** POST /admin/bookings/journey/quote — each leg's price and the total; nothing is saved. */
 export async function quoteJourney(req: Request, res: Response): Promise<void> {
-  const { customerId, legs } = body<AdminJourneyInput>(req);
-  res.json({ success: true, data: await adminTrips.quoteJourney(customerId, legs) });
+  const { customerId, legs, discount } = body<AdminJourneyInput>(req);
+  res.json({ success: true, data: await adminTrips.quoteJourney(customerId, legs, discount) });
 }
 
 /** POST /admin/bookings/journey — books a multi-city journey or round trip for a client. */
 export async function createJourney(req: Request, res: Response): Promise<void> {
-  const { customerId, legs } = body<AdminJourneyInput>(req);
-  const data = await adminTrips.createJourneyForCustomer(req.user!.userId, customerId, legs);
+  const { customerId, legs, discount } = body<AdminJourneyInput>(req);
+  const data = await adminTrips.createJourneyForCustomer(req.user!.userId, customerId, legs, discount);
   res.status(201).json({ success: true, data });
 }
 
@@ -220,7 +220,7 @@ export async function reviewUserAgreement(req: Request, res: Response): Promise<
 
 /** POST /admin/bookings/:id/email-invoice — emails the client their invoice. */
 export async function emailInvoice(req: Request, res: Response): Promise<void> {
-  const data = await emailInvoiceToCustomer(params<IdParam>(req).id);
+  const data = await emailInvoiceToCustomer(params<IdParam>(req).id, req.user!.userId);
   res.json({ success: true, data });
 }
 

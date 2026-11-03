@@ -19,7 +19,17 @@ import { getSettingsValues } from '../admin/settings.service';
  * taxable amount too. Every line is rounded UP to a whole dollar (fares are quoted and charged in
  * whole dollars), so the lines on an invoice always add up to its total.
  */
-export type DiscountKind = 'welcome' | 'loyalty';
+export type DiscountKind = 'welcome' | 'loyalty' | 'manual';
+
+/**
+ * A discount an operator types in when booking for a client (old ABL's "coupon"): a
+ * percentage of trip price + fuel + tip, or a flat dollar amount. It replaces the automatic
+ * welcome / loyalty discount for that trip — the two are never stacked.
+ */
+export interface ManualDiscount {
+  type: 'percent' | 'flat';
+  value: number;
+}
 
 export interface Discount {
   kind: DiscountKind;
@@ -45,6 +55,7 @@ export function applyAdjustments(input: {
   fuelPct?: number;
   gratuityPct?: number;
   discount?: Discount | null;
+  manualDiscount?: ManualDiscount | null;
   taxPct?: number;
 }): Adjustments {
   const gratuityPct = Math.min(Math.max(input.gratuityPct ?? 0, 0), MAX_GRATUITY_PCT);
@@ -55,7 +66,14 @@ export function applyAdjustments(input: {
   const fuelSurcharge = fuelSurchargePct > 0 ? ceilDollars((input.subtotal * fuelSurchargePct) / 100) : 0;
   const gratuity = ceilDollars((input.subtotal * gratuityPct) / 100);
   const gross = round2(input.subtotal + fuelSurcharge + gratuity);
-  const discount = ceilDollars(Math.min(Math.max(input.discount?.amount ?? 0, 0), gross));
+  const manual = input.manualDiscount && input.manualDiscount.value > 0 ? input.manualDiscount : null;
+  const wanted = manual
+    ? manual.type === 'percent'
+      ? (gross * Math.min(manual.value, 100)) / 100
+      : manual.value
+    : (input.discount?.amount ?? 0);
+  const discount = ceilDollars(Math.min(Math.max(wanted, 0), gross));
+  const discountKind: DiscountKind | undefined = manual ? 'manual' : input.discount?.kind;
   const taxable = round2(gross - discount);
   const tax = ceilDollars((taxable * taxPct) / 100);
 
@@ -64,7 +82,7 @@ export function applyAdjustments(input: {
     fuelSurcharge,
     gratuityPct,
     gratuity,
-    ...(discount > 0 && input.discount ? { discountKind: input.discount.kind } : {}),
+    ...(discount > 0 && discountKind ? { discountKind } : {}),
     discount,
     taxPct,
     tax,

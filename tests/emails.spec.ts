@@ -56,6 +56,17 @@ describe('the email set', () => {
     expect(mail.text).not.toMatch(/undefined|\[object Object\]|NaN/);
   });
 
+  it('puts a Pay Now link in the invoice email only when there is something to pay', () => {
+    const unpaid = t.invoiceEmail({ amount: 147.4, link: 'https://pay.test/c', expiresLabel: 'Nov 4' });
+    expect(unpaid.subject).toBe('Invoice');
+    expect(unpaid.html).toContain('https://pay.test/c');
+    expect(unpaid.html).toContain('Pay Now');
+    expect(unpaid.html).toContain('$147.40');
+    expect(unpaid.text).toContain('https://pay.test/c');
+    expect(t.invoiceEmail().html).not.toContain('Pay Now');
+    expect(t.invoiceEmail(null).html).not.toContain('Pay Now');
+  });
+
   it('keeps the original subjects', () => {
     const subjects = Object.fromEntries(Object.entries(ALL).map(([k, v]) => [k, v.subject]));
     expect(subjects).toMatchObject({

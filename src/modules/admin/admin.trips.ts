@@ -6,6 +6,7 @@ import { assertVehicleRules } from '../booking/booking.rules';
 import { createBooking } from '../booking/booking.service';
 import { nextTripNo } from '../booking/booking.tripNo';
 import type { CreateBookingInput } from '../booking/booking.validation';
+import type { ManualDiscount } from '../pricing/pricing.adjustments';
 
 /**
  * An operator booking a trip on a customer's behalf (phone and email requests).
@@ -31,7 +32,7 @@ async function bookableCustomer(customerId: string) {
 }
 
 /** What the trip would cost, with the same checks a booking would face — nothing is saved. */
-export async function quoteTrip(customerId: string, input: CreateBookingInput, tripsAhead = 0) {
+export async function quoteTrip(customerId: string, input: CreateBookingInput, tripsAhead = 0, discount?: ManualDiscount) {
   await bookableCustomer(customerId);
 
   const vehicleClass = await vehicleService.resolveBookableClass(input.vehicleClass, input.tripType);
@@ -56,16 +57,26 @@ export async function quoteTrip(customerId: string, input: CreateBookingInput, t
     stopCount: input.stops?.length,
     stopAddresses: input.stops?.map((s) => s.address),
     gratuityPct: input.gratuityPct,
+    manualDiscount: discount,
     tripsAhead,
   });
 }
 
+/**
+ * The operator's discount as it lands on one leg of a journey: a percentage applies to every
+ * leg; a flat amount comes off the first leg only, so it is taken once, not once per leg.
+ */
+function legDiscount(discount: ManualDiscount | undefined, index: number): ManualDiscount | undefined {
+  if (!discount) return undefined;
+  return discount.type === 'flat' && index > 0 ? undefined : discount;
+}
+
 /** What each leg of a journey would cost, and the total; nothing is saved. */
-export async function quoteJourney(customerId: string, legs: CreateBookingInput[]) {
+export async function quoteJourney(customerId: string, legs: CreateBookingInput[], discount?: ManualDiscount) {
   const fares: number[] = [];
   for (const [index, leg] of legs.entries()) {
     try {
-      fares.push((await quoteTrip(customerId, leg, index)).fare);
+      fares.push((await quoteTrip(customerId, leg, index, legDiscount(discount, index))).fare);
     } catch (err) {
       // Say which leg, so an operator is not left hunting through five of them.
       if (err instanceof ApiError) throw new ApiError(err.statusCode, `Leg ${index + 1}: ${err.message}`, err.details);
@@ -83,8 +94,13 @@ export async function quoteJourney(customerId: string, legs: CreateBookingInput[
  * (a database error), what was already booked is returned along with the reason, the same
  * way a partly-booked card journey is reported — never silently dropped.
  */
-export async function createJourneyForCustomer(adminId: string, customerId: string, legs: CreateBookingInput[]) {
-  await quoteJourney(customerId, legs);
+export async function createJourneyForCustomer(
+  adminId: string,
+  customerId: string,
+  legs: CreateBookingInput[],
+  discount?: ManualDiscount,
+) {
+  await quoteJourney(customerId, legs, discount);
 
   const bookings = [];
   // One trip number for the whole journey: its legs are one trip, as on the old site.
@@ -94,6 +110,7 @@ export async function createJourneyForCustomer(adminId: string, customerId: stri
       const { booking } = await createBooking(customerId, leg, undefined, {
         adminId,
         journey: { index, count: legs.length },
+        discount: legDiscount(discount, index),
       }, tripNo);
       bookings.push(booking);
     } catch (err) {
@@ -108,7 +125,12 @@ export async function createJourneyForCustomer(adminId: string, customerId: stri
   return { bookings };
 }
 
-export async function createTripForCustomer(adminId: string, customerId: string, input: CreateBookingInput) {
+export async function createTripForCustomer(
+  adminId: string,
+  customerId: string,
+  input: CreateBookingInput,
+  discount?: ManualDiscount,
+) {
   await bookableCustomer(customerId);
-  return createBooking(customerId, input, undefined, { adminId });
+  return createBooking(customerId, input, undefined, { adminId, discount });
 }

@@ -161,7 +161,7 @@ function linesFor(booking: IBooking, vehicle: string, total: number): DocumentLi
     });
   }
   if (b.discount) {
-    lines.push({ label: b.discountKind === 'welcome' ? 'Welcome discount' : 'Loyalty discount', amount: -b.discount });
+    lines.push({ label: b.discountKind === 'welcome' ? 'Welcome discount' : b.discountKind === 'manual' ? 'Discount' : 'Loyalty discount', amount: -b.discount });
   }
   if (b.tax) lines.push({ label: `Tax (${b.taxPct}%)`, amount: b.tax });
   return lines;

@@ -371,14 +371,24 @@ export function paymentRequestedEmail({
   });
 }
 
-/** An invoice sent on request, attached. */
-export function invoiceEmail(): RenderedEmail {
+/**
+ * An invoice sent on request, attached. When the trip is still unpaid it carries a
+ * "Pay Now" link to a secure Stripe page, as the old dashboard's payment email did.
+ */
+export function invoiceEmail(pay?: { amount: number; link: string; expiresLabel: string } | null): RenderedEmail {
   return compose({
     subject: 'Invoice',
     title: 'Invoice',
     blocks: [
       p('Dear Customer,'),
       p('Thank you for reaching out to us. As requested, we have attached the invoice for your reference.'),
+      ...(pay
+        ? [
+            p(`The amount due is **${money(pay.amount)}**. To complete your payment, please click the link below:`),
+            button('Pay Now', pay.link),
+            p(`This link works until ${pay.expiresLabel}. If it has expired, contact us and we will send a new one. You will not be charged until you complete the payment on the secure Stripe page.`),
+          ]
+        : []),
       p(`Please take a moment to review the details at your convenience, and if you have any questions or require further assistance, feel free to reach us at ${SUPPORT}`),
     ],
   });

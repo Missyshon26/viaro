@@ -118,9 +118,21 @@ export type SettingsUpdateInput = z.infer<typeof settingsUpdateSchema>;
  * A trip an operator books for a client. The trip itself is exactly what the passenger site
  * sends, nested so its own rules (stops, cruise, hourly) are enforced unchanged.
  */
+/**
+ * A discount the operator gives on this booking: a percentage (0–100) or a flat dollar amount.
+ * Admin-only — it is deliberately not part of createBookingSchema, which customers post to.
+ */
+export const adminDiscountSchema = z
+  .object({
+    type: z.enum(['percent', 'flat']),
+    value: z.coerce.number().min(0).max(100_000),
+  })
+  .refine((d) => d.type !== 'percent' || d.value <= 100, { message: 'A percentage discount cannot be more than 100', path: ['value'] });
+
 export const adminTripSchema = z.object({
   customerId: z.string().regex(/^[a-fA-F0-9]{24}$/, 'Choose a client'),
   trip: createBookingSchema,
+  discount: adminDiscountSchema.optional(),
 });
 export type AdminTripInput = z.infer<typeof adminTripSchema>;
 
@@ -129,6 +141,7 @@ export const adminJourneySchema = z
   .object({
     customerId: z.string().regex(/^[a-fA-F0-9]{24}$/, 'Choose a client'),
     legs: z.array(createBookingSchema).min(2).max(MAX_JOURNEY_LEGS),
+    discount: adminDiscountSchema.optional(),
   })
   .superRefine((data, ctx) => refineLegOrder(data.legs, ctx));
 export type AdminJourneyInput = z.infer<typeof adminJourneySchema>;

@@ -179,8 +179,8 @@ export interface IFareBreakdown {
   fuelSurcharge?: number;
   gratuityPct?: number;
   gratuity?: number;
-  /** 'welcome' (first trip) or 'loyalty' (every Nth trip), when a discount applied. */
-  discountKind?: 'welcome' | 'loyalty';
+  /** 'welcome' (first trip), 'loyalty' (every Nth trip) or 'manual' (set by an operator), when a discount applied. */
+  discountKind?: 'welcome' | 'loyalty' | 'manual';
   discount?: number;
   taxPct?: number;
   tax?: number;
@@ -520,7 +520,7 @@ const bookingSchema = new Schema<IBooking>(
           fuelSurcharge: { type: Number, min: 0 },
           gratuityPct: { type: Number, min: 0 },
           gratuity: { type: Number, min: 0 },
-          discountKind: { type: String, enum: ['welcome', 'loyalty'] },
+          discountKind: { type: String, enum: ['welcome', 'loyalty', 'manual'] },
           discount: { type: Number, min: 0 },
           taxPct: { type: Number, min: 0 },
           tax: { type: Number, min: 0 },

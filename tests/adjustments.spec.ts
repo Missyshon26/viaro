@@ -97,4 +97,41 @@ describe('applyAdjustments', () => {
     expect('discountKind' in applyAdjustments({ subtotal: 100, discount: null })).toBe(false);
     expect('discountKind' in applyAdjustments({ subtotal: 100, discount: { kind: 'welcome', amount: 0 } })).toBe(false);
   });
+
+  describe('manual (operator) discount', () => {
+    it('takes a percentage off trip price + fuel + tip, before tax', () => {
+      const r = applyAdjustments({ subtotal: 200, manualDiscount: { type: 'percent', value: 10 }, taxPct: 10 });
+      expect(r.discountKind).toBe('manual');
+      expect(r.discount).toBe(20);
+      expect(r.tax).toBe(18); // 10% of 180
+      expect(r.total).toBe(198);
+    });
+
+    it('takes a flat amount off', () => {
+      const r = applyAdjustments({ subtotal: 200, manualDiscount: { type: 'flat', value: 35 } });
+      expect(r.discount).toBe(35);
+      expect(r.total).toBe(165);
+    });
+
+    it('never goes below zero, even at 100% or a flat amount above the fare', () => {
+      expect(applyAdjustments({ subtotal: 90, manualDiscount: { type: 'percent', value: 100 } }).total).toBe(0);
+      expect(applyAdjustments({ subtotal: 90, manualDiscount: { type: 'flat', value: 500 } }).total).toBe(0);
+    });
+
+    it('replaces the automatic discount instead of stacking with it', () => {
+      const r = applyAdjustments({
+        subtotal: 100,
+        discount: { kind: 'welcome', amount: 25 },
+        manualDiscount: { type: 'flat', value: 10 },
+      });
+      expect(r.discountKind).toBe('manual');
+      expect(r.discount).toBe(10);
+    });
+
+    it('a zero manual discount leaves the automatic one in place', () => {
+      const r = applyAdjustments({ subtotal: 100, discount: { kind: 'welcome', amount: 25 }, manualDiscount: { type: 'percent', value: 0 } });
+      expect(r.discountKind).toBe('welcome');
+      expect(r.discount).toBe(25);
+    });
+  });
 });

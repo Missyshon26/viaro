@@ -4,6 +4,8 @@ import { ApiError } from '../../utils/ApiError';
 import { sendEmail } from '../../integrations/email';
 import { invoiceEmail } from '../../integrations/emailTemplates';
 import { renderStoredDocument } from './booking.documents.load';
+import { linkForInvoice } from '../payments/paymentLink';
+import { format, toDate } from '../../config/timezone';
 
 /**
  * Emails the customer their invoice, on request (an operator pressing "Email invoice").
@@ -11,7 +13,7 @@ import { renderStoredDocument } from './booking.documents.load';
  * Unlike the automatic emails this REPORTS failure: the operator asked for it and is
  * waiting to tell the customer it is on its way, so "sent" has to mean sent.
  */
-export async function emailInvoiceToCustomer(bookingId: string) {
+export async function emailInvoiceToCustomer(bookingId: string, adminId = 'system') {
   const booking = await Booking.findById(bookingId).select('customerId').lean();
   if (!booking) throw ApiError.notFound('Booking not found');
 
@@ -19,13 +21,15 @@ export async function emailInvoiceToCustomer(bookingId: string) {
   if (!customer?.email) throw ApiError.notFound('The customer has no email address to send an invoice to');
 
   const doc = await renderStoredDocument(bookingId, 'invoice');
+  // An unpaid trip's invoice carries a payment link (like old ABL); a paid one has nothing to pay.
+  const link = await linkForInvoice(bookingId, adminId);
   const result = await sendEmail({
     to: customer.email,
-    ...invoiceEmail(),
+    ...invoiceEmail(link ? { amount: link.amount, link: link.url, expiresLabel: format(toDate(link.expiresAt)) } : null),
     attachments: [{ filename: doc.filename, content: doc.buffer, contentType: 'application/pdf' }],
   });
   if (!result.sent) {
     throw new ApiError(502, "The invoice email could not be sent right now. Download the invoice and send it another way, or try again shortly.");
   }
-  return { sentTo: customer.email, filename: doc.filename };
+  return { sentTo: customer.email, filename: doc.filename, paymentLinkIncluded: Boolean(link) };
 }

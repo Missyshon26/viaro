@@ -9,7 +9,7 @@ import * as packageService from '../package/package.service';
 import { collectPayment, isStripeEnabled } from '../../integrations/paymentGateway';
 import { getCardOnFile } from '../payments/cardPayments';
 import { getSettingsValues } from '../admin/settings.service';
-import { applyAdjustments, discountFor, type Discount, type DiscountKind } from './pricing.adjustments';
+import { applyAdjustments, discountFor, type Discount, type DiscountKind, type ManualDiscount } from './pricing.adjustments';
 import { MEET_AND_GREET_FEE, routeFareFor } from '../../config/services';
 import { routeMiles } from '../../integrations/routeDistance';
 import type {
@@ -156,6 +156,8 @@ export async function calculateFare(opts: {
   packageId?: string;
   /** The tip the customer chose, as a percentage of the trip price. Absent = none. */
   gratuityPct?: number;
+  /** A discount an operator typed in; replaces the automatic welcome / loyalty one. */
+  manualDiscount?: ManualDiscount;
   /** Earlier trips in the same request (the legs of a journey priced together). */
   tripsAhead?: number;
   /**
@@ -271,6 +273,7 @@ export async function calculateFare(opts: {
     fuelPct: locked ? (locked.fuelPct ?? 0) : (await getSettingsValues()).fuelSurchargePct,
     gratuityPct: locked ? locked.gratuityPct : opts.gratuityPct,
     taxPct: locked ? locked.taxPct : (await getSettingsValues()).taxPct,
+    manualDiscount: locked ? null : opts.manualDiscount,
     discount: locked
       ? locked.discount
       : opts.customerId

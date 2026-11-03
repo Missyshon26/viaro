@@ -16,6 +16,7 @@ import { paginated, toSkipLimit, type PaginationQuery } from '../../utils/pagina
 import { logger } from '../../utils/logger';
 import { nextTripNo } from './booking.tripNo';
 import * as pricingService from '../pricing/pricing.service';
+import type { ManualDiscount } from '../pricing/pricing.adjustments';
 import * as vehicleService from '../vehicle/vehicle.service';
 import type { Address } from '../../utils/profile';
 import { assertVehicleRules } from './booking.rules';
@@ -122,7 +123,7 @@ export async function createBooking(
    */
   paid?: { payment: IBookingPayment; chargedFare: number; journey?: IBookingJourney },
   /** Set when an operator books on the customer's behalf (admin.trips.ts). */
-  madeBy?: { adminId: string; journey?: IBookingJourney },
+  madeBy?: { adminId: string; journey?: IBookingJourney; discount?: ManualDiscount },
   /** The trip number the legs of a journey share; absent = take the next one. */
   tripNo?: string,
 ) {
@@ -162,6 +163,7 @@ export async function createBooking(
     stopCount: input.stops?.length,
     stopAddresses: input.stops?.map((s) => s.address),
     gratuityPct: input.gratuityPct,
+    manualDiscount: madeBy?.discount,
   });
 
   const extras = {
