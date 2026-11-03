@@ -6,6 +6,8 @@ import { Company } from '../../models/Company';
 import { Booking } from '../../models/Booking';
 import { Subscription } from '../../models/Subscription';
 import { PenaltyEvent } from '../../models/PenaltyEvent';
+import { Trip } from '../../models/Trip';
+import { SupportTicket } from '../../models/SupportTicket';
 import { ApiError } from '../../utils/ApiError';
 import type { AuthUser } from '../../middlewares/authGuard';
 import { paginated, toSkipLimit, type PaginationQuery } from '../../utils/pagination';
@@ -278,6 +280,19 @@ export async function listJourneys(q: JourneysQuery) {
           ? { stage: q.stage }
           : {};
 
+  const customerJoin = [
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'customerId',
+        foreignField: '_id',
+        as: 'customer',
+        pipeline: [{ $project: { name: 1, email: 1, phone: 1 } }],
+      },
+    },
+    { $addFields: { customer: { $first: '$customer' } } },
+  ];
+
   const [result] = await Booking.aggregate([
     { $match: base },
     {
@@ -291,16 +306,9 @@ export async function listJourneys(q: JourneysQuery) {
     },
     { $addFields: { trip: { $arrayElemAt: ['$trips', 0] } } },
     { $addFields: { stage: journeyStageExpr } },
-    {
-      $lookup: {
-        from: 'users',
-        localField: 'customerId',
-        foreignField: '_id',
-        as: 'customer',
-        pipeline: [{ $project: { name: 1, email: 1, phone: 1 } }],
-      },
-    },
-    { $addFields: { customer: { $first: '$customer' } } },
+    // The customer is joined for every booking only when a search needs their name or email.
+    // Otherwise it is joined below, for just the rows on the page.
+    ...(search.length ? customerJoin : []),
     ...(search.length ? [{ $match: { $or: search } }] : []),
     {
       $facet: {
@@ -309,6 +317,7 @@ export async function listJourneys(q: JourneysQuery) {
           { $sort: { createdAt: -1, _id: -1 } },
           { $skip: skip },
           { $limit: limit },
+          ...(search.length ? [] : customerJoin),
           // The shape the console already reads: customerId populated, or null for a deleted account.
           { $addFields: { customerId: { $ifNull: ['$customer', null] } } },
           { $project: { customer: 0, stage: 0, trips: 0 } },
@@ -345,7 +354,7 @@ export async function listJourneys(q: JourneysQuery) {
  * download every booking, user, trip and chauffeur just to tally them in the browser.
  */
 export async function dashboardSummary() {
-  const [stageRows, roleRows, driverRows, topDrivers, penalised] = await Promise.all([
+  const [stageRows, roleRows, driverRows, topDrivers, penalised, completedRows, cancelledTrips, penaltyEvents] = await Promise.all([
     Booking.aggregate<{ _id: string; n: number }>([
       {
         $lookup: {
@@ -367,6 +376,15 @@ export async function dashboardSummary() {
       .populate({ path: 'userId', select: 'name email phone status' })
       .lean(),
     Driver.countDocuments({ penaltyCount: { $gt: 0 } }),
+    // The all-time completed count and fare, which the home page used to get by downloading
+    // every completed trip (names and all) just to add them up.
+    Trip.aggregate<{ _id: null; n: number; fare: number }>([
+      { $match: { status: 'completed' } },
+      { $group: { _id: null, n: { $sum: 1 }, fare: { $sum: '$fareAmount' } } },
+    ]),
+    // Same rule as the cancellations report: a cancelled trip, or one that drew a penalty.
+    Trip.countDocuments({ $or: [{ status: 'cancelled' }, { penaltyApplied: true }] }),
+    PenaltyEvent.estimatedDocumentCount(),
   ]);
 
   const tally = (rows: { _id: string; n: number }[]) =>
@@ -386,6 +404,8 @@ export async function dashboardSummary() {
         cancelled: stages.cancelled ?? 0,
       },
     },
+    completed: { count: completedRows[0]?.n ?? 0, totalFare: round2(completedRows[0]?.fare ?? 0) },
+    cancellations: { count: cancelledTrips, penalties: penaltyEvents },
     users: {
       customer: roles.customer ?? 0,
       driver: roles.driver ?? 0,
@@ -490,5 +510,33 @@ export async function driverPenalties(user: AuthUser) {
     })),
     totalDrivers: drivers.length,
     totalEvents: events.length,
+  };
+}
+
+/**
+ * What the sidebar badges count, in one small response.
+ *
+ * The console used to fetch a page of 100 bookings, 100 trips, the support queue and 100 users
+ * (four requests, hundreds of kilobytes) every time anything changed, just to read their ids.
+ * This returns only the ids each badge needs:
+ *   /trips    the newest 100 bookings that are not cancelled and have no trip yet (the ops queue)
+ *   /support  tickets that are open or pending
+ *   /users    the newest 100 accounts
+ */
+export async function navBadges() {
+  const [newest, tickets, users] = await Promise.all([
+    Booking.find({ status: { $ne: 'cancelled' } }).sort({ createdAt: -1 }).limit(100).select('_id').lean(),
+    SupportTicket.find({ status: { $in: ['open', 'pending'] } }).sort({ createdAt: -1 }).limit(200).select('_id').lean(),
+    User.find().sort({ createdAt: -1 }).limit(100).select('_id').lean(),
+  ]);
+
+  const claimed = newest.length
+    ? new Set((await Trip.find({ bookingId: { $in: newest.map((b) => b._id) } }).select('bookingId').lean()).map((t) => String(t.bookingId)))
+    : new Set<string>();
+
+  return {
+    '/trips': newest.map((b) => String(b._id)).filter((id) => !claimed.has(id)),
+    '/support': tickets.map((t) => String(t._id)),
+    '/users': users.map((u) => String(u._id)),
   };
 }

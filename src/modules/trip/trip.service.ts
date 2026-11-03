@@ -255,10 +255,11 @@ async function afterAccept(trip: TripDocument, booking: BookingDocument, driver:
  */
 export async function listTripsForUser(
   user: AuthUser,
-  q: PaginationQuery & { status?: TripStatus },
+  q: PaginationQuery & { status?: TripStatus; bookingId?: string },
 ) {
   const filter: Record<string, unknown> = {};
   if (q.status) filter.status = q.status;
+  if (q.bookingId) filter.bookingId = q.bookingId;
 
   if (user.role === 'driver') {
     const driver = await Driver.findOne({ userId: user.userId }).lean();
@@ -266,7 +267,9 @@ export async function listTripsForUser(
     filter.driverId = driver._id;
   } else if (user.role === 'customer') {
     const bookings = await Booking.find({ customerId: user.userId }).select('_id').lean();
-    filter.bookingId = { $in: bookings.map((b) => b._id) };
+    // Their own bookings; a bookingId asked for on top can only narrow this, never widen it.
+    const owned = bookings.map((b) => String(b._id));
+    filter.bookingId = q.bookingId ? { $in: owned.filter((id) => id === q.bookingId) } : { $in: owned };
   } else if (user.role === 'company') {
     /*
      * A company is NOT an admin. Without this branch a company token fell through with an

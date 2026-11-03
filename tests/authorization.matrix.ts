@@ -306,6 +306,7 @@ export const MATRIX: MatrixEntry[] = [
   { method: 'GET', path: '/admin/drivers/penalties', allowed: ['admin', 'company'] },
   { method: 'GET', path: '/admin/dashboard/bookings', allowed: ['admin'] },
   { method: 'GET', path: '/admin/dashboard/summary', allowed: ['admin'] },
+  { method: 'GET', path: '/admin/nav-badges', allowed: ['admin'] },
   { method: 'GET', path: '/admin/places/autocomplete', allowed: ['admin'] },
   { method: 'GET', path: '/admin/dashboard/journeys', allowed: ['admin'] },
   { method: 'GET', path: '/admin/dashboard/users', allowed: ['admin'] },

@@ -8,6 +8,8 @@ const objectId = z.string().regex(/^[a-fA-F0-9]{24}$/, 'Invalid id');
 /** GET /trips — role-scoped list (driver Schedule, customer trips). */
 export const listTripsQuerySchema = paginationSchema.extend({
   status: z.enum(TRIP_STATUSES).optional(),
+  /** Only the trip for this booking. Narrows the caller's own scope; it never widens it. */
+  bookingId: z.string().regex(/^[a-fA-F0-9]{24}$/, 'Invalid booking id').optional(),
 });
 
 export type ListTripsQuery = z.infer<typeof listTripsQuerySchema>;

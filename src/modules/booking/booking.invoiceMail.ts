@@ -8,12 +8,13 @@ import { linkForInvoice } from '../payments/paymentLink';
 import { format, toDate } from '../../config/timezone';
 
 /**
- * Emails the customer their invoice, on request (an operator pressing "Email invoice").
+ * Emails the customer their invoice, on request (an operator pressing "Send invoice" or
+ * "Send invoice & payment link").
  *
  * Unlike the automatic emails this REPORTS failure: the operator asked for it and is
  * waiting to tell the customer it is on its way, so "sent" has to mean sent.
  */
-export async function emailInvoiceToCustomer(bookingId: string, adminId = 'system') {
+export async function emailInvoiceToCustomer(bookingId: string, adminId = 'system', withPaymentLink = true) {
   const booking = await Booking.findById(bookingId).select('customerId').lean();
   if (!booking) throw ApiError.notFound('Booking not found');
 
@@ -21,8 +22,9 @@ export async function emailInvoiceToCustomer(bookingId: string, adminId = 'syste
   if (!customer?.email) throw ApiError.notFound('The customer has no email address to send an invoice to');
 
   const doc = await renderStoredDocument(bookingId, 'invoice');
-  // An unpaid trip's invoice carries a payment link (like old ABL); a paid one has nothing to pay.
-  const link = await linkForInvoice(bookingId, adminId);
+  // "Send invoice & payment link": an unpaid trip's invoice carries a Pay Now link; a paid one has nothing to pay.
+  // "Send invoice": the PDF alone, and no link is made (so none is retired or created as a side effect).
+  const link = withPaymentLink ? await linkForInvoice(bookingId, adminId) : null;
   const result = await sendEmail({
     to: customer.email,
     ...invoiceEmail(link ? { amount: link.amount, link: link.url, expiresLabel: format(toDate(link.expiresAt)) } : null),

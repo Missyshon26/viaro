@@ -12,6 +12,8 @@ const dateString = z
 export const reportRangeSchema = z.object({
   from: dateString.optional(),
   to: dateString.optional(),
+  /** 'true': skip the chauffeur-name lookup, for charts that only need the dates and fares. */
+  slim: z.enum(['true', 'false']).optional(),
 });
 
 export type ReportRangeQuery = z.infer<typeof reportRangeSchema>;

@@ -157,6 +157,9 @@ export const adminRefundSchema = z.object({
 });
 export type AdminRefundInput = z.infer<typeof adminRefundSchema>;
 
+/** Emailing an invoice: with a Pay Now link (the default) or the PDF alone. */
+export const adminEmailInvoiceSchema = z.object({ withPaymentLink: z.boolean().optional() }).optional();
+
 /** Turning down a booking request: the reason is shown to the customer, so it is required. */
 export const adminRejectSchema = z.object({
   reason: z.string().trim().min(3, 'Give the customer a reason').max(300),

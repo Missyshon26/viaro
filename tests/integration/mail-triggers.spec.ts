@@ -92,6 +92,17 @@ describe('Email invoice', () => {
     expect(sent.attachments![0].content.subarray(0, 4).toString()).toBe('%PDF');
   });
 
+  it('sends the invoice alone, with no payment link, when asked', async () => {
+    const { admin, id } = await booked();
+    const res = await request(server).post(`/admin/bookings/${id}/email-invoice`).set('Authorization', admin.auth).send({ withPaymentLink: false });
+    expect(res.status).toBe(200);
+    expect(res.body.data.paymentLinkIncluded).toBe(false);
+    const sent = vi.mocked(email.sendEmail).mock.calls.at(-1)![0];
+    expect(sent.attachments).toHaveLength(1);
+    expect(sent.text ?? '').not.toContain('Pay Now');
+    expect((await Booking.findById(id).lean())!.paymentLink).toBeUndefined();
+  });
+
   it('says so when the email could not be sent', async () => {
     const { admin, id } = await booked();
     vi.mocked(email.sendEmail).mockResolvedValue({ sent: false, provider: 'smtp' });

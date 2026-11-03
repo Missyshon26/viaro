@@ -33,6 +33,7 @@ import { round2 } from '../../utils/money';
 export interface ReportRange {
   from?: string;
   to?: string;
+  slim?: 'true' | 'false';
 }
 
 export interface ReportScope {
@@ -92,13 +93,17 @@ export async function tripsCompleted(user: AuthUser, range: ReportRange) {
     ...driverFilter(scope),
   };
 
-  const trips = await Trip.find(filter).sort({ 'timestamps.completed': -1 }).lean();
+  // Only the fields the rows use: a trip carries a good deal more (route, stops, ratings…).
+  const trips = await Trip.find(filter)
+    .select('bookingId driverId fareAmount timestamps.completed')
+    .sort({ 'timestamps.completed': -1 })
+    .lean();
 
   // Spec §8 rule 2 — the predicate lives in utils/visibility so this endpoint and
   // GET /trips/:id can never drift apart on who may see a fare.
   const showFare = canSeeTripFare(user.role);
 
-  const names = await driverNamesById(trips.map((t) => t.driverId));
+  const names = range.slim === 'true' ? new Map<string, string>() : await driverNamesById(trips.map((t) => t.driverId));
   const rows = trips.map((t) => ({
     tripId: String(t._id),
     bookingId: String(t.bookingId),

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as controller from './admin.controller';
 import {
   adminAgreementReviewSchema,
+  adminEmailInvoiceSchema,
   adminJourneySchema,
   adminRefundSchema,
   adminRejectSchema,
@@ -92,6 +93,7 @@ router.get(
 );
 
 router.get('/dashboard/summary', roleGuard('admin'), asyncHandler(controller.dashboardSummary));
+router.get('/nav-badges', roleGuard('admin'), asyncHandler(controller.navBadges));
 
 router.get('/places/autocomplete', roleGuard('admin'), asyncHandler(controller.placeSuggestions));
 
@@ -215,7 +217,7 @@ router.post(
 router.post(
   '/bookings/:id/email-invoice',
   roleGuard('admin'),
-  validate({ params: idParamSchema }),
+  validate({ params: idParamSchema, body: adminEmailInvoiceSchema }),
   asyncHandler(controller.emailInvoice),
 );
 

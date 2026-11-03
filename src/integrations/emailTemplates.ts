@@ -835,7 +835,7 @@ export const EMAIL_TEMPLATES = {
   prePaymentInvoiceEmail: { to: 'customer', sent: 'when a booking is made and not yet paid' },
   paymentReceiptEmail: { to: 'customer', sent: 'when a booking is paid by card' },
   paymentRequestedEmail: { to: 'customer', sent: 'when an operator sends a payment link' },
-  invoiceEmail: { to: 'customer', sent: 'when an operator presses "Email invoice"' },
+  invoiceEmail: { to: 'customer', sent: 'when an operator presses "Send invoice" or "Send invoice & payment link"' },
   reminderEmail: { to: 'customer', sent: 'before the free-cancellation window closes' },
   chauffeurAssignedEmail: { to: 'customer', sent: 'when a chauffeur accepts the ride' },
   tripConfirmedEmail: { to: 'customer', sent: 'when an operator confirms a trip' },

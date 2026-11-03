@@ -70,6 +70,11 @@ export async function dashboardSummary(_req: Request, res: Response): Promise<vo
   res.json({ success: true, data });
 }
 
+/** GET /admin/nav-badges — the ids behind the sidebar badges, in one light response. */
+export async function navBadges(_req: Request, res: Response): Promise<void> {
+  res.json({ success: true, data: await adminService.navBadges() });
+}
+
 export async function dashboardJourneys(req: Request, res: Response): Promise<void> {
   const data = await adminService.listJourneys(query<JourneysQuery>(req));
   res.json({ success: true, data });
@@ -218,9 +223,13 @@ export async function reviewUserAgreement(req: Request, res: Response): Promise<
   res.json({ success: true, data });
 }
 
-/** POST /admin/bookings/:id/email-invoice — emails the client their invoice. */
+/** POST /admin/bookings/:id/email-invoice — emails the client their invoice; `withPaymentLink: false` sends the PDF alone. */
 export async function emailInvoice(req: Request, res: Response): Promise<void> {
-  const data = await emailInvoiceToCustomer(params<IdParam>(req).id, req.user!.userId);
+  const data = await emailInvoiceToCustomer(
+    params<IdParam>(req).id,
+    req.user!.userId,
+    (req.body as { withPaymentLink?: boolean } | undefined)?.withPaymentLink !== false,
+  );
   res.json({ success: true, data });
 }
 
