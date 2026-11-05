@@ -2,7 +2,7 @@
 
 import { ChevronDown } from "lucide-react";
 import { useEffect, useMemo } from "react";
-import { classesFor, GRATUITY_OPTIONS, MAX_CAR_SEATS, MAX_STOPS, OCCASIONS, SERVICE_LABEL, type Service, type TripForm } from "@/lib/newTrip";
+import { CAR_SEAT_OPTIONS, classesFor, GRATUITY_OPTIONS, MAX_STOPS, NOTES_MAX, occasionFor, occasionsFor, SERVICE_LABEL, type Service, type TripForm } from "@/lib/newTrip";
 import type { PricingRule } from "@/lib/api/admin";
 import { AddressInput } from "@/components/ui/AddressInput";
 
@@ -170,14 +170,14 @@ export function LegForm({
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <div>
           <label className={label} htmlFor={id("occ")}>Occasion</label>
-          <div className="relative"><select id={id("occ")} className={`${field} appearance-none pr-10`} value={form.occasion} onChange={(e) => set("occasion", e.target.value)}>
+          <div className="relative"><select id={id("occ")} className={`${field} appearance-none pr-10`} value={occasionFor(form.service, form.occasion)} onChange={(e) => set("occasion", e.target.value)}>
             <option value="">Not specified</option>
-            {OCCASIONS.map((o) => (
+            {occasionsFor(form.service).map((o) => (
               <option key={o} value={o}>{o}</option>
             ))}
           </select><ChevronDown aria-hidden size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-fg-muted" /></div>
         </div>
-        {form.occasion === "Other" ? (
+        {occasionFor(form.service, form.occasion) === "Other" ? (
           <div className="sm:col-span-2">
             <label className={label} htmlFor={id("occd")}>What is the occasion?</label>
             <input id={id("occd")} className={field} maxLength={200} value={form.occasionDetails} onChange={(e) => set("occasionDetails", e.target.value)} />
@@ -206,7 +206,11 @@ export function LegForm({
         ) : null}
         <div>
           <label className={label} htmlFor={id("seat")}>Child car seats</label>
-          <input id={id("seat")} type="number" min={0} max={MAX_CAR_SEATS} className={field} value={form.carSeats} onChange={(e) => set("carSeats", e.target.value)} />
+          <div className="relative"><select id={id("seat")} className={`${field} appearance-none pr-10`} value={form.carSeats} onChange={(e) => set("carSeats", e.target.value)}>
+            {CAR_SEAT_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select><ChevronDown aria-hidden size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-fg-muted" /></div>
         </div>
         <label className="flex items-center gap-2.5 self-end pb-3">
           <input type="checkbox" checked={form.meetAndGreet} onChange={(e) => set("meetAndGreet", e.target.checked)} className="h-4 w-4 accent-[var(--accent)]" />
@@ -222,6 +226,11 @@ export function LegForm({
         </div>
       </div>
       </details>
+      <div className="mt-5">
+        <label className={label} htmlFor={id("notes")}>Notes <span className="font-normal text-fg-muted">· optional</span></label>
+        <textarea id={id("notes")} rows={3} maxLength={NOTES_MAX} className={`${field} h-auto py-2`} value={form.notes} onChange={(e) => set("notes", e.target.value)} placeholder="Anything dispatch or the chauffeur should know, e.g. wheelchair, gate code, special instructions." />
+        <p className="mt-1 text-label text-fg-muted">{form.notes.length}/{NOTES_MAX}</p>
+      </div>
     </section>
 
 

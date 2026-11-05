@@ -16,7 +16,6 @@ import {
   NotAvailable,
   Skeleton,
   StatusBadge,
-  reference,
   type BadgeTone,
 } from "@/components/ui/Dashboard";
 import { IconCheck, IconMoney, IconPenalty, IconRoute, IconUsers } from "@/components/ui/Icons";
@@ -32,6 +31,9 @@ import {
   type UserAgreement,
 } from "@/lib/api/admin";
 import { vehicleLabel } from "@/lib/vehicles";
+import { invoiceNumber } from "@/lib/invoice";
+import { AccountDialog } from "@/components/ops/AccountDialog";
+import { updateUser } from "@/lib/api/clients";
 import type { Booking, Trip, User } from "@/lib/api/types";
 
 /**
@@ -78,6 +80,8 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
   const [user, setUser] = useState<User | null>(null);
   const [rows, setRows] = useState<Row[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const [agreement, setAgreement] = useState<UserAgreement | null>(null);
 
   // A passenger's signed agreement. Only customers sign one, and a failed read just
@@ -164,7 +168,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
           href={`/trips/${r._id}`}
           className="font-mono text-[0.8125rem] font-bold text-fg hover:text-accent"
         >
-          {reference(r._id)}
+          {invoiceNumber(r)}
         </Link>
       ),
       sortValue: (r) => r._id,
@@ -248,8 +252,30 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
       <ConsolePage
         title={user?.name ?? "Account"}
         description={user ? `${user.role} · joined ${formatDate(user.createdAt)}` : "Loading…"}
-        action={user ? <StatusBadge status={user.status} /> : null}
+        action={
+          user ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setNotice(null);
+                  setEditing(true);
+                }}
+                className="h-9 rounded-field border border-border bg-surface-raised px-3.5 text-meta font-bold text-fg-body shadow-[var(--shadow-card)] transition-colors hover:border-accent hover:text-fg"
+              >
+                Edit details
+              </button>
+              <StatusBadge status={user.status} />
+            </div>
+          ) : null
+        }
       >
+        {notice ? (
+          <p role="status" className="mb-4 rounded-field border border-border bg-surface px-4 py-3 text-note font-bold text-fg">
+            {notice}
+          </p>
+        ) : null}
+
         {error ? (
           <p className="mb-4 rounded-field border border-danger/30 bg-danger/5 px-4 py-3 text-note font-bold text-danger">
             {error}
@@ -374,7 +400,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                     minWidth="46rem"
                     pageSize={10}
                     searchable={(r) => [
-                      reference(r._id),
+                      invoiceNumber(r),
                       r.pickup.address,
                       r.drop.address,
                       vehicleLabel(r.vehicleClass),
@@ -393,6 +419,20 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
           </>
         )}
       </ConsolePage>
+
+      {editing && user ? (
+        <AccountDialog
+          client={user}
+          noun="user"
+          saveChanges={updateUser}
+          onClose={() => setEditing(false)}
+          onSaved={async (message) => {
+            setEditing(false);
+            setNotice(message);
+            await load();
+          }}
+        />
+      ) : null}
     </>
   );
 }

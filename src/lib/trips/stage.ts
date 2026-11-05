@@ -16,6 +16,11 @@ export function stageOf(row: JourneyState): TripStage {
   return "awaiting";
 }
 
+/** Completed or cancelled: the trip is over, and what remains is correcting the record. */
+export function isFinishedStage(stage: TripStage): boolean {
+  return stage === "completed" || stage === "cancelled";
+}
+
 export function isOverdue(row: JourneyState, now = Date.now()): boolean {
   const stage = stageOf(row);
   if (stage === "completed" || stage === "cancelled" || !row.scheduledAt) return false;

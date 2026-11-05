@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { X, ArrowLeft, ArrowRight, Route } from "lucide-react";
 import { money } from "@/components/ui/DataTable";
 import { errorText } from "@/lib/api/client";
@@ -14,20 +13,28 @@ import {
   type PricingRule,
 } from "@/lib/api/admin";
 import { LegForm } from "@/components/trips/LegForm";
+import { NewClientFields } from "@/components/trips/NewClientFields";
+import { Collapse } from "@/components/ui/Collapse";
 import { listClients, type Client } from "@/lib/api/clients";
 import { listVehicleClasses, type VehicleClass } from "@/lib/api/vehicles";
 import { discountLabel } from "@/lib/fareLines";
 import {
+  accountNotice,
   discountProblem,
   emptyDiscount,
+  emptyNewClient,
   emptyTripForm,
   journeyPayload,
   MAX_LEGS,
   missingForJourney,
+  newClientStarted,
   nextLeg,
+  prefillFromSearch,
   returnLeg,
   tripPayload,
+  type AccountNotice,
   type DiscountForm,
+  type NewClientForm,
   type TripForm,
 } from "@/lib/newTrip";
 
@@ -46,7 +53,7 @@ const field =
   "mt-1 h-11 w-full rounded-field border border-border bg-surface-raised px-3 text-body text-fg outline-none focus:border-accent";
 const label = "block text-label font-bold text-fg-muted";
 
-export function AddTripModal({ onClose, onCreated }: { onClose: () => void; onCreated: (id: string) => void }) {
+export function AddTripModal({ onClose, onCreated }: { onClose: () => void; onCreated: (id: string, notice?: AccountNotice | null) => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const body = useRef<HTMLDivElement>(null);
   const [discarding, setDiscarding] = useState(false);
@@ -74,6 +81,10 @@ export function AddTripModal({ onClose, onCreated }: { onClose: () => void; onCr
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [client, setClient] = useState<Client | null>(null);
+  // Someone with no account yet, typed right here. Their account is made when the trip is booked.
+  const [adding, setAdding] = useState(false);
+  const [newClient, setNewClient] = useState<NewClientForm>(emptyNewClient);
+  const asNew = adding && !client ? newClient : undefined;
   const [search, setSearch] = useState("");
   const [matches, setMatches] = useState<Client[]>([]);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -137,10 +148,10 @@ export function AddTripModal({ onClose, onCreated }: { onClose: () => void; onCr
     };
   }, [search, client]);
 
-  const missing = missingForJourney(clientId, legs) ?? discountError;
+  const missing = missingForJourney(clientId, legs, asNew) ?? discountError;
   const payload = useMemo(
-    () => (missing ? null : journey ? journeyPayload(clientId, legs, discount) : tripPayload({ ...legs[0], clientId }, discount)),
-    [clientId, legs, missing, journey, discount],
+    () => (missing ? null : journey ? journeyPayload(clientId, legs, discount, asNew) : tripPayload({ ...legs[0], clientId }, discount, asNew)),
+    [clientId, legs, missing, journey, discount, asNew],
   );
 
   // The live quote.
@@ -184,18 +195,19 @@ export function AddTripModal({ onClose, onCreated }: { onClose: () => void; onCr
     try {
       if (journey) {
         const made = await createJourneyForClient(payload as ReturnType<typeof journeyPayload>);
+        const notice = accountNotice(made.client);
         if (made.error) {
           // Part of the journey is saved: stay put so the message is read, and from here the
           // dialog only leads to the trips — it must not offer to book the saved legs again.
-          setBookError(made.error);
+          setBookError(notice?.tone === "warn" ? `${made.error} ${notice.message}` : made.error);
           setSavedLegs(made.bookings[0]._id);
           setBooking(false);
           return;
         }
-        onCreated(made.bookings[0]._id);
+        onCreated(made.bookings[0]._id, notice);
       } else {
         const made = await createTripForClient(payload as ReturnType<typeof tripPayload>);
-        onCreated(made.booking._id);
+        onCreated(made.booking._id, accountNotice(made.client));
       }
     } catch (err) {
       setBookError(errorText(err, "Could not book this trip"));
@@ -211,7 +223,7 @@ export function AddTripModal({ onClose, onCreated }: { onClose: () => void; onCr
     body.current?.scrollTo({ top: 0 });
   }, [confirming]);
 
-  const dirty = Boolean(clientId || search || legs.length > 1 || legs.some((leg) => JSON.stringify(leg) !== JSON.stringify({ ...emptyTripForm(), city: leg.city })));
+  const dirty = Boolean(clientId || search || (adding && newClientStarted(newClient)) || legs.length > 1 || legs.some((leg) => JSON.stringify(leg) !== JSON.stringify({ ...emptyTripForm(), city: leg.city })));
   function close() {
     if (booking) return;
     if (savedLegs) { onCreated(savedLegs); return; }
@@ -294,6 +306,7 @@ export function AddTripModal({ onClose, onCreated }: { onClose: () => void; onCr
                         onClick={() => {
                           setClient(m);
                           setClientId(m._id);
+                          setAdding(false);
                         }}
                         className="block w-full px-4 py-2.5 text-left hover:bg-surface"
                       >
@@ -308,12 +321,35 @@ export function AddTripModal({ onClose, onCreated }: { onClose: () => void; onCr
               ) : search.trim().length >= 2 && !searching && !searchError ? (
                 <p className="mt-2 text-note text-fg-muted">
                   No active client matches.{" "}
-                  <Link href="/clients" className="font-bold text-accent hover:underline">
-                    Add them in Clients
-                  </Link>{" "}
-                  first.
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // What was typed goes in the right box, so they are not typed twice.
+                      setNewClient((prev) => ({ ...prev, ...prefillFromSearch(search) }));
+                      setAdding(true);
+                    }}
+                    className="font-bold text-accent hover:underline"
+                  >
+                    Add them as a new client
+                  </button>
                 </p>
               ) : null}
+
+              {!adding ? (
+                <button
+                  type="button"
+                  onClick={() => setAdding(true)}
+                  aria-expanded={false}
+                  aria-controls="new-client"
+                  className="mt-3 text-note font-bold text-accent hover:underline"
+                >
+                  + Add guest / new client
+                </button>
+              ) : null}
+
+              <Collapse open={adding} id="new-client">
+                <NewClientFields value={newClient} onChange={setNewClient} onClose={() => setAdding(false)} />
+              </Collapse>
             </div>
           )}
         </section>
@@ -437,7 +473,7 @@ export function AddTripModal({ onClose, onCreated }: { onClose: () => void; onCr
       </div>
       {confirming && <div className="space-y-4">
         <section className="rounded-card border border-border bg-surface-raised p-5">
-          <p className="text-label font-medium text-fg-muted">Booked for</p><p className="mt-1 text-card font-bold">{client?.name}</p><p className="mt-1 break-words text-note text-fg-muted">{client?.email}</p>
+          <p className="text-label font-medium text-fg-muted">Booked for</p><p className="mt-1 text-card font-bold">{asNew ? `${asNew.firstName.trim()} ${asNew.lastName.trim()}`.trim() : client?.name}{asNew ? <span className="ml-2 rounded-full bg-accent-soft px-2 py-0.5 align-middle text-label font-bold text-accent">New client</span> : null}</p><p className="mt-1 break-words text-note text-fg-muted">{asNew ? `${asNew.email.trim().toLowerCase()} · ${asNew.phone.trim()}` : client?.email}</p>
         </section>
         {legs.map((leg, index) => <section key={index} className="rounded-card border border-border bg-surface-raised p-5">
           <h3 className="text-action font-bold">{journey ? `Leg ${index + 1}` : "Trip"}</h3>
@@ -445,9 +481,10 @@ export function AddTripModal({ onClose, onCreated }: { onClose: () => void; onCr
             <div className="sm:col-span-2"><dt className="text-label text-fg-muted">Route</dt><dd className="mt-1 break-words">{[leg.pickup, ...leg.stops, leg.drop].filter(Boolean).join(" → ")}</dd></div>
             <div><dt className="text-label text-fg-muted">Pickup · Pacific time</dt><dd className="mt-1">{leg.when.replace("T", " · ")}</dd></div>
             <div><dt className="text-label text-fg-muted">Vehicle</dt><dd className="mt-1">{vehicles.find((vehicle) => vehicle.value === leg.vehicleClass)?.label ?? leg.vehicleClass}</dd></div>
+            {leg.notes.trim() ? <div className="sm:col-span-2"><dt className="text-label text-fg-muted">Notes</dt><dd className="mt-1 whitespace-pre-wrap break-words">{leg.notes.trim()}</dd></div> : null}
           </dl>
         </section>)}
-        <div className="rounded-card border border-accent/20 bg-accent-soft p-5"><p className="text-note text-fg-body">{client?.name} will receive a booking confirmation. {journey ? "All legs go" : "The trip goes"} to dispatch. No payment is collected now.</p></div>
+        <div className="rounded-card border border-accent/20 bg-accent-soft p-5"><p className="text-note text-fg-body">{asNew ? `${`${asNew.firstName} ${asNew.lastName}`.trim()} will be emailed to set up their new account, and sent the booking confirmation with the invoice and a link to pay.` : `${client?.name} will receive a booking confirmation.`} {journey ? "All legs go" : "The trip goes"} to dispatch. No payment is collected now.</p></div>
       </div>}
       </div>
       <footer className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-border bg-surface-raised px-5 py-4 sm:px-7">

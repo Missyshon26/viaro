@@ -21,6 +21,7 @@ export function RefundDialog({
   remaining,
   paid,
   cardLabel,
+  initialAmount,
   onClose,
   onDone,
 }: {
@@ -31,13 +32,15 @@ export function RefundDialog({
   paid: number;
   /** "visa ending 4242", or "card". */
   cardLabel: string;
+  /** Opens on a part refund of this many dollars, e.g. the overpayment after a downgrade. */
+  initialAmount?: number;
   onClose: () => void;
   onDone: () => void;
 }) {
   const titleId = useId();
   const [requestId] = useState(newRequestId);
-  const [mode, setMode] = useState<"full" | "part">("full");
-  const [text, setText] = useState("");
+  const [mode, setMode] = useState<"full" | "part">(initialAmount ? "part" : "full");
+  const [text, setText] = useState(initialAmount ? initialAmount.toFixed(2) : "");
   const [note, setNote] = useState("");
   const [step, setStep] = useState<"choose" | "confirm">("choose");
   const [pending, setPending] = useState(false);

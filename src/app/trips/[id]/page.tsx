@@ -1,7 +1,7 @@
 "use client";
 
 import { use, useCallback, useEffect, useState, type ReactNode } from "react";
-import { stageOf, isOverdue } from "@/lib/trips/stage";
+import { stageOf, isOverdue, isFinishedStage } from "@/lib/trips/stage";
 import { AssignDriver } from "@/components/ops/AssignDriver";
 import { ConfirmBooking } from "@/components/ops/ConfirmBooking";
 import { formatPhone } from "@/lib/format";
@@ -11,7 +11,6 @@ import {
   Avatar,
   StatusBadge,
   Skeleton,
-  reference,
 } from "@/components/ui/Dashboard";
 import {
   IconCalendar,
@@ -44,6 +43,8 @@ import { getTrip, listMyTrips } from "@/lib/api/driver";
 import { TripStatusControl } from "@/components/ops/TripStatusControl";
 import { findVehicleClass, vehicleLabel, TRIP_TYPE_LABEL } from "@/lib/vehicles";
 import type { Booking, BookingCancellation, Trip } from "@/lib/api/types";
+import { invoiceNumber } from "@/lib/invoice";
+import { canReject } from "@/lib/trips/reject";
 import { useLiveChanges } from "@/lib/live/useLiveChanges";
 
 type FullBooking = Booking & {
@@ -227,15 +228,21 @@ export default function BookingDetailPage({
       </div>
 
     <ConsolePage
-      title={reference(booking._id)}
+      title={invoiceNumber(booking)}
       description={`${booking.packageName ? `Package: ${booking.packageName}` : (TRIP_TYPE_LABEL[booking.tripType] ?? booking.tripType)} · ${
         booking.scheduledAtLocal ?? formatDateTime(booking.scheduledAt)
       }`}
       action={
         <div className="flex flex-col items-start gap-2 sm:items-end">
           <div className="flex flex-wrap items-center gap-2">
-            {stage !== "cancelled" && stage !== "completed" ? <EditTripButton booking={booking} onChanged={() => void load()} /> : null}
-            <DocumentDownloads bookingId={booking._id} />
+            <EditTripButton booking={booking} finished={isFinishedStage(stage)} onChanged={() => void load()} />
+            <DocumentDownloads bookingId={booking._id} number={invoiceNumber(booking)} />
+            <RejectRequest
+              compact
+              booking={booking}
+              clientName={booking.customerId && typeof booking.customerId === "object" ? booking.customerId.name : undefined}
+              onChanged={() => void load()}
+            />
             <StatusBadge tone={stage === "completed" ? "good" : stage === "cancelled" ? "bad" : "info"}>{stageLabel}</StatusBadge>
           </div>
         </div>
@@ -244,7 +251,7 @@ export default function BookingDetailPage({
       <div className="mb-5 flex flex-wrap items-center justify-between gap-4 rounded-card border border-border bg-surface px-5 py-4">
         <div><p className="text-label font-bold uppercase tracking-wider text-accent">Trip overview</p><p className="mt-1 text-note text-fg-body">{stage === "awaiting" ? (booking.confirmedAt ? "The customer has been told this trip is confirmed. Assign a driver to prepare it for pickup." : "Confirm this request to tell the customer their trip is confirmed. You can assign a driver after that.") : stage === "completed" ? "Trip complete. Review payment and trip records below." : stage === "cancelled" ? "This trip has been cancelled. Review the cancellation details below." : "Monitor the pickup and keep the trip status up to date."}</p></div>
         {isOverdue({ ...booking, trip: trip ?? undefined }) && <StatusBadge tone="bad">Pickup overdue</StatusBadge>}
-        {stage === "awaiting" && tripSearched && !tripError && (booking.confirmedAt ? <AssignDriver bookingId={booking._id} reference={reference(booking._id)} onAssigned={() => void load()} /> : <ConfirmBooking bookingId={booking._id} onConfirmed={() => void load()} />)}
+        {stage === "awaiting" && tripSearched && !tripError && (booking.confirmedAt ? <AssignDriver bookingId={booking._id} reference={invoiceNumber(booking)} onAssigned={() => void load()} /> : <ConfirmBooking bookingId={booking._id} onConfirmed={() => void load()} />)}
       </div>
       {/* ------------------------------ headline strip ------------------------- */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -439,6 +446,12 @@ export default function BookingDetailPage({
                 muted={booking.hours === undefined && !booking.cruiseShip}
               />
             </dl>
+            {booking.description?.trim() ? (
+              <div className="mt-5 border-t border-border-subtle pt-4">
+                <p className="text-label font-medium text-fg-muted">Notes</p>
+                <p className="mt-2 whitespace-pre-wrap break-words rounded-field border border-border bg-surface px-3 py-2 text-meta text-fg">{booking.description}</p>
+              </div>
+            ) : null}
             {booking.serviceNotes?.length ? (
               <div className="mt-5 border-t border-border-subtle pt-4">
                 <p className="text-label font-medium text-fg-muted">Service notes</p>
@@ -590,7 +603,7 @@ export default function BookingDetailPage({
             </dl>
           </Section>
 
-          {booking.status === "pending" || booking.status === "dispatched" || booking.cancellation?.rejected ? (
+          {canReject(booking) || booking.cancellation?.rejected ? (
             <Section icon={<IconPenalty size={14} />} title="Request">
               <RejectRequest
                 booking={booking}
@@ -851,7 +864,7 @@ function FlightBoard({ flightNumber, date }: { flightNumber: string; date?: stri
  * so they are one click from the trip. The API decides what exists: asking for a receipt
  * on an unpaid ride answers with a plain explanation, shown here as it is.
  */
-function DocumentDownloads({ bookingId }: { bookingId: string }) {
+function DocumentDownloads({ bookingId, number }: { bookingId: string; number: string }) {
   const [busy, setBusy] = useState<"invoice" | "receipt" | "email" | "emailLink" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [emailed, setEmailed] = useState<string | null>(null);
@@ -874,7 +887,7 @@ function DocumentDownloads({ bookingId }: { bookingId: string }) {
     setBusy(kind);
     setError(null);
     try {
-      await downloadFile(`/bookings/${bookingId}/documents/${kind}`, `abl-${kind}-${reference(bookingId)}.pdf`);
+      await downloadFile(`/bookings/${bookingId}/documents/${kind}`, `abl-${kind}-${number}.pdf`);
     } catch (err) {
       setError(errorText(err, `Could not download the ${kind}`));
     } finally {

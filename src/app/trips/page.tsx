@@ -14,7 +14,6 @@ import {
 import {
   PersonCell,
   StatusBadge,
-  reference,
   type BadgeTone,
 } from "@/components/ui/Dashboard";
 import { errorText } from "@/lib/api/client";
@@ -30,6 +29,7 @@ import { AddTripModal } from "@/components/trips/AddTripModal";
 import { FilterSelect } from "@/components/ui/FilterSelect";
 import { SlidersHorizontal, RotateCcw } from "lucide-react";
 import { emptyFilters, pickupDay, type TripFilters } from "@/lib/trips/filters";
+import type { AccountNotice } from "@/lib/newTrip";
 import { vehicleLabel, TRIP_TYPE_LABEL } from "@/lib/vehicles";
 import { bookedBy } from "@/lib/trips/origin";
 import { IconPlane } from "@/components/ui/Icons";
@@ -38,6 +38,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { AssignDriver } from "@/components/ops/AssignDriver";
 import { ConfirmBooking } from "@/components/ops/ConfirmBooking";
 import { TripStatusControl } from "@/components/ops/TripStatusControl";
+import { invoiceNumber } from "@/lib/invoice";
 import type { Booking, Trip } from "@/lib/api/types";
 import { stageOf, isOverdue, type TripStage as Stage } from "@/lib/trips/stage";
 import { useLiveChanges } from "@/lib/live/useLiveChanges";
@@ -137,6 +138,8 @@ function TripsView({ initialStage }: { initialStage: StageFilter }) {
   const [datePreset, setDatePreset] = useState("all");
   const [addingTrip, setAddingTrip] = useState(false);
   const [createdTrip, setCreatedTrip] = useState<string | null>(null);
+  // What happened to the new client's account when the trip was booked, if the trip made one.
+  const [accountMessage, setAccountMessage] = useState<AccountNotice | null>(null);
   const [moreFilters, setMoreFilters] = useState(false);
   const [filterNote, setFilterNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -259,7 +262,7 @@ function TripsView({ initialStage }: { initialStage: StageFilter }) {
             href={`/trips/${r._id}`}
             className="mt-1.5 inline-block font-mono text-label font-semibold text-fg-muted hover:text-accent"
           >
-            {reference(r._id)}
+            {invoiceNumber(r)}
           </Link>
           {/* Who made it: an operator, the passenger on the website, or the old system. */}
           <span className="ml-2 text-label text-fg-muted">· {bookedBy(r).label}</span>
@@ -379,7 +382,7 @@ function TripsView({ initialStage }: { initialStage: StageFilter }) {
               {r.confirmedAt ? (
                 <AssignDriver
                   bookingId={r._id}
-                  reference={reference(r._id)}
+                  reference={invoiceNumber(r)}
                   onAssigned={() => void load()}
                 />
               ) : (
@@ -428,8 +431,9 @@ function TripsView({ initialStage }: { initialStage: StageFilter }) {
         </button>
       }
     >
-      {addingTrip && <AddTripModal onClose={() => setAddingTrip(false)} onCreated={(id) => { setAddingTrip(false); setCreatedTrip(id); void load(); }} />}
-      {createdTrip && <div role="status" className="mb-4 flex flex-wrap items-center gap-3 rounded-field border border-success/30 bg-success/5 px-4 py-3 text-note"><span className="flex-1 text-fg">Trip saved. Review its details and dispatch status.</span><Link href={`/trips/${createdTrip}`} className="font-bold text-accent">View trip →</Link><button type="button" onClick={() => setCreatedTrip(null)} className="min-h-9 px-2 text-fg-muted">Dismiss</button></div>}
+      {addingTrip && <AddTripModal onClose={() => setAddingTrip(false)} onCreated={(id, notice) => { setAddingTrip(false); setCreatedTrip(id); setAccountMessage(notice ?? null); void load(); }} />}
+      {createdTrip && <div role="status" className="mb-4 flex flex-wrap items-center gap-3 rounded-field border border-success/30 bg-success/5 px-4 py-3 text-note"><span className="flex-1 text-fg">Trip saved. Review its details and dispatch status.</span><Link href={`/trips/${createdTrip}`} className="font-bold text-accent">View trip →</Link><button type="button" onClick={() => { setCreatedTrip(null); setAccountMessage(null); }} className="min-h-9 px-2 text-fg-muted">Dismiss</button></div>}
+      {createdTrip && accountMessage && <p role={accountMessage.tone === "warn" ? "alert" : "status"} className={`mb-4 rounded-field border px-4 py-3 text-note font-bold ${accountMessage.tone === "warn" ? "border-chart-warn/40 bg-chart-warn/5 text-fg" : "border-success/30 bg-success/5 text-fg"}`}>{accountMessage.message}</p>}
       {error ? (
         <p className="mb-4 rounded-field border border-danger/30 bg-danger/5 px-4 py-3 text-note font-bold text-danger">
           {error}
@@ -502,7 +506,7 @@ function TripsView({ initialStage }: { initialStage: StageFilter }) {
           onPage: (next) => setPageState({ key: fetchKey, page: next }),
         }}
         searchable={() => []}
-        searchPlaceholder="Search reference, customer, address…"
+        searchPlaceholder="Search invoice no., customer, address…"
         rowHref={(r) => `/trips/${r._id}`}
         empty={{
           title: activeCount ? "No trips match these filters" : "No trips yet",

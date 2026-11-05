@@ -5,7 +5,8 @@ import { AddressInput } from "@/components/ui/AddressInput";
 import { errorText } from "@/lib/api/client";
 import { updateBookingDetails, type BookingChanges } from "@/lib/api/admin";
 import { listVehicleClasses, type VehicleClass } from "@/lib/api/vehicles";
-import { centreOf, MAX_STOPS, OCCASIONS } from "@/lib/newTrip";
+import { centreOf, MAX_STOPS, occasionsFor } from "@/lib/newTrip";
+import { passengerChanges } from "@/lib/trips/passenger";
 import type { Booking } from "@/lib/api/types";
 
 const field =
@@ -18,7 +19,7 @@ function pacificLocal(iso: string): string {
   return parts.slice(0, 16).replace(" ", "T");
 }
 
-function initialForm(booking: Booking) {
+function initialForm(booking: Booking, finished = false) {
   return {
     pickup: booking.pickup.address,
     drop: booking.drop.address,
@@ -34,7 +35,8 @@ function initialForm(booking: Booking) {
     passengerName: booking.passengerName ?? "",
     passengerPhone: booking.passengerPhone ?? "",
     description: booking.description ?? "",
-    notifyCustomer: true,
+    // A finished trip is being corrected in the records; the client is not told unless asked.
+    notifyCustomer: !finished,
   };
 }
 type Form = ReturnType<typeof initialForm>;
@@ -81,12 +83,13 @@ export function changesFor(booking: Booking, form: Form): BookingChanges {
     if (details !== before.occasionDetails.trim()) out.occasionDetails = details || null;
   }
 
-  const name = form.passengerName.trim();
-  const phone = form.passengerPhone.trim();
-  if (name !== before.passengerName || phone !== before.passengerPhone) {
-    out.passengerName = name || null;
-    if (name) out.passengerPhone = phone || null;
-  }
+  Object.assign(
+    out,
+    passengerChanges(
+      { name: before.passengerName, phone: before.passengerPhone },
+      { name: form.passengerName, phone: form.passengerPhone },
+    ),
+  );
 
   if (form.description.trim() !== before.description.trim()) out.description = form.description.trim() || null;
 
@@ -95,11 +98,11 @@ export function changesFor(booking: Booking, form: Form): BookingChanges {
 
 /**
  * Operations changing a booking's details: route, time, vehicle, party, notes. No deadline —
- * dispatch can fix a pickup right up to the ride. Each change is recorded in the booking's trail
+ * dispatch can fix a pickup right up to the ride, and a finished trip can still be corrected. Each change is recorded in the booking's trail
  * as made by an admin, the fare is re-quoted when it should move, the calendar event follows, and
  * the client is emailed unless that is switched off.
  */
-export function EditTripButton({ booking, onChanged }: { booking: Booking; onChanged: () => void }) {
+export function EditTripButton({ booking, onChanged, finished = false }: { booking: Booking; onChanged: () => void; finished?: boolean }) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -110,14 +113,14 @@ export function EditTripButton({ booking, onChanged }: { booking: Booking; onCha
       >
         Change trip details
       </button>
-      {open ? <EditTripDialog booking={booking} onClose={() => setOpen(false)} onSaved={onChanged} /> : null}
+      {open ? <EditTripDialog booking={booking} finished={finished} onClose={() => setOpen(false)} onSaved={onChanged} /> : null}
     </>
   );
 }
 
-function EditTripDialog({ booking, onClose, onSaved }: { booking: Booking; onClose: () => void; onSaved: () => void }) {
+function EditTripDialog({ booking, finished, onClose, onSaved }: { booking: Booking; finished: boolean; onClose: () => void; onSaved: () => void }) {
   const titleId = useId();
-  const [form, setForm] = useState<Form>(() => initialForm(booking));
+  const [form, setForm] = useState<Form>(() => initialForm(booking, finished));
   const [vehicles, setVehicles] = useState<VehicleClass[]>([]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -276,7 +279,8 @@ function EditTripDialog({ booking, onClose, onSaved }: { booking: Booking; onClo
             <label className={label} htmlFor="et-occ">Occasion</label>
             <select id="et-occ" className={field} value={form.occasion} onChange={(e) => set("occasion", e.target.value)}>
               <option value="">None</option>
-              {OCCASIONS.map((o) => (
+              {/* The kinds this trip allows; a different one it already carries stays selectable so it is not lost. */}
+              {[...occasionsFor(booking.tripType), ...(booking.occasion && !occasionsFor(booking.tripType).includes(booking.occasion) ? [booking.occasion] : [])].map((o) => (
                 <option key={o} value={o}>{o}</option>
               ))}
             </select>
@@ -305,7 +309,7 @@ function EditTripDialog({ booking, onClose, onSaved }: { booking: Booking; onClo
 
         {booking.payment ? (
           <p className="mt-4 rounded-field border border-chart-warn/40 bg-chart-warn/5 px-3.5 py-2.5 text-note text-fg-body">
-            This booking is already paid. A change that moves the price does not change the amount charged: settle any difference with a refund or a new payment link.
+            This booking is already paid. A change that moves the price does not change the amount charged. After saving, the Payment panel shows the difference: send the client a link for an upgrade, or refund the overpayment for a downgrade.
           </p>
         ) : null}
 

@@ -24,10 +24,33 @@ export const OCCASIONS = [
   "Homecoming/Prom",
   "Other",
 ] as const;
+export const AIRPORT_OCCASION = "Airport Transfer";
+
+/**
+ * The occasions that make sense for a kind of trip. A one-way or round trip is an airport
+ * transfer; the celebrations and events (and "Other") belong to an hourly charter. Takes a
+ * trip type or a service, since only "hourly" differs.
+ */
+export function occasionsFor(service: string): readonly string[] {
+  return service === "hourly" ? OCCASIONS.filter((o) => o !== AIRPORT_OCCASION) : [AIRPORT_OCCASION];
+}
+
+/** The occasion if it suits this kind of trip, otherwise "" (so a stale choice never travels). */
+export function occasionFor(service: string, occasion: string): string {
+  return occasionsFor(service).includes(occasion) ? occasion : "";
+}
+
 export const MAX_STOPS = 5;
 /** Tip choices, as a percentage of the trip price. Mirrors the API's GRATUITY_OPTIONS. */
 export const GRATUITY_OPTIONS = [0, 10, 15, 20] as const;
-export const MAX_CAR_SEATS = 4;
+/** Child seats are free, at most this many per trip. Mirrors the API's MAX_CAR_SEATS. */
+export const MAX_CAR_SEATS = 3;
+
+/** The choices for the child-seat dropdown: none, then 1 to the most the API takes. "" means none. */
+export const CAR_SEAT_OPTIONS: readonly { value: string; label: string }[] = [
+  { value: "", label: "None" },
+  ...Array.from({ length: MAX_CAR_SEATS }, (_, i) => ({ value: String(i + 1), label: `${i + 1} seat${i === 0 ? "" : "s"}` })),
+];
 
 /** Where an address is placed. Keys are the pricing rules' city names, lowercased. */
 const CENTRES: Record<string, { lat: number; lng: number }> = {
@@ -63,7 +86,12 @@ export interface TripForm {
   gratuity: string;
   passengerName: string;
   passengerPhone: string;
+  /** Anything dispatch or the chauffeur should know (the booking's `description`, max 500). */
+  notes: string;
 }
+
+/** The API's limit on a booking's free-text note. */
+export const NOTES_MAX = 500;
 
 export const emptyTripForm = (): TripForm => ({
   clientId: "",
@@ -86,10 +114,80 @@ export const emptyTripForm = (): TripForm => ({
   gratuity: "0",
   passengerName: "",
   passengerPhone: "",
+  notes: "",
 });
 
 const text = (value: string) => value.trim();
 const count = (value: string) => (text(value) === "" ? undefined : Math.max(0, Math.floor(Number(value))));
+
+/* ------------------------- a client who has no account yet ------------------------- */
+
+/** The details of someone who is not a client yet, typed right on the "Add a trip" form. */
+export interface NewClientForm {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+}
+
+export const emptyNewClient = (): NewClientForm => ({ firstName: "", lastName: "", email: "", phone: "" });
+
+/** Whether anything has been typed, so an untouched form is not treated as a client. */
+export const newClientStarted = (c: NewClientForm) => Boolean(c.firstName.trim() || c.lastName.trim() || c.email.trim() || c.phone.trim());
+
+/** What is still needed before this person can be made a client, in plain words; null = ready. */
+export function newClientProblem(c: NewClientForm): string | null {
+  if (`${c.firstName} ${c.lastName}`.trim().length < 2) return "Enter the new client's full name.";
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c.email.trim())) return "Enter the new client's email address.";
+  if (c.phone.trim().length < 6) return "Enter the new client's phone number.";
+  return null;
+}
+
+/** The new client as the API takes it. */
+export function newClientPayload(c: NewClientForm) {
+  return { firstName: c.firstName.trim(), lastName: c.lastName.trim(), email: c.email.trim().toLowerCase(), phone: c.phone.trim() };
+}
+
+/**
+ * What was typed in the client search, put in the right box when the operator decides to add
+ * that person instead: an address with an @ is the email, mostly digits is the phone, anything
+ * else is the name.
+ */
+export function prefillFromSearch(term: string): Partial<NewClientForm> {
+  const text = term.trim();
+  if (!text) return {};
+  if (text.includes("@")) return { email: text };
+  if (/^[+\d\s().-]{6,}$/.test(text)) return { phone: text };
+  const space = text.replace(/\s+/g, " ").indexOf(" ");
+  const squeezed = text.replace(/\s+/g, " ");
+  return space === -1 ? { firstName: squeezed } : { firstName: squeezed.slice(0, space), lastName: squeezed.slice(space + 1) };
+}
+
+/** What the API says about the client of a booking, when the booking made their account. */
+export interface BookedClient {
+  name: string;
+  email: string;
+  created: boolean;
+  /** False when the "set your password" email could not be sent. */
+  inviteSent: boolean;
+}
+
+/**
+ * What to tell the operator about the account a booking created, or null when it made none.
+ * A failed invitation is a warning: the client has an account but no way in yet, and the operator
+ * is the only one who can fix that.
+ */
+export type AccountNotice = { tone: "ok" | "warn"; message: string };
+
+export function accountNotice(client?: BookedClient | null): AccountNotice | null {
+  if (!client?.created) return null;
+  return client.inviteSent
+    ? { tone: "ok", message: `${client.name}'s account was created, and they were emailed to set a password.` }
+    : {
+        tone: "warn",
+        message: `${client.name}'s account was created, but the email to set a password could not be sent to ${client.email}. Ask them to use "Forgot password" on the booking site, or check the address.`,
+      };
+}
 
 /** What is still needed before the trip can be priced or booked, in plain words; null = ready. */
 export function missingFrom(form: TripForm): string | null {
@@ -103,7 +201,6 @@ export function missingFrom(form: TripForm): string | null {
   }
   if (form.service === "hourly" && !(Number(form.hours) >= 1)) return "Enter how many hours (at least 1).";
   if (form.stops.some((stop) => !text(stop))) return "Fill in every stop, or remove the empty one.";
-  if (text(form.passengerPhone) && !text(form.passengerName)) return "Enter the passenger's name too.";
   return null;
 }
 
@@ -134,7 +231,7 @@ export function discountProblem(d: DiscountForm): string | null {
 }
 
 /** The body for POST /admin/bookings (and /admin/bookings/quote). */
-export function tripPayload(form: TripForm, discount?: DiscountForm) {
+export function tripPayload(form: TripForm, discount?: DiscountForm, newClient?: NewClientForm) {
   const centre = centreOf(form.city);
   const at = (address: string) => ({ lat: centre.lat, lng: centre.lng, address: text(address) });
   const hourly = form.service === "hourly";
@@ -143,10 +240,12 @@ export function tripPayload(form: TripForm, discount?: DiscountForm) {
   const checkedBags = count(form.checkedBags);
   const carryOnBags = count(form.carryOnBags);
   const carSeats = count(form.carSeats);
-  const occasion = text(form.occasion);
+  // Only an occasion that suits the kind of trip is sent: switching to hourly drops a stale one.
+  const occasion = occasionFor(form.service, text(form.occasion));
 
   return {
-    customerId: form.clientId,
+    // An existing client, or a new one whose account is made when the trip is booked: never both.
+    ...(newClient ? { newClient: newClientPayload(newClient) } : { customerId: form.clientId }),
     ...discountPayload(discount),
     trip: {
       pickup: at(form.pickup),
@@ -169,8 +268,10 @@ export function tripPayload(form: TripForm, discount?: DiscountForm) {
       ...(occasion === "Other" && text(form.occasionDetails) ? { occasionDetails: text(form.occasionDetails) } : {}),
       ...(checkedBags !== undefined ? { checkedBags } : {}),
       ...(carryOnBags !== undefined ? { carryOnBags } : {}),
+      ...(text(form.notes) ? { description: text(form.notes).slice(0, NOTES_MAX) } : {}),
       ...(passengerName ? { passengerName } : {}),
-      ...(passengerName && text(form.passengerPhone) ? { passengerPhone: text(form.passengerPhone) } : {}),
+      // Each is optional on its own: a number to ring needs no name.
+      ...(text(form.passengerPhone) ? { passengerPhone: text(form.passengerPhone) } : {}),
     },
   };
 }
@@ -222,9 +323,14 @@ export function nextLeg(previous: TripForm): TripForm {
 }
 
 /** What is still needed before the journey can be priced or booked; null = ready. */
-export function missingForJourney(clientId: string, legs: TripForm[]): string | null {
+export function missingForJourney(clientId: string, legs: TripForm[], newClient?: NewClientForm): string | null {
+  // A new client stands in for the choice of an existing one; they are checked first.
+  if (newClient) {
+    const problem = newClientProblem(newClient);
+    if (problem) return problem;
+  }
   for (const [index, leg] of legs.entries()) {
-    const problem = missingFrom({ ...leg, clientId });
+    const problem = missingFrom({ ...leg, clientId: newClient ? "new" : clientId });
     if (problem) return legs.length > 1 ? `Leg ${index + 1}: ${problem}` : problem;
   }
   if (legs.length > 1) {
@@ -239,6 +345,10 @@ export function missingForJourney(clientId: string, legs: TripForm[]): string | 
 }
 
 /** The body for POST /admin/bookings/journey (and its /quote). */
-export function journeyPayload(clientId: string, legs: TripForm[], discount?: DiscountForm) {
-  return { customerId: clientId, ...discountPayload(discount), legs: legs.map((leg) => tripPayload({ ...leg, clientId }).trip) };
+export function journeyPayload(clientId: string, legs: TripForm[], discount?: DiscountForm, newClient?: NewClientForm) {
+  return {
+    ...(newClient ? { newClient: newClientPayload(newClient) } : { customerId: clientId }),
+    ...discountPayload(discount),
+    legs: legs.map((leg) => tripPayload({ ...leg, clientId }).trip),
+  };
 }

@@ -34,6 +34,13 @@ export const createClient = (input: NewClientInput) =>
 export const updateClient = (id: string, input: Record<string, unknown>) =>
   api.patch<User>(`/admin/customers/${id}`, input);
 
+/**
+ * An admin correcting any account's details, whatever its role: customer, driver, company or
+ * admin. The same fields as editing a client; the role itself is never changed.
+ */
+export const updateUser = (id: string, input: Record<string, unknown>) =>
+  api.patch<User>(`/admin/users/${id}`, input);
+
 /** The list, with the same filters the screen is showing, as a file the browser saves. */
 export const downloadClients = (filters: ClientFilters, format: "xlsx" | "csv") =>
   downloadFile(exportPath(filters, format), `abl-clients.${format}`);

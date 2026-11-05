@@ -99,6 +99,8 @@ export interface Booking {
   isGuest?: boolean;
   /** `admin` = an operator booked it for the client from the console (unpaid until collected). */
   source?: "customer" | "admin";
+  /** The running number printed on the invoice and receipt (absent on older bookings). */
+  tripNo?: string;
   /** Present on bookings carried over from the old system. */
   legacy?: { tripNo?: string; status?: string; paymentStatus?: string; paymentMethod?: string; bookingSource?: string };
   /** Intermediate stops, in order. */
@@ -174,6 +176,10 @@ export interface Booking {
   };
   /** Where the booking stands on the shared calendar; absent until it has been added. */
   calendar?: { link?: string; syncedAt: string; removed?: boolean; hash: string };
+  /** Further card payments after the first: what an upgrade to a dearer vehicle added. */
+  extraPayments?: { amount: number; refundedAmount: number; brand?: string; last4?: string; paidAt: string; reason: "upgrade" }[];
+  /** The last link for the difference after an upgrade; kept apart from `paymentLink`. */
+  upgradeLink?: { url: string; amount: number; sentAt: string; expiresAt: string; emailed: boolean };
   /** The last "pay online" link an operator sent for this booking. */
   paymentLink?: { url: string; amount: number; sentAt: string; expiresAt: string; emailed: boolean };
   flightDetails?: { flightNumber: string; scheduledArrival?: string };

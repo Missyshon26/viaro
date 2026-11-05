@@ -1,5 +1,6 @@
 import { api } from "./client";
 import type { Booking, Driver, Paginated, Trip, User } from "./types";
+import type { BookedClient } from "@/lib/newTrip";
 
 /**
  * Admin + company management endpoints.
@@ -561,6 +562,16 @@ export const sendPaymentLink = (bookingId: string) =>
     `/admin/bookings/${bookingId}/payment-link`,
   );
 
+/**
+ * Emails the client a Stripe page for what an upgrade added to a trip that is already paid.
+ * The amount is whatever the booking still owes; the API works it out. A downgrade has no
+ * counterpart here: it is settled with an ordinary refund.
+ */
+export const sendUpgradeLink = (bookingId: string) =>
+  api.post<{ url: string; amount: number; expiresAt: string; emailed: boolean; sentTo: string }>(
+    `/admin/bookings/${bookingId}/upgrade-link`,
+  );
+
 /* ---------------------------- trips for clients ---------------------------- */
 
 /** The body of both calls below — build it with tripPayload() in lib/newTrip.ts. */
@@ -595,11 +606,11 @@ export const quoteJourneyForClient = (body: AdminJourneyBody) =>
  * exist and are returned, so the operator can add the rest as separate trips.
  */
 export const createJourneyForClient = (body: AdminJourneyBody) =>
-  api.post<{ bookings: { _id: string; estimatedFare: number }[]; error?: string }>("/admin/bookings/journey", body);
+  api.post<{ bookings: { _id: string; estimatedFare: number }[]; error?: string; client?: BookedClient }>("/admin/bookings/journey", body);
 
 /** Books the trip for the client. It is unpaid until the fare is collected. */
 export const createTripForClient = (body: AdminTripBody) =>
-  api.post<{ booking: { _id: string; estimatedFare: number } }>("/admin/bookings", body);
+  api.post<{ booking: { _id: string; estimatedFare: number }; client?: BookedClient }>("/admin/bookings", body);
 
 /** What an operator can change on a booking. Send only what moved: each change is recorded. */
 export interface BookingChanges {

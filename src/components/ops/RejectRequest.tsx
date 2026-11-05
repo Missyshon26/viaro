@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { errorText } from "@/lib/api/client";
 import { rejectBookingRequest } from "@/lib/api/admin";
 import { StatusBadge } from "@/components/ui/Dashboard";
+import { canReject } from "@/lib/trips/reject";
 import type { Booking } from "@/lib/api/types";
 
 /**
@@ -17,15 +18,21 @@ export function RejectRequest({
   booking,
   clientName,
   onChanged,
+  compact = false,
 }: {
   booking: Booking;
   clientName?: string;
   onChanged: () => void;
+  /** Just the button, for the page header; the full explanation stays in the Request section. */
+  compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [done, setDone] = useState<string | null>(null);
 
   const rejected = booking.status === "cancelled" && booking.cancellation?.rejected;
+  if (rejected && compact) {
+    return done ? <p className="text-note font-bold text-danger">{done}</p> : null;
+  }
   if (rejected) {
     return (
       <div className="space-y-2">
@@ -40,18 +47,18 @@ export function RejectRequest({
     );
   }
 
-  if (booking.status !== "pending" && booking.status !== "dispatched") return null;
+  if (!canReject(booking)) return null;
 
   return (
-    <div className="space-y-3">
-      <p className="text-note leading-relaxed text-fg-muted">
+    <div className={compact ? undefined : "space-y-3"}>
+      {compact ? null : <p className="text-note leading-relaxed text-fg-muted">
         No driver has taken this ride yet. If it cannot be done, reject it: the customer is
         emailed your reason{booking.payment ? " and refunded in full" : ""}.
-      </p>
+      </p>}
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="rounded-field border border-danger/40 px-3.5 py-2 text-note font-bold text-danger hover:bg-danger/5"
+        className={`rounded-field border border-danger/40 px-3.5 py-2 text-note font-bold text-danger hover:bg-danger/5 ${compact ? "" : "mt-3"}`}
       >
         Reject this request…
       </button>
