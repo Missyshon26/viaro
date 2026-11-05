@@ -32,9 +32,12 @@ describe('booking details fields', () => {
   it.each([
     ['unknown occasion', { occasion: 'Funeral' }],
     ['negative bags', { checkedBags: -1 }],
-    ['phone without name', { passengerPhone: '+12065550148' }],
   ])('rejects %s', (_l, extra) => {
     expect(createBookingSchema.safeParse({ ...base, ...extra }).success).toBe(false);
+  });
+
+  it('accepts a phone without a name: each passenger field is optional on its own', () => {
+    expect(createBookingSchema.safeParse({ ...base, passengerPhone: '+12065550148' }).success).toBe(true);
   });
 
   it('adds dispatch notes only when the details are present', () => {

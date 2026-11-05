@@ -164,7 +164,7 @@ export async function linkForInvoice(bookingId: string, adminId: string): Promis
   }
 }
 
-async function emailLink(input: {
+export async function emailLink(input: {
   name: string;
   to: string;
   link: string;

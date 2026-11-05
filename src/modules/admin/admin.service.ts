@@ -16,6 +16,7 @@ import { round2 } from '../../utils/money';
 import { getOrCreateWallet } from '../wallet/wallet.service';
 import { driverRosterOwner } from '../../utils/roster';
 import type { CreateDriverInput, JourneysQuery, UpdateDriverInput } from './admin.validation';
+import { referenceClauses } from './admin.search';
 
 const BCRYPT_ROUNDS = 12;
 
@@ -246,7 +247,6 @@ export async function listJourneys(q: JourneysQuery) {
   const search: Record<string, unknown>[] = [];
   if (q.q) {
     const pattern = new RegExp(escapeRegex(q.q), 'i');
-    const hex = q.q.replace(/^abl-?/i, '');
     search.push(
       { 'customer.name': pattern },
       { 'customer.email': pattern },
@@ -256,12 +256,7 @@ export async function listJourneys(q: JourneysQuery) {
       { vehicleClass: pattern },
       { 'flightDetails.flightNumber': pattern },
     );
-    // "ABL-7849B0": the reference is the tail of the booking id.
-    if (/^[0-9a-f]{3,24}$/i.test(hex)) {
-      search.push({
-        $expr: { $regexMatch: { input: { $toString: '$_id' }, regex: `${escapeRegex(hex)}$`, options: 'i' } },
-      });
-    }
+    search.push(...referenceClauses(q.q));
   }
 
   const overdue = {

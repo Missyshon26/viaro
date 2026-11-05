@@ -27,6 +27,7 @@ import * as notify from '../notifications/notifications.service';
 import { notifyOps, OPS_NOTIFICATIONS, bookingRef } from '../notifications/ops.notify';
 import { NOTIFICATION_TYPES } from '../notifications/notifications.service';
 import type { AdminUpdateBookingInput, CreateBookingInput, UpdateBookingInput } from './booking.validation';
+import { futureDateString } from './booking.validation';
 import { applyAmendment, assertChangeable } from './booking.amendments';
 import { companyOwnsDriver } from '../../utils/roster';
 import { recordBookingCancellation } from './booking.cancellation';
@@ -182,7 +183,8 @@ export async function createBooking(
     ...(input.carryOnBags !== undefined ? { carryOnBags: input.carryOnBags } : {}),
     ...(input.checkedBags !== undefined ? { checkedBags: input.checkedBags } : {}),
     ...(input.passengerName ? { passengerName: input.passengerName } : {}),
-    ...(input.passengerName && input.passengerPhone ? { passengerPhone: input.passengerPhone } : {}),
+    // Each is optional on its own: a number to ring needs no name, and a name needs no number.
+    ...(input.passengerPhone ? { passengerPhone: input.passengerPhone } : {}),
   };
 
   const breakdown = fareBreakdownFor(fare, paid?.chargedFare);
@@ -278,7 +280,9 @@ export async function createBooking(
  */
 export async function getBookingForUser(bookingId: string, user: AuthUser) {
   const booking = await Booking.findById(bookingId)
-    .populate({ path: 'customerId', select: 'name phone' })
+    // The console shows the customer's email (and mails the invoice to it): admins only, as a
+    // company must not be handed an address along with another operator's passenger.
+    .populate({ path: 'customerId', select: user.role === 'admin' ? 'name email phone' : 'name phone' })
     .lean();
 
   if (!booking) throw ApiError.notFound('Booking not found');
@@ -310,11 +314,14 @@ export async function getBookingForUser(bookingId: string, user: AuthUser) {
 
   // The rest of the journey, for the people who may see it. A chauffeur or an operator is
   // shown their own job only: the other legs may belong to someone else's roster.
+  // The pickup as Pacific wall time, so every screen reads the same hour whatever the viewer's zone.
+  const withLocal = booking.scheduledAt ? { ...booking, scheduledAtLocal: format(booking.scheduledAt) } : booking;
+
   if ((user.role === 'customer' || user.role === 'admin') && booking.journey) {
-    return { ...booking, journeyLegs: await journeyLegsOf(booking) };
+    return { ...withLocal, journeyLegs: await journeyLegsOf(booking) };
   }
 
-  return booking;
+  return withLocal;
 }
 
 /**
@@ -349,24 +356,33 @@ export async function updateBooking(bookingId: string, customerId: string, input
 }
 
 /**
- * Operations changing any booking, whoever made it. There is no deadline here: the people
- * who dispatch the job are the ones who would otherwise be told to "call us", so they can
- * fix a pickup an hour before it is due. A finished or cancelled booking stays as it was.
- * The customer is emailed unless `notifyCustomer` is false.
+ * Operations changing any booking, whoever made it, at any time. There is no deadline here:
+ * the people who dispatch the job are the ones who would otherwise be told to "call us", so
+ * they can fix a pickup an hour before it is due. A completed or cancelled booking can be
+ * corrected too (a wrong address, date or head count in the records): those edits are
+ * recorded in the change trail like any other, but the fare is not re-quoted, because the trip
+ * is already settled. The customer is emailed unless `notifyCustomer` is false.
  */
 export async function adminUpdateBooking(bookingId: string, input: AdminUpdateBookingInput) {
   const booking = await Booking.findById(bookingId);
   if (!booking) throw ApiError.notFound('Booking not found');
-  if (booking.status === 'cancelled') {
-    throw ApiError.conflict('This booking has been cancelled and can no longer be changed');
-  }
   const trip = await Trip.findOne({ bookingId: booking._id }).select('status').lean();
-  if (trip?.status === 'completed') {
-    throw ApiError.conflict('This trip is finished, so its details can no longer be changed');
+  const finished = booking.status === 'cancelled' || trip?.status === 'completed';
+
+  // The vehicle sets the price. A finished trip's price is settled (the payout is posted), so it
+  // keeps the vehicle it was driven with; everything else about it can still be corrected.
+  if (finished && input.vehicleClass && input.vehicleClass !== booking.vehicleClass) {
+    throw ApiError.conflict('The vehicle cannot be changed on a completed or cancelled trip, because its price is settled.');
+  }
+
+  // An open booking is still a future pickup; only a finished one may be given a past date.
+  if (input.scheduledAt && !finished) {
+    const check = futureDateString.safeParse(input.scheduledAt);
+    if (!check.success) throw ApiError.badRequest(check.error.issues[0]?.message ?? 'Not a valid pickup time');
   }
 
   const { notifyCustomer, ...fields } = input;
-  return applyBookingUpdate(booking, fields, 'admin', notifyCustomer ?? true);
+  return applyBookingUpdate(booking, fields, 'admin', notifyCustomer ?? true, finished);
 }
 
 /** The shared change: one set of rules, re-pricing, trail and live updates for both actors. */
@@ -375,6 +391,8 @@ async function applyBookingUpdate(
   input: UpdateBookingInput & Pick<AdminUpdateBookingInput, 'passengers' | 'description'>,
   by: 'customer' | 'admin',
   notifyCustomer: boolean,
+  /** Completed or cancelled: the details are corrected, but the settled fare is left alone. */
+  finished = false,
 ) {
   // What the vehicle rules read, before this edit touches it. They are judged only if one
   // of these actually ends up different — the edit screen posts every field every time, so
@@ -444,6 +462,7 @@ async function applyBookingUpdate(
   // cannot be re-quoted; it keeps its original estimate rather than being priced wrongly.
   // Addresses count too: a route price (Tacoma ↔ Sea-Tac) depends on where it goes.
   const repriced = Boolean(
+    !finished &&
     (input.vehicleClass || input.scheduledAt || input.pickup || input.drop || details.stopCountChanged) &&
       booking.city,
   );
@@ -499,6 +518,14 @@ async function applyBookingUpdate(
     await booking.save();
 
     const fareMoved = previousFare !== undefined && previousFare !== booking.estimatedFare;
+    // Dispatch copied the fare onto the trip when a driver was assigned; the invoice and the
+    // charge after the ride read that copy, so it follows the booking until the trip is settled.
+    if (fareMoved) {
+      await Trip.updateOne(
+        { bookingId: booking._id, status: { $nin: ['completed', 'cancelled'] }, settled: { $ne: true } },
+        { $set: { fareAmount: booking.estimatedFare ?? 0, ...(booking.fareBreakdown?.tax !== undefined ? { taxAmount: booking.fareBreakdown.tax } : {}) } },
+      );
+    }
     if (fareMoved && notifyCustomer) {
       // The customer must learn the price moved from the same change that moved it.
       await afterCommit('Re-price notice', booking._id, () =>

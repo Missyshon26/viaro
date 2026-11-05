@@ -129,20 +129,47 @@ export const adminDiscountSchema = z
   })
   .refine((d) => d.type !== 'percent' || d.value <= 100, { message: 'A percentage discount cannot be more than 100', path: ['value'] });
 
-export const adminTripSchema = z.object({
-  customerId: z.string().regex(/^[a-fA-F0-9]{24}$/, 'Choose a client'),
-  trip: createBookingSchema,
-  discount: adminDiscountSchema.optional(),
-});
+/**
+ * A client who has no account yet, entered right on the "Add a trip" form. The account is made
+ * when the trip is booked; the client is emailed to set a password, then sent the invoice.
+ */
+export const adminNewClientSchema = z
+  .object({
+    firstName: z.string().trim().min(1, 'Enter the first name').max(60),
+    lastName: z.string().trim().max(60).default(''),
+    email: z.string().trim().email('Enter a valid email address').toLowerCase(),
+    phone: z.string().trim().min(6, 'Enter the phone number').max(30),
+  })
+  .refine((d) => `${d.firstName} ${d.lastName}`.trim().length >= 2, {
+    message: 'Enter the full name',
+    path: ['firstName'],
+  });
+export type AdminNewClientInput = z.infer<typeof adminNewClientSchema>;
+
+const customerIdSchema = z.string().regex(/^[a-fA-F0-9]{24}$/, 'Choose a client');
+const oneClient = (d: { customerId?: string; newClient?: unknown }) => Boolean(d.customerId) !== Boolean(d.newClient);
+const oneClientMessage = { message: "Choose a client, or enter the new client's details", path: ['customerId'] };
+
+export const adminTripSchema = z
+  .object({
+    /** An existing client, or `newClient` for one who has no account yet — exactly one of the two. */
+    customerId: customerIdSchema.optional(),
+    newClient: adminNewClientSchema.optional(),
+    trip: createBookingSchema,
+    discount: adminDiscountSchema.optional(),
+  })
+  .refine(oneClient, oneClientMessage);
 export type AdminTripInput = z.infer<typeof adminTripSchema>;
 
 /** A multi-city journey or round trip an operator books for a client: two to five legs. */
 export const adminJourneySchema = z
   .object({
-    customerId: z.string().regex(/^[a-fA-F0-9]{24}$/, 'Choose a client'),
+    customerId: customerIdSchema.optional(),
+    newClient: adminNewClientSchema.optional(),
     legs: z.array(createBookingSchema).min(2).max(MAX_JOURNEY_LEGS),
     discount: adminDiscountSchema.optional(),
   })
+  .refine(oneClient, oneClientMessage)
   .superRefine((data, ctx) => refineLegOrder(data.legs, ctx));
 export type AdminJourneyInput = z.infer<typeof adminJourneySchema>;
 

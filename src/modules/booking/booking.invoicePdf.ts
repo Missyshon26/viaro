@@ -66,8 +66,8 @@ function rowsFor(data: DocumentData): Row[] {
   return rows;
 }
 
+// No banner for an unpaid invoice: the old site's invoice never said "payment due".
 const BANNER: Partial<Record<DocumentData['status'], string>> = {
-  due: 'PAYMENT DUE',
   cancelled: 'CANCELLED',
   refunded: 'REFUNDED',
   partially_refunded: 'PARTIALLY REFUNDED',
@@ -195,8 +195,12 @@ export function renderInvoicePdf(data: DocumentData, options: { compress?: boole
       total('Refunded', `-${usd(data.refunded)}`, tail);
       tail += 15;
     }
-    total('Balance due', usd(data.balanceDue), tail, data.balanceDue > 0);
-    tail += 15;
+    // A plain unpaid invoice ends at the grand total, as on the old site; the balance is only
+    // spelled out once something has been paid, credited or refunded against it.
+    if (data.amountPaid || data.creditApplied || data.refunded) {
+      total('Balance due', usd(data.balanceDue), tail, data.balanceDue > 0);
+      tail += 15;
+    }
     if (data.payment && !isReceipt) {
       doc.font('Helvetica').fontSize(9).fillColor('#555555');
       doc.text(
@@ -238,13 +242,13 @@ const STANDBY_RATES: [string, string][] = [
 function termsAndConditions(doc: PDFKit.PDFDocument) {
   const width = 495;
   const heading = (text: string) => {
-    doc.moveDown(0.7);
+    doc.moveDown(0.5);
     doc.font('Helvetica-Bold').fontSize(11).fillColor('black');
     doc.text(text, 50, doc.y, { width });
     doc.font('Helvetica').fontSize(10);
   };
   const paragraph = (text: string) => {
-    doc.moveDown(0.35);
+    doc.moveDown(0.25);
     doc.text(text, 50, doc.y, { width });
   };
   const bullet = (text: string) => {
@@ -275,6 +279,9 @@ function termsAndConditions(doc: PDFKit.PDFDocument) {
     'All Black Limo reserves the right to delay, reroute, modify, or discontinue transportation when conditions are determined to be unsafe.',
   );
 
+  // The heading, its three lines and the rate table are read together: if they do not fit in
+  // what is left of the page they start the next one, rather than splitting a table row in two.
+  if (doc.y + 300 > doc.page.height - 50) doc.addPage();
   heading('Standby / Wait Time');
   paragraph('Airport Pickups: A one-hour complimentary standby period is included.');
   paragraph('All Other Reservations: A 15-minute complimentary standby period is included.');
@@ -293,7 +300,7 @@ function termsAndConditions(doc: PDFKit.PDFDocument) {
     const rowY = doc.y;
     doc.text(vehicleType, 60, rowY);
     doc.text(rate, 320, rowY);
-    doc.moveDown(0.55);
+    doc.moveDown(0.45);
   }
   hr(doc.y);
 
@@ -348,6 +355,6 @@ function termsAndConditions(doc: PDFKit.PDFDocument) {
     'All Black Limo reserves the right to charge the authorized payment method on file for the original reservation, standby time, approved reservation changes, additional services, surcharges, and other applicable charges incurred under these Terms and Conditions.',
   );
 
-  doc.moveDown(0.5);
-  doc.fontSize(12).fillColor('gray').text('----------- [END] -----------', 50, doc.y, { width, align: 'center' });
+  doc.moveDown(0.2);
+  doc.fontSize(11).fillColor('gray').text('----------- [END] -----------', 50, doc.y, { width, align: 'center' });
 }

@@ -9,6 +9,7 @@ import * as customers from './admin.customers';
 import * as adminTrips from './admin.trips';
 import * as paymentLinks from '../payments/paymentLink';
 import { refundBookingAmount } from '../payments/cardPayments';
+import * as upgradeCharge from '../payments/upgradeCharge';
 import { rejectBooking } from '../booking/booking.reject';
 import { confirmBooking } from '../booking/booking.confirm';
 import { adminUpdateBooking } from '../booking/booking.service';
@@ -146,6 +147,12 @@ export async function updateCustomer(req: Request, res: Response): Promise<void>
   res.json({ success: true, data });
 }
 
+/** PATCH /admin/users/:id — an admin correcting any account's details, whatever its role. */
+export async function updateUser(req: Request, res: Response): Promise<void> {
+  const data = await customers.updateUser(params<IdParam>(req).id, body<UpdateCustomerInput>(req), req.user!.userId);
+  res.json({ success: true, data });
+}
+
 /** GET /admin/customers/export — the clients list as a spreadsheet download. */
 export async function exportCustomers(req: Request, res: Response): Promise<void> {
   const file = await customers.exportCustomers(query<ExportCustomersQuery>(req));
@@ -159,27 +166,37 @@ export async function exportCustomers(req: Request, res: Response): Promise<void
 
 /** POST /admin/bookings/quote — the price of a trip for a client; nothing is saved. */
 export async function quoteTrip(req: Request, res: Response): Promise<void> {
-  const { customerId, trip, discount } = body<AdminTripInput>(req);
-  res.json({ success: true, data: await adminTrips.quoteTrip(customerId, trip, 0, discount) });
+  const { customerId, newClient, trip, discount } = body<AdminTripInput>(req);
+  const data = newClient
+    ? await adminTrips.quoteTripForNewClient(newClient, trip, discount)
+    : await adminTrips.quoteTrip(customerId!, trip, 0, discount);
+  res.json({ success: true, data });
 }
 
 /** POST /admin/bookings — books a trip on a client's behalf (unpaid until collected). */
 export async function createTrip(req: Request, res: Response): Promise<void> {
-  const { customerId, trip, discount } = body<AdminTripInput>(req);
-  const data = await adminTrips.createTripForCustomer(req.user!.userId, customerId, trip, discount);
+  const { customerId, newClient, trip, discount } = body<AdminTripInput>(req);
+  const data = newClient
+    ? await adminTrips.createTripForNewClient(req.user!.userId, newClient, trip, discount)
+    : await adminTrips.createTripForCustomer(req.user!.userId, customerId!, trip, discount);
   res.status(201).json({ success: true, data });
 }
 
 /** POST /admin/bookings/journey/quote — each leg's price and the total; nothing is saved. */
 export async function quoteJourney(req: Request, res: Response): Promise<void> {
-  const { customerId, legs, discount } = body<AdminJourneyInput>(req);
-  res.json({ success: true, data: await adminTrips.quoteJourney(customerId, legs, discount) });
+  const { customerId, newClient, legs, discount } = body<AdminJourneyInput>(req);
+  const data = newClient
+    ? await adminTrips.quoteJourneyForNewClient(newClient, legs, discount)
+    : await adminTrips.quoteJourney(customerId!, legs, discount);
+  res.json({ success: true, data });
 }
 
 /** POST /admin/bookings/journey — books a multi-city journey or round trip for a client. */
 export async function createJourney(req: Request, res: Response): Promise<void> {
-  const { customerId, legs, discount } = body<AdminJourneyInput>(req);
-  const data = await adminTrips.createJourneyForCustomer(req.user!.userId, customerId, legs, discount);
+  const { customerId, newClient, legs, discount } = body<AdminJourneyInput>(req);
+  const data = newClient
+    ? await adminTrips.createJourneyForNewClient(req.user!.userId, newClient, legs, discount)
+    : await adminTrips.createJourneyForCustomer(req.user!.userId, customerId!, legs, discount);
   res.status(201).json({ success: true, data });
 }
 
@@ -192,6 +209,12 @@ export async function updateBooking(req: Request, res: Response): Promise<void> 
 /** POST /admin/bookings/:id/payment-link — emails the client a link to pay this booking. */
 export async function sendPaymentLink(req: Request, res: Response): Promise<void> {
   const data = await paymentLinks.sendPaymentLink(params<IdParam>(req).id, req.user!.userId);
+  res.json({ success: true, data });
+}
+
+/** POST /admin/bookings/:id/upgrade-link — emails the client a link for what an upgrade added to a paid trip. */
+export async function sendUpgradeLink(req: Request, res: Response): Promise<void> {
+  const data = await upgradeCharge.sendUpgradeLink(params<IdParam>(req).id, req.user!.userId);
   res.json({ success: true, data });
 }
 

@@ -3,8 +3,16 @@ import request from 'supertest';
 import app from '../../src/app';
 import { Booking } from '../../src/models/Booking';
 import { User } from '../../src/models/User';
+import { Wallet } from '../../src/models/Wallet';
+import { Notification } from '../../src/models/Notification';
+import * as mail from '../../src/modules/notifications/notification.emails';
+import * as email from '../../src/integrations/email';
 import { listen, makeUser, pickupIn, point, resetData, seedCatalogue, startDatabase, stopDatabase } from './harness';
 
+vi.mock('../../src/integrations/email', async (orig) => {
+  const actual = await orig<typeof import('../../src/integrations/email')>();
+  return { ...actual, sendEmail: vi.fn(async () => ({ sent: true, provider: 'test' })) };
+});
 vi.mock('../../src/jobs/cancellationWindow.job', () => ({
   scheduleCancellationWindowCheck: vi.fn(async () => undefined),
 }));
@@ -22,6 +30,7 @@ afterAll(async () => {
 });
 beforeEach(async () => {
   await resetData();
+  vi.mocked(email.sendEmail).mockClear();
 });
 
 const trip = (over: Record<string, unknown> = {}) => ({
@@ -84,6 +93,37 @@ describe('POST /admin/bookings', () => {
     expect(saved!.status).toBe('pending');
     expect(saved!.payment).toBeUndefined();
     expect(saved!.estimatedFare).toBeGreaterThan(0);
+  });
+
+  it('saves the operator\'s note on the booking and returns it with the trip', async () => {
+    const admin = await makeUser('admin');
+    const client = await makeUser('customer');
+    const note = 'Wheelchair user. Gate code 4411.';
+    const res = await post('/admin/bookings', admin.auth, { customerId: client.id, trip: trip({ description: note }) });
+    expect(res.status).toBe(201);
+    expect(res.body.data.booking.description).toBe(note);
+    expect((await Booking.findById(res.body.data.booking._id).lean())!.description).toBe(note);
+
+    const quote = await post('/admin/bookings/quote', admin.auth, { customerId: client.id, trip: trip({ description: note }) });
+    expect(quote.status).toBe(200);
+  });
+
+  it('saves a passenger phone with no passenger name, and tells dispatch', async () => {
+    const admin = await makeUser('admin');
+    const client = await makeUser('customer');
+    const res = await post('/admin/bookings', admin.auth, { customerId: client.id, trip: trip({ passengerPhone: '+12065550148' }) });
+    expect(res.status).toBe(201);
+    const saved = await Booking.findById(res.body.data.booking._id).lean();
+    expect(saved!.passengerPhone).toBe('+12065550148');
+    expect(saved!.passengerName).toBeUndefined();
+    expect(saved!.serviceNotes).toContain('Passenger phone: +12065550148.');
+  });
+
+  it('refuses a note over 500 characters', async () => {
+    const admin = await makeUser('admin');
+    const client = await makeUser('customer');
+    const res = await post('/admin/bookings', admin.auth, { customerId: client.id, trip: trip({ description: 'x'.repeat(501) }) });
+    expect(res.status).toBe(400);
   });
 
   it('carries the client\'s guest tag and signed agreement onto the trip', async () => {
@@ -232,5 +272,123 @@ describe('POST /admin/bookings/journey (multi-city and round trips)', () => {
     const client = await makeUser('customer');
     expect((await post('/admin/bookings/journey', client.auth, { customerId: client.id, legs: [out(), back()] })).status).toBe(403);
     expect(await Booking.countDocuments()).toBe(0);
+  });
+});
+
+describe('a client who has no account yet, entered on the Add a trip form', () => {
+  const newClient = { firstName: 'Camila', lastName: 'Saywali', email: 'Camila@Saywali.com', phone: '+12065550123' };
+  const sentTo = (to: string) => vi.mocked(email.sendEmail).mock.calls.map((c) => c[0]).filter((m) => m.to === to);
+
+  it('prices them as a brand-new client, saving nothing', async () => {
+    const admin = await makeUser('admin');
+    const existing = await makeUser('customer'); // no bookings yet: the same first-trip price
+    const forNew = await post('/admin/bookings/quote', admin.auth, { newClient, trip: trip() });
+    const forExisting = await post('/admin/bookings/quote', admin.auth, { customerId: existing.id, trip: trip() });
+    expect(forNew.status).toBe(200);
+    expect(forNew.body.data.fare).toBe(forExisting.body.data.fare);
+    expect(await User.findOne({ email: 'camila@saywali.com' })).toBeNull();
+    expect(await Booking.countDocuments()).toBe(0);
+  });
+
+  it('needs exactly one of a client and new-client details', async () => {
+    const admin = await makeUser('admin');
+    const client = await makeUser('customer');
+    expect((await post('/admin/bookings', admin.auth, { trip: trip() })).status).toBe(400);
+    expect((await post('/admin/bookings', admin.auth, { customerId: client.id, newClient, trip: trip() })).status).toBe(400);
+    expect((await post('/admin/bookings', admin.auth, { newClient: { ...newClient, email: 'nope' }, trip: trip() })).status).toBe(400);
+    expect((await post('/admin/bookings', admin.auth, { newClient: { ...newClient, phone: '12' }, trip: trip() })).status).toBe(400);
+  });
+
+  it('makes the account when the trip is booked, and books the trip for it', async () => {
+    const admin = await makeUser('admin');
+    const res = await post('/admin/bookings', admin.auth, { newClient, trip: trip() });
+    expect(res.status).toBe(201);
+    expect(res.body.data.client).toMatchObject({ name: 'Camila Saywali', email: 'camila@saywali.com', created: true });
+
+    const user = await User.findOne({ email: 'camila@saywali.com' });
+    expect(user).toMatchObject({ role: 'customer', name: 'Camila Saywali', phone: '+12065550123', status: 'active' });
+    expect(await Wallet.findOne({ ownerId: user!._id, ownerType: 'customer' })).not.toBeNull();
+    expect(user!.walletId).toBeDefined();
+
+    const booking = await Booking.findById(res.body.data.booking._id).lean();
+    expect(String(booking!.customerId)).toBe(String(user!._id));
+    expect(booking!.source).toBe('admin');
+    expect(booking!.payment).toBeUndefined();
+  });
+
+  it('emails them that their account was created, and tells them about the trip with the invoice and a way to pay', async () => {
+    const admin = await makeUser('admin');
+    const res = await post('/admin/bookings', admin.auth, { newClient, trip: trip() });
+    const id = String(res.body.data.booking._id);
+
+    // 1. "Account Created", with the link to choose a password. This sender runs under test.
+    const invites = sentTo('camila@saywali.com');
+    expect(invites).toHaveLength(1);
+    expect(invites[0].subject).toBe('Account Created');
+    expect(invites[0].html ?? invites[0].text).toMatch(/reset-password\?token=/);
+
+    // 2. The booking notice to the new client: in the app, and an invoice email built from the same
+    //    event (the real sender skips itself under test), exactly as for any trip an operator books.
+    const user = await User.findOne({ email: 'camila@saywali.com' }).lean();
+    await vi.waitFor(async () => {
+      expect(await Notification.countDocuments({ userId: user!._id, type: 'booking.created' })).toBe(1);
+    });
+    const ctx = await mail.loadContext({ bookingId: id });
+    const built = await mail.emailFor('booking.created', { name: user!.name, email: user!.email, role: 'customer' }, ctx, { bookingId: id });
+    expect(built!.message.text).toContain('booked for you by All Black Limo');
+    expect(built!.attachments?.some((a) => /abl-invoice/.test(a.filename))).toBe(true);
+  });
+
+  it('reports whether the invitation went out, and still books the trip when it did not', async () => {
+    const admin = await makeUser('admin');
+    const ok = await post('/admin/bookings', admin.auth, { newClient, trip: trip() });
+    expect(ok.body.data.client.inviteSent).toBe(true);
+
+    vi.mocked(email.sendEmail).mockResolvedValueOnce({ sent: false, provider: 'test' });
+    const failed = await post('/admin/bookings', admin.auth, { newClient: { ...newClient, email: 'second@saywali.com' }, trip: trip() });
+    expect(failed.status).toBe(201);
+    expect(failed.body.data.client).toMatchObject({ email: 'second@saywali.com', created: true, inviteSent: false });
+    expect(await User.countDocuments({ email: 'second@saywali.com' })).toBe(1);
+    expect(await Booking.countDocuments({ customerId: (await User.findOne({ email: 'second@saywali.com' }))!._id })).toBe(1);
+  });
+
+  it('leaves nothing behind when the trip itself is refused', async () => {
+    const admin = await makeUser('admin');
+    const res = await post('/admin/bookings', admin.auth, { newClient, trip: trip({ checkedBags: 9 }) });
+    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(await User.findOne({ email: 'camila@saywali.com' })).toBeNull();
+    expect(await Booking.countDocuments()).toBe(0);
+    expect(sentTo('camila@saywali.com')).toHaveLength(0);
+  });
+
+  it('refuses an email that already has an account, and says to search for them', async () => {
+    const admin = await makeUser('admin');
+    await makeUser('customer', { email: 'camila@saywali.com' });
+    const res = await post('/admin/bookings', admin.auth, { newClient, trip: trip() });
+    expect(res.status).toBe(409);
+    expect(res.body.message).toMatch(/search for them/i);
+    expect(await Booking.countDocuments()).toBe(0);
+    const quote = await post('/admin/bookings/quote', admin.auth, { newClient, trip: trip() });
+    expect(quote.status).toBe(409);
+  });
+
+  it('does the same for a round trip: one account, every leg', async () => {
+    const admin = await makeUser('admin');
+    const legs = [trip({ scheduledAt: pickupIn(5) }), trip({ scheduledAt: pickupIn(6), pickup: point('Hotel Andra, Seattle'), drop: point('Sea-Tac Airport'), tripType: 'point2point', flightDetails: undefined })];
+    const quote = await post('/admin/bookings/journey/quote', admin.auth, { newClient, legs });
+    expect(quote.status).toBe(200);
+    expect(await User.countDocuments({ email: 'camila@saywali.com' })).toBe(0);
+
+    const res = await post('/admin/bookings/journey', admin.auth, { newClient, legs });
+    expect(res.status).toBe(201);
+    expect(res.body.data.bookings).toHaveLength(2);
+    expect(await User.countDocuments({ email: 'camila@saywali.com' })).toBe(1);
+    const owners = new Set((await Booking.find().lean()).map((b) => String(b.customerId)));
+    expect(owners.size).toBe(1);
+  });
+
+  it('is for admins only', async () => {
+    const client = await makeUser('customer');
+    expect((await post('/admin/bookings', client.auth, { newClient, trip: trip() })).status).toBe(403);
   });
 });

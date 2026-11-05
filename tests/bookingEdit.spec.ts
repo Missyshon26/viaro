@@ -184,15 +184,26 @@ describe('editing the passenger', () => {
     expect(b).toMatchObject({ passengerName: 'Alex Rider', passengerPhone: '+12065550999' });
   });
 
-  it('clears both when the name is cleared, whatever phone came with it', () => {
+  it('clears both when only the name is cleared: "I am the passenger after all"', () => {
     const b = booking({ passengerName: 'Alex Rider', passengerPhone: '+12065550148' });
-    applyDetailChanges(b, parse({ passengerName: null, passengerPhone: '+12065550999' }));
+    applyDetailChanges(b, parse({ passengerName: null }));
     expect(b.passengerName).toBeUndefined();
     expect(b.passengerPhone).toBeUndefined();
   });
 
-  it('will not hold a phone number with nobody to ring', () => {
-    expect(() => applyDetailChanges(booking(), parse({ passengerPhone: '+12065550148' }))).toThrow(/name/);
+  it('keeps a phone sent along with a cleared name: a number to ring needs no name', () => {
+    const b = booking({ passengerName: 'Alex Rider', passengerPhone: '+12065550148' });
+    applyDetailChanges(b, parse({ passengerName: null, passengerPhone: '+12065550999' }));
+    expect(b.passengerName).toBeUndefined();
+    expect(b.passengerPhone).toBe('+12065550999');
+  });
+
+  it('holds a phone number on its own, and records the change', () => {
+    const b = booking();
+    applyDetailChanges(b, parse({ passengerPhone: '+12065550148' }));
+    expect(b.passengerName).toBeUndefined();
+    expect(b.passengerPhone).toBe('+12065550148');
+    expect(b.amendments[0]).toMatchObject({ field: 'passenger', to: '+12065550148 (phone only)' });
   });
 
   it('can drop just the phone', () => {

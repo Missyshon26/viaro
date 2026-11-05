@@ -297,10 +297,16 @@ describe('the PDF', () => {
     }
   });
 
-  it('shows an unpaid invoice\'s banner and balance', async () => {
+  it('an unpaid invoice has no "payment due" banner or balance line, as on the old site', async () => {
     const text = textOf(await renderDocumentPdf(buildDocument('invoice', input()), { compress: false }));
-    expect(text).toContain('PAYMENT DUE');
-    expect(text).toContain('Balance due');
+    expect(text).toContain('Grand total');
+    expect(text).not.toMatch(/PAYMENT DUE|Balance due/i);
+  });
+
+  it('keeps the standby rates together on one page, with no near-empty last page', async () => {
+    const pdf = (await renderDocumentPdf(buildDocument('invoice', input()), { compress: false })).toString('latin1');
+    const pages = pdf.match(/\/Type\s*\/Page[^s]/g) ?? [];
+    expect(pages).toHaveLength(2);
   });
 
   it('survives characters the built-in font cannot draw', async () => {

@@ -363,6 +363,72 @@ describe('the admin clients screen', () => {
     });
   });
 
+  describe('editing any user from the users screen', () => {
+    const edit = (auth: string, id: string, data: Record<string, unknown>) =>
+      request(server).patch(`/admin/users/${id}`).set('Authorization', auth).send(data);
+
+    it('corrects a driver\'s name, email, phone and address, and un-verifies a new number', async () => {
+      const admin = await makeUser('admin');
+      const driver = await makeUser('customer', { role: 'driver', name: 'Dee Driver', phone: '+12065550100', phoneVerified: true });
+      const res = await edit(admin.auth, driver.id, { firstName: 'Dena', lastName: 'Driver', email: 'Dena@Example.com', phone: '+12065550777', address });
+      expect(res.status).toBe(200);
+      expect(res.body.data).toMatchObject({ name: 'Dena Driver', email: 'dena@example.com', phone: '+12065550777', phoneVerified: false, role: 'driver', address });
+    });
+
+    it('edits an admin and a company account the same way', async () => {
+      const admin = await makeUser('admin');
+      const other = await makeUser('admin', { name: 'Old Ops' });
+      const company = await makeUser('customer', { role: 'company', name: 'Fleet Co' });
+      expect((await edit(admin.auth, other.id, { firstName: 'New', lastName: 'Ops' })).body.data.name).toBe('New Ops');
+      expect((await edit(admin.auth, company.id, { phone: '+12065550888' })).body.data.phone).toBe('+12065550888');
+    });
+
+    it('never changes the role, even if one is sent', async () => {
+      const admin = await makeUser('admin');
+      const driver = await makeUser('customer', { role: 'driver' });
+      const res = await edit(admin.auth, driver.id, { firstName: 'Sam', role: 'admin' });
+      expect(res.status).toBe(200);
+      expect((await User.findById(driver.id))!.role).toBe('driver');
+    });
+
+    it('refuses an email another account already has, and keeps the old one', async () => {
+      const admin = await makeUser('admin');
+      const a = await makeUser('customer', { role: 'driver', email: 'a@example.com' });
+      await makeUser('customer', { email: 'b@example.com' });
+      expect((await edit(admin.auth, a.id, { email: 'B@example.com' })).status).toBe(409);
+      expect((await User.findById(a.id))!.email).toBe('a@example.com');
+    });
+
+    it('suspends another user and signs them out, but not the admin\'s own account', async () => {
+      const admin = await makeUser('admin');
+      const driver = await makeUser('customer', { role: 'driver' });
+      const old = `Bearer ${jwt.sign({ userId: driver.id, role: 'driver', iat: Math.floor(Date.now() / 1000) - 60 }, env.JWT_ACCESS_SECRET, { expiresIn: '10m' })}`;
+      expect((await request(server).get('/users/me').set('Authorization', old)).status).toBe(200);
+
+      expect((await edit(admin.auth, driver.id, { status: 'suspended' })).body.data.status).toBe('suspended');
+      expect((await request(server).get('/users/me').set('Authorization', old)).status).toBe(401);
+
+      const self = await edit(admin.auth, admin.id, { status: 'suspended' });
+      expect(self.status).toBe(400);
+      expect((await User.findById(admin.id))!.status).toBe('active');
+    });
+
+    it('can still edit the admin\'s own name', async () => {
+      const admin = await makeUser('admin');
+      expect((await edit(admin.auth, admin.id, { firstName: 'Ada', lastName: 'Admin' })).body.data.name).toBe('Ada Admin');
+    });
+
+    it('does not find an unknown or deleted account, refuses an empty edit, and is for admins only', async () => {
+      const admin = await makeUser('admin');
+      const gone = await makeUser('customer', { role: 'driver', deletedAt: new Date() });
+      const driver = await makeUser('customer', { role: 'driver' });
+      expect((await edit(admin.auth, '5f9d88b8b54764421b7156c9', { firstName: 'Nobody' })).status).toBe(404);
+      expect((await edit(admin.auth, gone.id, { firstName: 'Ghost' })).status).toBe(404);
+      expect((await edit(admin.auth, driver.id, {})).status).toBe(400);
+      expect((await edit(driver.auth, driver.id, { firstName: 'Self' })).status).toBe(403);
+    });
+  });
+
   describe('downloading the list', () => {
     // Read the body as raw bytes: supertest only buffers a few content types by default.
     const download = (auth: string, query: Record<string, unknown> = {}) =>

@@ -110,7 +110,7 @@ export function buildCalendarEvent(input: CalendarEventInput): CalendarEventBody
     b.cruisePort ? `Cruise: ${b.cruisePort}${b.cruiseShip ? ` · ${b.cruiseShip}` : ''}` : null,
     '',
     `Customer: ${[customer?.name, customer?.phone, customer?.email].filter(Boolean).join(' · ') || '—'}`,
-    b.passengerName ? `Passenger: ${[b.passengerName, b.passengerPhone].filter(Boolean).join(' · ')}` : null,
+    b.passengerName || b.passengerPhone ? `Passenger: ${[b.passengerName, b.passengerPhone].filter(Boolean).join(' · ')}` : null,
     b.passengers ? `Party of ${b.passengers}` : null,
     bags ? `Bags: ${bags}` : null,
     b.occasion ? `Occasion: ${b.occasion}${b.occasionDetails ? ` (${b.occasionDetails})` : ''}` : null,

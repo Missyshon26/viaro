@@ -18,6 +18,7 @@ import {
   contactNumberResetEmail,
   documentApprovedEmail,
   documentRejectedEmail,
+  invoiceEmail,
   noShowEmail,
   tripConfirmedEmail,
   chauffeurAssignedEmail,
@@ -33,6 +34,9 @@ import {
 import * as vehicleService from '../vehicle/vehicle.service';
 import { renderStoredDocument } from '../booking/booking.documents.load';
 import { getSettingsValues } from '../admin/settings.service';
+import { linkForInvoice } from '../payments/paymentLink';
+import { copyFor } from '../../integrations/emailCopy';
+import { toDate } from '../../config/timezone';
 
 /**
  * Who gets which email, and when. The emails themselves are in integrations/emailTemplates.ts.
@@ -125,7 +129,29 @@ async function pdf(bookingId: Types.ObjectId | string, kind: 'invoice' | 'receip
 }
 
 export type Recipient = { name: string; email: string; role: string; phone?: string };
-export type Built = { message: RenderedEmail; attachments?: EmailAttachment[] };
+export type Built = {
+  message: RenderedEmail;
+  attachments?: EmailAttachment[];
+  /** Blind-copy reservations, as for an invoice an operator sends by hand. */
+  copy?: boolean;
+};
+
+/**
+ * The unpaid invoice with its "Pay Now" link, for a trip an operator booked or one that has
+ * just finished without being paid. The link is skipped (invoice only) when none can be made.
+ */
+async function invoiceWithPayLink(b: Lean<IBooking>, name: string, intro: string): Promise<Built> {
+  // paymentLink.sentBy must be a user: the operator who booked it, else the customer.
+  const link = await linkForInvoice(String(b._id), String(b.createdBy ?? b.customerId));
+  return {
+    message: invoiceEmail(
+      link ? { amount: link.amount, link: link.url, expiresLabel: format(toDate(link.expiresAt)) } : null,
+      { name, intro },
+    ),
+    attachments: await pdf(b._id, 'invoice'),
+    copy: true,
+  };
+}
 
 export async function emailFor(
   type: string,
@@ -140,6 +166,14 @@ export async function emailFor(
 
   switch (type) {
     case 'booking.created':
+      // Booked by an operator and not yet paid: the invoice with a link to pay it.
+      if (b.source === 'admin' && !b.payment) {
+        return invoiceWithPayLink(
+          b,
+          to.name,
+          `A trip (reservation #${ref}) has been booked for you by All Black Limo. We have attached your invoice for your reference.`,
+        );
+      }
       return b.payment
         ? {
             message: paymentReceiptEmail({ name: to.name, ref, amount: b.payment.amount }),
@@ -197,6 +231,14 @@ export async function emailFor(
     case 'trip.completed':
       // Closed by hand from the console: the short note. The chauffeur finishing the ride
       // gets the thank-you with the paperwork.
+      // Finished but not paid: the invoice and a link to pay it, whoever closed the trip.
+      if (!b.payment && !ctx.trip?.settled) {
+        return invoiceWithPayLink(
+          b,
+          to.name,
+          `Thank you for riding with All Black Limo. Your trip (reservation #${ref}) is complete, and we have attached the invoice for your reference.`,
+        );
+      }
       if (payload.closedBy === 'admin') return { message: tripCompletedEmail({ name: to.name }) };
       return {
         message: thankYouEmail({
@@ -299,7 +341,12 @@ export async function emailForNotification(
 
     const ctx = await loadContext(payload);
     const built = await emailFor(type, user, ctx, payload);
-    if (built) await sendEmail({ to: user.email, ...built.message, attachments: built.attachments });
+    if (built) await sendEmail({
+        to: user.email,
+        ...(built.copy ? copyFor(user.email) : {}),
+        ...built.message,
+        attachments: built.attachments,
+      });
 
     // Once per event: the customer's copy is the trigger, not the chauffeur's.
     if (user.role === 'customer') await alertOperations(type, ctx, payload);

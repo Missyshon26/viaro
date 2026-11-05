@@ -103,6 +103,25 @@ export interface IBookingPayment {
 }
 
 /**
+ * A second card payment taken against a booking that was already paid: the difference when
+ * an operator upgraded the trip to a dearer vehicle. It is its own Stripe payment, so it is
+ * refunded against its own `intentId`, never the booking's first payment.
+ */
+export interface IBookingExtraPayment {
+  intentId: string;
+  sessionId: string;
+  /** Dollars charged. */
+  amount: number;
+  currency: string;
+  reason: 'upgrade';
+  brand?: string;
+  last4?: string;
+  refundedAmount: number;
+  refundIds: string[];
+  paidAt: Date;
+}
+
+/**
  * A "pay this online" link an operator sent for a booking made on the customer's behalf.
  * The money arriving fills `payment` (via the Stripe webhook); this only records what was
  * sent. A new link replaces the old one — the old one is expired at Stripe first, so two
@@ -257,6 +276,10 @@ export interface IBooking {
   source?: 'customer' | 'admin';
   createdBy?: Types.ObjectId;
   paymentLink?: IBookingPaymentLink;
+  /** The link for the difference when a paid trip was upgraded; kept apart from `paymentLink`. */
+  upgradeLink?: IBookingPaymentLink;
+  /** Further card payments after the first (upgrade differences). See IBookingExtraPayment. */
+  extraPayments?: IBookingExtraPayment[];
   /** The running number printed on the invoice and receipt, like the old site's trip number. */
   tripNo?: string;
   /** Present only on bookings carried over from the old system. */
@@ -456,6 +479,41 @@ const bookingSchema = new Schema<IBooking>(
         },
         { _id: false },
       ),
+      default: undefined,
+    },
+    upgradeLink: {
+      type: new Schema<IBookingPaymentLink>(
+        {
+          sessionId: { type: String, required: true },
+          url: { type: String, required: true },
+          amount: { type: Number, required: true, min: 0 },
+          sentAt: { type: Date, required: true },
+          expiresAt: { type: Date, required: true },
+          sentBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+          emailed: { type: Boolean, default: false },
+        },
+        { _id: false },
+      ),
+      default: undefined,
+    },
+    extraPayments: {
+      type: [
+        new Schema<IBookingExtraPayment>(
+          {
+            intentId: { type: String, required: true },
+            sessionId: { type: String, required: true },
+            amount: { type: Number, required: true, min: 0 },
+            currency: { type: String, required: true },
+            reason: { type: String, enum: ['upgrade'], required: true },
+            brand: { type: String },
+            last4: { type: String },
+            refundedAmount: { type: Number, default: 0, min: 0 },
+            refundIds: { type: [String], default: [] },
+            paidAt: { type: Date, required: true },
+          },
+          { _id: false },
+        ),
+      ],
       default: undefined,
     },
     journey: {

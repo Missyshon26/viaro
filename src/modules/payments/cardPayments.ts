@@ -15,6 +15,7 @@ import {
 import * as notify from '../notifications/notifications.service';
 import * as events from '../events/events.bus';
 import { NOTIFICATION_TYPES } from '../notifications/notifications.service';
+import { amountPaid, refundable, refundSources, splitRefund, type RefundSource } from './balance';
 
 /**
  * Card payments taken at booking (Stripe): the customer record, the saved card, and
@@ -40,7 +41,18 @@ export async function ensureStripeCustomer(userId: string): Promise<string> {
     logger.warn(`Stripe customer ${user.stripeCustomerId} is not in this Stripe mode; creating a new one for ${userId}`);
   }
 
-  const customer = await createStripeCustomer({ email: user.email, name: user.name, userId });
+  let customer: { id: string };
+  try {
+    customer = await createStripeCustomer({ email: user.email, name: user.name, userId });
+  } catch (err) {
+    // Two requests creating the same customer at once (an invoice email and a checkout): Stripe
+    // tells the second its twin is still running. Wait for the twin and use the customer it made.
+    if (!(err instanceof StripeError) || !/in-progress|idempotent/i.test(err.message)) throw err;
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    const fresh = await User.findById(userId).select('stripeCustomerId');
+    if (fresh?.stripeCustomerId) return fresh.stripeCustomerId;
+    customer = await createStripeCustomer({ email: user.email, name: user.name, userId });
+  }
   user.stripeCustomerId = customer.id;
   await user.save();
   return customer.id;
@@ -102,6 +114,25 @@ function applyRefund(booking: BookingDocument, refundId: string, amount: number)
   booking.markModified('payment');
 }
 
+/** Counts a refund against the payment it came out of: the first payment, or an upgrade payment. */
+function applyRefundTo(booking: BookingDocument, source: RefundSource, refundId: string, amount: number) {
+  if (source.kind === 'original') return applyRefund(booking, refundId, amount);
+  const extra = booking.extraPayments![source.index];
+  extra.refundIds.push(refundId);
+  extra.refundedAmount = round2(extra.refundedAmount + amount);
+  booking.markModified('extraPayments');
+}
+
+/** Whether a refund id is already counted anywhere on the booking (webhook replays, retries). */
+const refundCounted = (booking: BookingDocument, refundId: string) =>
+  Boolean(booking.payment?.refundIds.includes(refundId) || booking.extraPayments?.some((p) => p.refundIds.includes(refundId)));
+
+/**
+ * One idempotency key per payment the refund draws on. The first payment keeps the key it has
+ * always had, so a retried refund made before upgrades existed still maps to the same Stripe refund.
+ */
+const refundKey = (base: string, source: RefundSource) => (source.kind === 'original' ? base : `${base}_${source.intentId}`);
+
 /**
  * The money has already left Stripe, so recording it must not be blocked by unrelated
  * fields. Imported and hand-made bookings can lack a fare breakdown, and full validation
@@ -127,21 +158,24 @@ export async function refundBookingToCard(
   const payment = booking?.payment;
   if (!booking || !payment) return 0;
 
-  const remaining = round2(payment.amount - payment.refundedAmount);
-  const amount = Math.min(round2((payment.amount * refundPct) / 100), remaining);
+  // The percentage applies to everything the client paid, an upgrade payment included.
+  const sources = refundSources(booking);
+  const amount = Math.min(round2((amountPaid(booking) * refundPct) / 100), refundable(booking));
   if (amount <= 0) return 0;
 
-  const refund = await refundToCard({
-    paymentIntentId: payment.intentId,
-    amount,
-    metadata: { bookingId: String(booking._id), reason },
-    idempotencyKey: `abl_refund_${String(booking._id)}_${reason}`,
-  });
+  for (const part of splitRefund(sources, amount)) {
+    const refund = await refundToCard({
+      paymentIntentId: part.source.intentId,
+      amount: part.amount,
+      metadata: { bookingId: String(booking._id), reason },
+      idempotencyKey: refundKey(`abl_refund_${String(booking._id)}_${reason}`, part.source),
+    });
 
-  // A replayed idempotent request returns the same refund — count it once.
-  if (!payment.refundIds.includes(refund.id)) {
-    applyRefund(booking, refund.id, refund.amount / 100);
-    await saveRefund(booking);
+    // A replayed idempotent request returns the same refund — count it once.
+    if (!refundCounted(booking, refund.id)) {
+      applyRefundTo(booking, part.source, refund.id, refund.amount / 100);
+      await saveRefund(booking);
+    }
   }
 
   await notify.send(booking.customerId, NOTIFICATION_TYPES.REFUND_ISSUED, {
@@ -154,6 +188,20 @@ export async function refundBookingToCard(
 
   logger.info(`Refunded ${amount} (${refundPct}%) to card for booking ${String(booking._id)}`);
   return amount;
+}
+
+/** Counts refunds Stripe has issued on the booking, skipping any the webhook already recorded. */
+async function recordRefunds(
+  bookingId: string,
+  fallback: BookingDocument,
+  issued: { source: RefundSource; id: string; amount: number }[],
+): Promise<BookingDocument> {
+  const fresh = (await Booking.findById(bookingId)) ?? fallback;
+  for (const r of issued) {
+    if (!refundCounted(fresh, r.id)) applyRefundTo(fresh, r.source, r.id, r.amount);
+  }
+  if (issued.length) await saveRefund(fresh);
+  return fresh;
 }
 
 /**
@@ -177,7 +225,8 @@ export async function refundBookingAmount(input: {
   const payment = booking.payment;
   if (!payment) throw ApiError.conflict('This booking has no card payment to refund.');
 
-  const remaining = round2(payment.amount - payment.refundedAmount);
+  // Everything the client paid by card counts: the first payment and any upgrade payment.
+  const remaining = refundable(booking);
   const amount = round2(input.amount);
   if (remaining <= 0) throw ApiError.conflict('This booking has already been refunded in full.');
   if (!(amount > 0)) throw ApiError.badRequest('Enter an amount greater than zero.');
@@ -185,31 +234,33 @@ export async function refundBookingAmount(input: {
     throw ApiError.badRequest(`The most that can still be refunded is $${remaining.toFixed(2)}.`);
   }
 
-  let refund;
+  const parts = splitRefund(refundSources(booking), amount);
+  const issued: { source: RefundSource; id: string; amount: number }[] = [];
   try {
-    refund = await refundToCard({
-      paymentIntentId: payment.intentId,
-      amount,
-      metadata: {
-        bookingId: String(booking._id),
-        reason: 'admin_refund',
-        by: input.adminId,
-        ...(input.note ? { note: input.note.slice(0, 200) } : {}),
-      },
-      idempotencyKey: `abl_refund_${String(booking._id)}_admin_${input.requestId}`,
-    });
+    for (const part of parts) {
+      const refund = await refundToCard({
+        paymentIntentId: part.source.intentId,
+        amount: part.amount,
+        metadata: {
+          bookingId: String(booking._id),
+          reason: 'admin_refund',
+          by: input.adminId,
+          ...(input.note ? { note: input.note.slice(0, 200) } : {}),
+        },
+        idempotencyKey: refundKey(`abl_refund_${String(booking._id)}_admin_${input.requestId}`, part.source),
+      });
+      issued.push({ source: part.source, id: refund.id, amount: refund.amount / 100 });
+    }
   } catch (err) {
+    // A refund that already left Stripe must still be recorded, or the booking would say it
+    // is refundable for money that has gone; only then is the failure reported.
+    if (issued.length) await recordRefunds(input.bookingId, booking, issued);
     // Stripe's own wording ("charge already refunded", a closed account) is the useful part.
     if (err instanceof StripeError) throw new ApiError(422, `Stripe could not refund this: ${err.message}`);
     throw err;
   }
 
-  // The webhook may have recorded this refund already; count it once.
-  const fresh = (await Booking.findById(input.bookingId)) ?? booking;
-  if (!fresh.payment!.refundIds.includes(refund.id)) {
-    applyRefund(fresh, refund.id, refund.amount / 100);
-    await saveRefund(fresh);
-  }
+  const fresh = await recordRefunds(input.bookingId, booking, issued);
 
   await notify.send(fresh.customerId, NOTIFICATION_TYPES.REFUND_ISSUED, {
     message: `$${amount.toFixed(2)} has been refunded to ${cardLabel(payment)}. It usually appears within 5–10 business days.`,
@@ -229,7 +280,41 @@ export async function refundBookingAmount(input: {
     userIds: [String(fresh.customerId)],
   });
   const p = fresh.payment!;
-  return { refunded: amount, payment: { amount: p.amount, refundedAmount: p.refundedAmount, status: p.status } };
+  return {
+    refunded: amount,
+    payment: { amount: p.amount, refundedAmount: p.refundedAmount, status: p.status },
+    refundable: refundable(fresh),
+  };
+}
+
+/**
+ * The webhook path for a refund against an upgrade payment (one booking, one payment). Returns
+ * whether the intent belonged to an upgrade payment at all.
+ */
+async function syncUpgradeRefunds(paymentIntentId: string): Promise<boolean> {
+  const booking = await Booking.findOne({ 'extraPayments.intentId': paymentIntentId });
+  if (!booking) return false;
+  const index = booking.extraPayments!.findIndex((p) => p.intentId === paymentIntentId);
+  const extra = booking.extraPayments![index];
+
+  const refunds = (await listRefunds(paymentIntentId)).filter(
+    (r) => (r.status === 'succeeded' || r.status === 'pending') && !refundCounted(booking, r.id),
+  );
+  for (const refund of refunds) {
+    const share = Math.min(refund.amount / 100, round2(extra.amount - extra.refundedAmount));
+    if (share <= 0) continue;
+    applyRefundTo(booking, { kind: 'extra', index, intentId: paymentIntentId, remaining: 0 }, refund.id, share);
+    await saveRefund(booking);
+    if (!refund.metadata?.bookingId) {
+      await notify.send(booking.customerId, NOTIFICATION_TYPES.REFUND_ISSUED, {
+        message: `$${share.toFixed(2)} has been refunded to ${cardLabel(extra)}.`,
+        bookingId: String(booking._id),
+        refundAmount: share,
+        toCard: true,
+      });
+    }
+  }
+  return true;
 }
 
 /**
@@ -243,6 +328,8 @@ export async function refundBookingAmount(input: {
 export async function syncStripeRefunds(paymentIntentId: string): Promise<void> {
   const bookings = await Booking.find({ 'payment.intentId': paymentIntentId }).sort({ 'payment.leg': 1 });
   if (!bookings.length) {
+    // Not a booking's first payment: it may be an upgrade payment taken later.
+    if (await syncUpgradeRefunds(paymentIntentId)) return;
     logger.warn(`Stripe refund for ${paymentIntentId}, which matches no booking`);
     return;
   }

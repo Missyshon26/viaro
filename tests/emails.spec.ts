@@ -7,6 +7,9 @@ vi.mock('../src/modules/booking/booking.documents.load', () => ({
     buffer: Buffer.from('%PDF-1.4 test'),
   })),
 }));
+vi.mock('../src/modules/payments/paymentLink', () => ({
+  linkForInvoice: vi.fn(async () => ({ url: 'https://pay.test/c', amount: 147.4, expiresAt: new Date('2026-11-10T12:00:00Z') })),
+}));
 vi.mock('../src/modules/vehicle/vehicle.service', () => ({ labelFor: async () => 'Business Sedan' }));
 
 import { emailFor, type Context, type Recipient } from '../src/modules/notifications/notification.emails';
@@ -203,7 +206,24 @@ describe('which email each event sends', () => {
     expect(paid!.attachments![0].filename).toContain('receipt');
     const unpaid = await emailFor('trip.completed', customer, ctx(booking()));
     expect(unpaid!.attachments![0].filename).toContain('invoice');
-    expect(unpaid!.message.text).toContain('Mobile: +12065550100');
+    // Unpaid: the invoice with a Pay Now link, blind-copied to reservations.
+    expect(unpaid!.message.subject).toBe('Invoice');
+    expect(unpaid!.message.html).toContain('https://pay.test/c');
+    expect(unpaid!.copy).toBe(true);
+  });
+
+  it('a trip an operator booked gets the invoice with a payment link, but a card-paid one just the receipt', async () => {
+    const adminMade = await emailFor('booking.created', customer, ctx(booking({ source: 'admin', createdBy: '5f9d88b8b54764421b7156d0' })));
+    expect(adminMade!.message.subject).toBe('Invoice');
+    expect(adminMade!.message.html).toContain('https://pay.test/c');
+    expect(adminMade!.attachments![0].filename).toContain('invoice');
+    expect(adminMade!.copy).toBe(true);
+    // The link is attributed to a real user id, never the string "system" (sentBy is an ObjectId).
+    const { linkForInvoice } = await import('../src/modules/payments/paymentLink.js');
+    expect(vi.mocked(linkForInvoice).mock.calls.at(-1)![1]).toMatch(/^[a-f0-9]{24}$/i);
+    const paid = await emailFor('booking.created', customer, ctx(booking({ source: 'admin', payment: { amount: 140 } })));
+    expect(paid!.message.subject).not.toBe('Invoice');
+    expect(paid!.copy).toBeUndefined();
   });
 
   it('"on the way" and "arrived" send their notes with the chauffeur\'s details', async () => {
@@ -218,10 +238,10 @@ describe('which email each event sends', () => {
   });
 
   it('a trip closed by hand sends the short note, not the thank-you', async () => {
-    const closed = await emailFor('trip.completed', customer, ctx(booking()), { closedBy: 'admin' });
+    const closed = await emailFor('trip.completed', customer, ctx(booking({ payment: { amount: 140 } })), { closedBy: 'admin' });
     expect(closed!.message.subject).toBe('Trip Completed');
     expect(closed!.attachments).toBeUndefined();
-    const driven = await emailFor('trip.completed', customer, ctx(booking()), {});
+    const driven = await emailFor('trip.completed', customer, ctx(booking({ payment: { amount: 140 } })), {});
     expect(driven!.message.subject).toBe('All Black Limo Trip Completed');
   });
 

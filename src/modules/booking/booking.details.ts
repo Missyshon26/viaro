@@ -27,7 +27,7 @@ const describeLuggage = (checked?: number, carryOn?: number) =>
   !checked && !carryOn ? NONE : `${checked ?? 0} checked, ${carryOn ?? 0} carry-on`;
 
 const describePassenger = (name?: string, phone?: string) =>
-  name ? `${name}${phone ? `, ${phone}` : ''}` : NONE;
+  name ? `${name}${phone ? `, ${phone}` : ''}` : phone ? `${phone} (phone only)` : NONE;
 
 export interface DetailChanges {
   /** Anything at all changed. */
@@ -130,16 +130,16 @@ export function applyDetailChanges(
 
   /* ------------------------------ passenger ------------------------------ */
   if (input.passengerName !== undefined || input.passengerPhone !== undefined) {
-    // `null` for the name means "I am the passenger after all": both go.
-    const clearing = input.passengerName === null;
-    const name = clearing ? undefined : (input.passengerName ?? booking.passengerName);
+    // `null` for the name means "I am the passenger after all": the name goes, and so does the
+    // phone unless a phone is sent with it to keep (a number to ring needs no name).
+    const nameCleared = input.passengerName === null;
+    const clearing = nameCleared && !input.passengerPhone;
+    const name = nameCleared ? undefined : (input.passengerName ?? booking.passengerName);
     const phone = clearing
       ? undefined
       : input.passengerPhone === undefined
         ? booking.passengerPhone
         : (input.passengerPhone ?? undefined);
-
-    if (phone && !name) throw ApiError.badRequest("Enter the passenger's name");
 
     const from = describePassenger(booking.passengerName, booking.passengerPhone);
     const to = describePassenger(name, phone);

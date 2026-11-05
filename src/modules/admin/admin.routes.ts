@@ -118,6 +118,13 @@ router.get(
   asyncHandler(controller.dashboardUser),
 );
 
+router.patch(
+  '/users/:id',
+  roleGuard('admin'),
+  validate({ params: idParamSchema, body: updateCustomerSchema }),
+  asyncHandler(controller.updateUser),
+);
+
 /* --------------------------------- clients ---------------------------------- */
 
 // Registered before '/customers/:id' so "export" is never read as an id.
@@ -184,6 +191,12 @@ router.post(
   roleGuard('admin'),
   validate({ params: idParamSchema }),
   asyncHandler(controller.sendPaymentLink),
+);
+router.post(
+  '/bookings/:id/upgrade-link',
+  roleGuard('admin'),
+  validate({ params: idParamSchema }),
+  asyncHandler(controller.sendUpgradeLink),
 );
 router.post(
   '/bookings/journey/quote',

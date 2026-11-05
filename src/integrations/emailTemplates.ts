@@ -290,7 +290,16 @@ export interface TripFacts {
 }
 
 /** The unpaid invoice, with the PDF attached: sent when a booking exists but is not yet paid. */
-export function prePaymentInvoiceEmail({ name, ref }: { name?: string | null; ref: string }): RenderedEmail {
+export function prePaymentInvoiceEmail({
+  name,
+  ref,
+  pay,
+}: {
+  name?: string | null;
+  ref: string;
+  /** A link to pay by card on Stripe's page, when one could be made. */
+  pay?: { amount: number; link: string; expiresLabel: string } | null;
+}): RenderedEmail {
   return compose({
     subject: `Your All Black Limo Invoice - Trip #${ref}`,
     title: 'Your Invoice',
@@ -300,6 +309,13 @@ export function prePaymentInvoiceEmail({ name, ref }: { name?: string | null; re
       p(dear(name ?? 'Guest')),
       p(`Thank you for booking with All Black Limo. We've attached your invoice for reservation #${ref} to this email.`),
       p('To confirm this reservation, please complete your payment. This invoice reflects the amount due — you have not been charged yet.'),
+      ...(pay
+        ? [
+            p(`The amount due is **${money(pay.amount)}**. To complete your payment, please click the link below:`),
+            button('Pay Now', pay.link),
+            p(`This link works until ${pay.expiresLabel}. You will not be charged until you complete the payment on the secure Stripe page.`),
+          ]
+        : []),
       p('Full trip details are in the attached invoice.'),
       p("If you've already completed payment, you'll receive a separate payment receipt confirming your reservation shortly."),
     ],
@@ -375,13 +391,16 @@ export function paymentRequestedEmail({
  * An invoice sent on request, attached. When the trip is still unpaid it carries a
  * "Pay Now" link to a secure Stripe page, as the old dashboard's payment email did.
  */
-export function invoiceEmail(pay?: { amount: number; link: string; expiresLabel: string } | null): RenderedEmail {
+export function invoiceEmail(
+  pay?: { amount: number; link: string; expiresLabel: string } | null,
+  opts: { name?: string | null; intro?: string } = {},
+): RenderedEmail {
   return compose({
     subject: 'Invoice',
     title: 'Invoice',
     blocks: [
-      p('Dear Customer,'),
-      p('Thank you for reaching out to us. As requested, we have attached the invoice for your reference.'),
+      p(opts.name ? dear(opts.name) : 'Dear Customer,'),
+      p(opts.intro ?? 'Thank you for reaching out to us. As requested, we have attached the invoice for your reference.'),
       ...(pay
         ? [
             p(`The amount due is **${money(pay.amount)}**. To complete your payment, please click the link below:`),

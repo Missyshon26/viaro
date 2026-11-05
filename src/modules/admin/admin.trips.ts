@@ -1,3 +1,4 @@
+import { Types } from 'mongoose';
 import { User } from '../../models/User';
 import { ApiError } from '../../utils/ApiError';
 import * as pricingService from '../pricing/pricing.service';
@@ -5,6 +6,8 @@ import * as vehicleService from '../vehicle/vehicle.service';
 import { assertVehicleRules } from '../booking/booking.rules';
 import { createBooking } from '../booking/booking.service';
 import { nextTripNo } from '../booking/booking.tripNo';
+import { createCustomer } from './admin.customers';
+import type { AdminNewClientInput } from './admin.validation';
 import type { CreateBookingInput } from '../booking/booking.validation';
 import type { ManualDiscount } from '../pricing/pricing.adjustments';
 
@@ -34,7 +37,17 @@ async function bookableCustomer(customerId: string) {
 /** What the trip would cost, with the same checks a booking would face — nothing is saved. */
 export async function quoteTrip(customerId: string, input: CreateBookingInput, tripsAhead = 0, discount?: ManualDiscount) {
   await bookableCustomer(customerId);
+  return priceTrip(customerId, input, tripsAhead, discount);
+}
 
+/**
+ * The same price and the same checks, for a client who has no account yet. They are priced as
+ * a brand-new customer (a stand-in id that has no bookings), so the welcome discount shows, and
+ * nothing is looked up or saved.
+ */
+const standIn = () => new Types.ObjectId().toString();
+
+async function priceTrip(customerId: string, input: CreateBookingInput, tripsAhead = 0, discount?: ManualDiscount) {
   const vehicleClass = await vehicleService.resolveBookableClass(input.vehicleClass, input.tripType);
   await assertVehicleRules({
     vehicleClass,
@@ -72,11 +85,18 @@ function legDiscount(discount: ManualDiscount | undefined, index: number): Manua
 }
 
 /** What each leg of a journey would cost, and the total; nothing is saved. */
-export async function quoteJourney(customerId: string, legs: CreateBookingInput[], discount?: ManualDiscount) {
+export async function quoteJourney(
+  customerId: string,
+  legs: CreateBookingInput[],
+  discount?: ManualDiscount,
+  /** True for a client with no account yet: priced as brand new, nothing looked up. */
+  asNewClient = false,
+) {
   const fares: number[] = [];
+  const price = asNewClient ? priceTrip : quoteTrip;
   for (const [index, leg] of legs.entries()) {
     try {
-      fares.push((await quoteTrip(customerId, leg, index, legDiscount(discount, index))).fare);
+      fares.push((await price(customerId, leg, index, legDiscount(discount, index))).fare);
     } catch (err) {
       // Say which leg, so an operator is not left hunting through five of them.
       if (err instanceof ApiError) throw new ApiError(err.statusCode, `Leg ${index + 1}: ${err.message}`, err.details);
@@ -133,4 +153,84 @@ export async function createTripForCustomer(
 ) {
   await bookableCustomer(customerId);
   return createBooking(customerId, input, undefined, { adminId, discount });
+}
+
+/* ---------------------------- a client with no account yet ---------------------------- */
+
+/**
+ * The email must be free before anything is priced or saved, and the operator is told what to
+ * do about it: the account exists, so find them with the search instead.
+ */
+async function assertEmailFree(email: string) {
+  if (await User.exists({ email })) {
+    throw ApiError.conflict('An account with this email already exists. Search for them above instead.');
+  }
+}
+
+/** The price of a trip for a client who has no account yet. Nothing is saved. */
+export async function quoteTripForNewClient(newClient: AdminNewClientInput, input: CreateBookingInput, discount?: ManualDiscount) {
+  await assertEmailFree(newClient.email);
+  return priceTrip(standIn(), input, 0, discount);
+}
+
+/** The price of each leg of a journey for a client who has no account yet. Nothing is saved. */
+export async function quoteJourneyForNewClient(newClient: AdminNewClientInput, legs: CreateBookingInput[], discount?: ManualDiscount) {
+  await assertEmailFree(newClient.email);
+  return quoteJourney(standIn(), legs, discount, true);
+}
+
+/**
+ * Said when the account was made but the booking then failed, so the operator does not make the
+ * client a second time: the account exists and can be found with the search.
+ */
+function accountKept(err: unknown, name: string): never {
+  if (err instanceof ApiError) {
+    throw new ApiError(
+      err.statusCode,
+      `${name}'s account was created, but the trip could not be booked: ${err.message} Search for them and add the trip again.`,
+      err.details,
+    );
+  }
+  throw err;
+}
+
+/**
+ * Books a trip for someone who is not a client yet, making their account first.
+ *
+ * Everything is checked and priced BEFORE the account is made, so a trip that breaks a rule
+ * (the vehicle for the occasion, the luggage) leaves nothing behind. Then, in this order, the
+ * client is emailed to set up their account, and the trip is booked, which emails them the
+ * invoice with the link to pay it.
+ */
+export async function createTripForNewClient(
+  adminId: string,
+  newClient: AdminNewClientInput,
+  input: CreateBookingInput,
+  discount?: ManualDiscount,
+) {
+  await quoteTripForNewClient(newClient, input, discount);
+  const { user, inviteSent } = await createCustomer({ ...newClient, sendInvite: true });
+  try {
+    const made = await createBooking(String(user._id), input, undefined, { adminId, discount });
+    return { ...made, client: { _id: String(user._id), name: user.name, email: user.email, created: true, inviteSent } };
+  } catch (err) {
+    return accountKept(err, user.name);
+  }
+}
+
+/** The same for a multi-city journey or round trip: one new account, then every leg. */
+export async function createJourneyForNewClient(
+  adminId: string,
+  newClient: AdminNewClientInput,
+  legs: CreateBookingInput[],
+  discount?: ManualDiscount,
+) {
+  await quoteJourneyForNewClient(newClient, legs, discount);
+  const { user, inviteSent } = await createCustomer({ ...newClient, sendInvite: true });
+  try {
+    const made = await createJourneyForCustomer(adminId, String(user._id), legs, discount);
+    return { ...made, client: { _id: String(user._id), name: user.name, email: user.email, created: true, inviteSent } };
+  } catch (err) {
+    return accountKept(err, user.name);
+  }
 }

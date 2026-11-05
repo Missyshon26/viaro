@@ -2,6 +2,9 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import request from 'supertest';
 import app from '../../src/app';
 import { Booking } from '../../src/models/Booking';
+import { Driver } from '../../src/models/Driver';
+import { Trip } from '../../src/models/Trip';
+import { User } from '../../src/models/User';
 import { listen, makeUser, pickupIn, point, resetData, seedCatalogue, startDatabase, stopDatabase } from './harness';
 
 vi.mock('../../src/jobs/cancellationWindow.job', () => ({ scheduleCancellationWindowCheck: vi.fn(async () => undefined) }));
@@ -81,12 +84,61 @@ describe('PATCH /admin/bookings/:id', () => {
     expect((await edit(client.auth, id, { passengers: 2 })).status).toBe(403);
   });
 
-  it('refuses a cancelled booking, an empty change and a missing booking', async () => {
+  it('refuses an empty change and a missing booking', async () => {
     const { admin, id } = await bookingFor();
     expect((await edit(admin.auth, id, {})).status).toBe(400);
     expect((await edit(admin.auth, id, { notifyCustomer: false })).status).toBe(400);
     expect((await edit(admin.auth, '64b000000000000000000000', { passengers: 2 })).status).toBe(404);
-    await Booking.updateOne({ _id: id }, { $set: { status: 'cancelled' } });
-    expect((await edit(admin.auth, id, { passengers: 2 })).status).toBe(409);
+  });
+
+  it('still refuses a past pickup on a booking that is open', async () => {
+    const { admin, id } = await bookingFor();
+    const res = await edit(admin.auth, id, { scheduledAt: pickupIn(-2) });
+    expect(res.status).toBe(400);
+    expect(res.body.message ?? res.body.error?.message).toMatch(/past/i);
+  });
+
+  describe('a finished trip can still be corrected', () => {
+    const fix = {
+      pickup: point('5315 69th St NW, Gig Harbor, WA'),
+      drop: point('Seattle-Tacoma International Airport (SEA)'),
+      passengers: 3,
+      checkedBags: 1,
+      carryOnBags: 1,
+      description: 'Corrected after the ride',
+      notifyCustomer: false,
+    };
+
+    it('edits a cancelled booking, including its date, and records the admin as the author', async () => {
+      const { admin, id } = await bookingFor();
+      await Booking.updateOne({ _id: id }, { $set: { status: 'cancelled' } });
+      const when = pickupIn(-3);
+      const res = await edit(admin.auth, id, { ...fix, scheduledAt: when });
+      expect(res.status).toBe(200);
+      const saved = await Booking.findById(id).lean();
+      expect(saved!.status).toBe('cancelled');
+      expect(saved!.pickup.address).toBe('5315 69th St NW, Gig Harbor, WA');
+      expect(saved!.drop.address).toBe('Seattle-Tacoma International Airport (SEA)');
+      expect(saved!.passengers).toBe(3);
+      expect(saved!.checkedBags).toBe(1);
+      expect(saved!.description).toBe('Corrected after the ride');
+      expect(new Date(saved!.scheduledAt).getTime()).toBeLessThan(Date.now());
+      expect(saved!.amendments.length).toBeGreaterThan(0);
+      expect(saved!.amendments.every((a) => a.by === 'admin')).toBe(true);
+    });
+
+    it('edits a completed trip without re-quoting its settled fare', async () => {
+      const { admin, id } = await bookingFor();
+      const before = (await Booking.findById(id).lean())!.estimatedFare;
+      const driverUser = await User.create({ role: 'driver', name: 'Dee Driver', email: 'dee@example.com', phone: '+12065550111', passwordHash: 'x' });
+      const driver = await Driver.create({ userId: driverUser._id, vehicleClass: 'sedan', status: 'offline' });
+      await Trip.create({ bookingId: id, driverId: driver._id, status: 'completed', fareAmount: before, timestamps: {} });
+
+      const res = await edit(admin.auth, id, { ...fix, scheduledAt: pickupIn(-3) });
+      expect(res.status).toBe(200);
+      const saved = await Booking.findById(id).lean();
+      expect(saved!.pickup.address).toBe('5315 69th St NW, Gig Harbor, WA');
+      expect(saved!.estimatedFare).toBe(before);
+    });
   });
 });

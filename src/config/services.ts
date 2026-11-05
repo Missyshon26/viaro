@@ -225,6 +225,8 @@ export function buildServiceNotes(b: ServiceRequest): string[] {
     notes.push(
       `Booked for someone else: ${b.passengerName}${b.passengerPhone ? `, ${b.passengerPhone}` : ''}.`,
     );
+  } else if (b.passengerPhone) {
+    notes.push(`Passenger phone: ${b.passengerPhone}.`);
   }
   if (b.description?.trim()) notes.push(`Customer note: ${b.description.trim()}`);
   return notes;

@@ -9,6 +9,7 @@ import { ApiError } from '../../utils/ApiError';
 import { round2 } from '../../utils/money';
 import { formatAddress, type Address } from '../../utils/profile';
 import { renderInvoicePdf } from './booking.invoicePdf';
+import { amountPaid as paidByCard, amountRefunded as refundedToCard } from '../payments/balance';
 
 /**
  * Invoices and receipts for a booking, as PDFs.
@@ -196,14 +197,15 @@ export function buildDocument(kind: DocumentKind, input: DocumentInput): Documen
   const credit = round2(trip?.creditApplied ?? 0);
 
   // Card at booking is exact. A trip paid after the fact is the fare less any credit.
-  const amountPaid = card ? round2(card.amount) : isPaid(booking, trip) ? round2(Math.max(0, total - credit)) : 0;
-  const refunded = round2(card?.refundedAmount ?? 0);
+  // An upgrade payment taken later is part of what was paid, and its refunds part of what was refunded.
+  const amountPaid = card ? paidByCard(booking) : isPaid(booking, trip) ? round2(Math.max(0, total - credit)) : 0;
+  const refunded = card ? refundedToCard(booking) : 0;
   const balanceDue = round2(Math.max(0, total - credit - amountPaid));
 
   const cancelled = booking.status === 'cancelled' || trip?.status === 'cancelled';
   let status: DocumentData['status'] = balanceDue > 0 ? 'due' : 'paid';
-  if (card?.status === 'refunded') status = 'refunded';
-  else if (card?.status === 'partially_refunded') status = 'partially_refunded';
+  if (card && refunded > 0 && refunded >= amountPaid) status = 'refunded';
+  else if (card && refunded > 0) status = 'partially_refunded';
   else if (cancelled) status = 'cancelled';
 
   const ref = bookingReference(booking._id);

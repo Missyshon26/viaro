@@ -37,7 +37,7 @@ export const MIN_LEAD_MINUTES = 5;
  * ran and threw, producing the very 500 this schema exists to prevent. `superRefine`
  * lets the parse check short-circuit with an explicit early return.
  */
-const futureDateString = z
+export const futureDateString = z
   .string()
   .min(4)
   .superRefine((value, ctx) => {
@@ -159,13 +159,6 @@ export const createBookingSchema = z
         message: `At most ${MAX_CAR_SEATS} child seats per booking`,
       });
     }
-    if (data.passengerPhone && !data.passengerName) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['passengerName'],
-        message: "Enter the passenger's name",
-      });
-    }
     // A cruise pickup is a transfer from the terminal; an hourly charter has no port leg.
     if (data.cruisePort && data.tripType === 'hourly') {
       ctx.addIssue({
@@ -278,6 +271,11 @@ export const adminUpdateBookingSchema = updateBookingFields
   .extend({
     passengers: z.coerce.number().int().min(1).max(60).optional(),
     description: z.string().trim().max(500).nullable().optional(),
+    /**
+     * Any parsable date: a finished trip's date can be corrected, so it may be in the past. The
+     * future-only rule still applies to an open booking; the service checks that, knowing the state.
+     */
+    scheduledAt: anyDateString.optional(),
     notifyCustomer: z.boolean().optional(),
   })
   .refine((d) => Object.keys(d).some((k) => k !== 'notifyCustomer'), { message: 'No updatable fields supplied' });
