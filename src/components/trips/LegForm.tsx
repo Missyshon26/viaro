@@ -1,12 +1,15 @@
 "use client";
 
 import { ChevronDown } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CAR_SEAT_OPTIONS, classesFor, GRATUITY_OPTIONS, MAX_STOPS, NOTES_MAX, occasionFor, occasionsFor, SERVICE_LABEL, type Service, type TripForm } from "@/lib/newTrip";
-import type { PricingRule } from "@/lib/api/admin";
+import { getFlight, type FlightDetails, type PricingRule } from "@/lib/api/admin";
+import { formatDateTime } from "@/components/ui/DataTable";
 import { AddressInput } from "@/components/ui/AddressInput";
 
 const GRATUITY_ENABLED = false;
+/** Mirrors the API's MEET_AND_GREET_FEE; the price quote is the authority. */
+const MEET_AND_GREET_FEE_LABEL = "$25";
 import type { VehicleClass } from "@/lib/api/vehicles";
 
 const field =
@@ -133,11 +136,21 @@ export function LegForm({
           </div>
         ) : null}
         {service === "airport" ? (
-          <div>
+          <div className="sm:col-span-2">
             <label className={label} htmlFor={id("flight")}>Flight number</label>
             <input id={id("flight")} className={field} value={form.flightNumber} onChange={(e) => set("flightNumber", e.target.value)} placeholder="AS1042" />
+            {/* Keyed on flight and day: a different one starts afresh instead of showing a stale answer. */}
+            <FlightTracker key={`${form.flightNumber.replace(/[\s-]+/g, "").toUpperCase()}|${form.when.slice(0, 10)}`} flightNumber={form.flightNumber} when={form.when} />
           </div>
-        ) : null}
+        ) : (
+          <p className="text-label text-fg-muted sm:col-span-2">
+            Flight number and live flight tracking are available when the service is <strong>Airport transfer</strong>.
+          </p>
+        )}
+        <label className="flex items-center gap-2.5 sm:col-span-2">
+          <input type="checkbox" checked={form.meetAndGreet} onChange={(e) => set("meetAndGreet", e.target.checked)} className="h-4 w-4 accent-[var(--accent)]" />
+          <span className="text-meta text-fg">Meet and greet <span className="text-fg-muted">· chauffeur meets the passenger inside with a name sign ({MEET_AND_GREET_FEE_LABEL})</span></span>
+        </label>
       </div>
     </section>
 
@@ -166,7 +179,7 @@ export function LegForm({
       </div>
       <details className="mt-5 border-t border-border-subtle pt-4">
         <summary className="cursor-pointer text-note font-bold text-accent">Additional requirements <span className="font-normal text-fg-muted">· optional</span></summary>
-        <p className="mt-2 text-label text-fg-muted">Luggage, child seats, meet and greet, and passenger details.</p>
+        <p className="mt-2 text-label text-fg-muted">Luggage, child seats, and passenger details.</p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <div>
           <label className={label} htmlFor={id("occ")}>Occasion</label>
@@ -212,10 +225,6 @@ export function LegForm({
             ))}
           </select><ChevronDown aria-hidden size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-fg-muted" /></div>
         </div>
-        <label className="flex items-center gap-2.5 self-end pb-3">
-          <input type="checkbox" checked={form.meetAndGreet} onChange={(e) => set("meetAndGreet", e.target.checked)} className="h-4 w-4 accent-[var(--accent)]" />
-          <span className="text-meta text-fg">Meet and greet</span>
-        </label>
         <div>
           <label className={label} htmlFor={id("pn")}>Travelling passenger (if not the client)</label>
           <input id={id("pn")} className={field} value={form.passengerName} onChange={(e) => set("passengerName", e.target.value)} placeholder="Name" />
@@ -235,5 +244,57 @@ export function LegForm({
 
 
     </>
+  );
+}
+
+
+/**
+ * Looks the flight up on request (each lookup uses the provider's quota) so the operator can
+ * confirm the number and see the arrival the chauffeur will be working to.
+ */
+function FlightTracker({ flightNumber, when }: { flightNumber: string; when: string }) {
+  const [flight, setFlight] = useState<FlightDetails | null>(null);
+  const [state, setState] = useState<"idle" | "loading" | "failed">("idle");
+  const code = flightNumber.replace(/[\s-]+/g, "").toUpperCase();
+  const date = /^\d{4}-\d{2}-\d{2}/.test(when) ? when.slice(0, 10) : undefined;
+
+  function check() {
+    setState("loading");
+    getFlight(code, date)
+      .then((data) => {
+        setFlight(data);
+        setState("idle");
+      })
+      .catch(() => setState("failed"));
+  }
+
+  const live = flight && !flight.placeholder && flight.verified !== false;
+  return (
+    <div className="mt-2 text-note">
+      <button
+        type="button"
+        onClick={check}
+        disabled={!/^[A-Z0-9]{2,8}$/.test(code) || state === "loading"}
+        className="font-bold text-accent hover:underline disabled:cursor-not-allowed disabled:text-fg-muted disabled:no-underline"
+      >
+        {state === "loading" ? "Checking flight…" : "Track this flight"}
+      </button>
+      {state === "failed" ? <p className="mt-1 text-fg-muted">Live status is unavailable right now. You can still book.</p> : null}
+      {flight && !live ? (
+        <p className="mt-1 text-fg-muted">
+          {flight.unavailableReason === "not-found"
+            ? "No record of this flight for that day yet. Live tracking usually appears close to the travel date."
+            : "No live data for this flight right now. You can still book."}
+        </p>
+      ) : null}
+      {flight && live ? (
+        <p className="mt-1 rounded-field border border-border bg-surface px-3 py-2 text-fg">
+          <strong className="capitalize">{flight.status}</strong>
+          {flight.arrivalAirport ? ` · arrives ${flight.arrivalAirport}` : ""}
+          {flight.scheduledArrival ? ` · scheduled ${formatDateTime(flight.scheduledArrival)}` : ""}
+          {flight.estimatedArrival ? ` · estimated ${formatDateTime(flight.estimatedArrival)}` : ""}
+        </p>
+      ) : null}
+    </div>
   );
 }

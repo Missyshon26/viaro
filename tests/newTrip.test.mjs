@@ -4,12 +4,18 @@ import { classesFor, emptyNewClient, emptyTripForm, missingFrom, newClientPayloa
 
 const ready = (over = {}) => ({
   ...emptyTripForm(),
+  service: "point2point",
   clientId: "5f9d88b8b54764421b7156c9",
   pickup: "Hotel Andra, Seattle",
   drop: "Sea-Tac Airport",
   when: "2026-11-02T14:30",
   vehicleClass: "sedan",
   ...over,
+});
+
+test("a new trip starts as an airport transfer", () => {
+  assert.equal(emptyTripForm().service, "airport");
+  assert.match(missingFrom({ ...emptyTripForm(), clientId: "x", pickup: "a", drop: "b", when: "2026-11-02T14:30", vehicleClass: "sedan" }), /flight/i);
 });
 
 test("an empty form says what is missing, in order", () => {

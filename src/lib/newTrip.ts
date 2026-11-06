@@ -95,7 +95,8 @@ export const NOTES_MAX = 500;
 
 export const emptyTripForm = (): TripForm => ({
   clientId: "",
-  service: "point2point",
+  // Most trips are airport transfers; the operator switches for anything else.
+  service: "airport",
   city: "seattle",
   vehicleClass: "",
   pickup: "",
@@ -313,6 +314,8 @@ export function returnLeg(leg: TripForm): TripForm {
 export function nextLeg(previous: TripForm): TripForm {
   return {
     ...emptyTripForm(),
+    // A later leg is rarely another airport arrival, so it does not demand a flight number.
+    service: "point2point",
     clientId: previous.clientId,
     city: previous.city,
     vehicleClass: previous.vehicleClass,
