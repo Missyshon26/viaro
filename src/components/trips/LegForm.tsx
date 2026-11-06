@@ -54,7 +54,11 @@ export function LegForm({
 
   return (
     <>
-    {/* ------------------------------- trip ------------------------------- */}
+    {/*
+      One card, in the order the operator takes a booking: who is travelling (passengers, bags),
+      the vehicle, pickup, drop-off, flight, meet and greet, car seats, notes. Service and city
+      come first because they decide which vehicles exist and the price.
+    */}
     <section className="rounded-card border border-border bg-surface-raised p-5">
       <div className="flex items-center gap-3">
         <h3 className="text-action font-bold text-fg">{title}</h3>
@@ -81,10 +85,54 @@ export function LegForm({
             ))}
           </select><ChevronDown aria-hidden size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-fg-muted" /></div>
         </div>
+
+        {/* ------------------------- passengers and bags ------------------------- */}
+        <div className="grid gap-4 sm:col-span-2 sm:grid-cols-3">
+          <div>
+            <label className={label} htmlFor={id("pax")}>Passengers</label>
+            <input id={id("pax")} type="number" min={1} max={60} className={field} value={form.passengers} onChange={(e) => set("passengers", e.target.value)} />
+          </div>
+          <div>
+            <label className={label} htmlFor={id("chk")}>Checked bags</label>
+            <input id={id("chk")} type="number" min={0} className={field} value={form.checkedBags} onChange={(e) => set("checkedBags", e.target.value)} />
+          </div>
+          <div>
+            <label className={label} htmlFor={id("cry")}>Carry-on bags</label>
+            <input id={id("cry")} type="number" min={0} className={field} value={form.carryOnBags} onChange={(e) => set("carryOnBags", e.target.value)} />
+          </div>
+        </div>
+
+        {/* ------------------------------- vehicle ------------------------------- */}
+        <div className="sm:col-span-2">
+          <label className={label} htmlFor={id("veh")}>Vehicle type</label>
+          <div className="relative"><select id={id("veh")} className={`${field} appearance-none pr-10`} value={form.vehicleClass} onChange={(e) => set("vehicleClass", e.target.value)}>
+            <option value="">Choose a vehicle…</option>
+            {offered.map((v) => (
+              <option key={v.value} value={v.value}>
+                {v.label} — up to {v.seats} passengers, {v.bags} bags
+              </option>
+            ))}
+          </select><ChevronDown aria-hidden size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-fg-muted" /></div>
+          {chosenVehicle && Number(form.passengers) > chosenVehicle.seats ? (
+            <p className="mt-1 text-note font-bold text-danger">More than this vehicle seats ({chosenVehicle.seats}).</p>
+          ) : null}
+        </div>
+
+        {/* ------------------------------- pickup -------------------------------- */}
         <div className="sm:col-span-2">
           <label className={label} htmlFor={id("pickup")}>Pickup address</label>
           <AddressInput id={id("pickup")} className={field} value={form.pickup} onChange={(value) => set("pickup", value)} />
         </div>
+        <div>
+          <label className={label} htmlFor={id("when")}>Pickup date and time (Pacific time)</label>
+          <input id={id("when")} type="datetime-local" className={field} value={form.when} onChange={(e) => set("when", e.target.value)} />
+        </div>
+        {service === "hourly" ? (
+          <div>
+            <label className={label} htmlFor={id("hours")}>Hours</label>
+            <input id={id("hours")} type="number" min={1} max={24} className={field} value={form.hours} onChange={(e) => set("hours", e.target.value)} />
+          </div>
+        ) : null}
 
         {service !== "hourly"
           ? form.stops.map((stop, i) => (
@@ -120,21 +168,13 @@ export function LegForm({
           </div>
         ) : null}
 
+        {/* ------------------------------ drop-off ------------------------------- */}
         <div className="sm:col-span-2">
           <label className={label} htmlFor={id("drop")}>{service === "hourly" ? "Where the charter ends" : "Drop-off address"}</label>
           <AddressInput id={id("drop")} className={field} value={form.drop} onChange={(value) => set("drop", value)} />
         </div>
 
-        <div>
-          <label className={label} htmlFor={id("when")}>Pickup (Pacific time)</label>
-          <input id={id("when")} type="datetime-local" className={field} value={form.when} onChange={(e) => set("when", e.target.value)} />
-        </div>
-        {service === "hourly" ? (
-          <div>
-            <label className={label} htmlFor={id("hours")}>Hours</label>
-            <input id={id("hours")} type="number" min={1} max={24} className={field} value={form.hours} onChange={(e) => set("hours", e.target.value)} />
-          </div>
-        ) : null}
+        {/* ------------------------------- flight -------------------------------- */}
         {service === "airport" ? (
           <div className="sm:col-span-2">
             <label className={label} htmlFor={id("flight")}>Flight number</label>
@@ -147,39 +187,35 @@ export function LegForm({
             Flight number and live flight tracking are available when the service is <strong>Airport transfer</strong>.
           </p>
         )}
+
+        {/* --------------------------- meet and greet ---------------------------- */}
         <label className="flex items-center gap-2.5 sm:col-span-2">
           <input type="checkbox" checked={form.meetAndGreet} onChange={(e) => set("meetAndGreet", e.target.checked)} className="h-4 w-4 accent-[var(--accent)]" />
           <span className="text-meta text-fg">Meet and greet <span className="text-fg-muted">· chauffeur meets the passenger inside with a name sign ({MEET_AND_GREET_FEE_LABEL})</span></span>
         </label>
-      </div>
-    </section>
 
-    {/* ------------------------------ vehicle ----------------------------- */}
-    <section className="rounded-card border border-border bg-surface-raised p-5">
-      <h3 className="text-action font-bold text-fg">Vehicle and party{title === "Trip" ? "" : ` — ${title}`}</h3>
-      <div className="mt-3 grid gap-4 sm:grid-cols-2">
+        {/* ------------------------------ car seats ------------------------------ */}
         <div className="sm:col-span-2">
-          <label className={label} htmlFor={id("veh")}>Vehicle</label>
-          <div className="relative"><select id={id("veh")} className={`${field} appearance-none pr-10`} value={form.vehicleClass} onChange={(e) => set("vehicleClass", e.target.value)}>
-            <option value="">Choose a vehicle…</option>
-            {offered.map((v) => (
-              <option key={v.value} value={v.value}>
-                {v.label} — up to {v.seats} passengers, {v.bags} bags
-              </option>
+          <label className={label} htmlFor={id("seat")}>Child car seats</label>
+          <div className="relative"><select id={id("seat")} className={`${field} appearance-none pr-10`} value={form.carSeats} onChange={(e) => set("carSeats", e.target.value)}>
+            {CAR_SEAT_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </select><ChevronDown aria-hidden size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-fg-muted" /></div>
         </div>
-        <div>
-          <label className={label} htmlFor={id("pax")}>Passengers</label>
-          <input id={id("pax")} type="number" min={1} max={60} className={field} value={form.passengers} onChange={(e) => set("passengers", e.target.value)} />
-          {chosenVehicle && Number(form.passengers) > chosenVehicle.seats ? (
-            <p className="mt-1 text-note font-bold text-danger">More than this vehicle seats ({chosenVehicle.seats}).</p>
-          ) : null}
+
+        {/* -------------------------------- notes -------------------------------- */}
+        <div className="sm:col-span-2">
+          <label className={label} htmlFor={id("notes")}>Additional notes <span className="font-normal text-fg-muted">· optional</span></label>
+          <textarea id={id("notes")} rows={3} maxLength={NOTES_MAX} className={`${field} h-auto py-2`} value={form.notes} onChange={(e) => set("notes", e.target.value)} placeholder="Anything dispatch or the chauffeur should know, e.g. wheelchair, gate code, special instructions." />
+          <p className="mt-1 text-label text-fg-muted">{form.notes.length}/{NOTES_MAX}</p>
         </div>
       </div>
+
+      {/* Rarely needed, so kept out of the way below the notes. */}
       <details className="mt-5 border-t border-border-subtle pt-4">
-        <summary className="cursor-pointer text-note font-bold text-accent">Additional requirements <span className="font-normal text-fg-muted">· optional</span></summary>
-        <p className="mt-2 text-label text-fg-muted">Luggage, child seats, and passenger details.</p>
+        <summary className="cursor-pointer text-note font-bold text-accent">Other details <span className="font-normal text-fg-muted">· optional</span></summary>
+        <p className="mt-2 text-label text-fg-muted">Occasion and who is travelling, if not the client.</p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <div>
           <label className={label} htmlFor={id("occ")}>Occasion</label>
@@ -196,14 +232,6 @@ export function LegForm({
             <input id={id("occd")} className={field} maxLength={200} value={form.occasionDetails} onChange={(e) => set("occasionDetails", e.target.value)} />
           </div>
         ) : null}
-        <div>
-          <label className={label} htmlFor={id("chk")}>Checked bags</label>
-          <input id={id("chk")} type="number" min={0} className={field} value={form.checkedBags} onChange={(e) => set("checkedBags", e.target.value)} />
-        </div>
-        <div>
-          <label className={label} htmlFor={id("cry")}>Carry-on bags</label>
-          <input id={id("cry")} type="number" min={0} className={field} value={form.carryOnBags} onChange={(e) => set("carryOnBags", e.target.value)} />
-        </div>
         {/* The tip is switched off (the fuel surcharge replaces it); flip this flag to bring it back. */}
         {GRATUITY_ENABLED ? (
         <div>
@@ -218,14 +246,6 @@ export function LegForm({
         </div>
         ) : null}
         <div>
-          <label className={label} htmlFor={id("seat")}>Child car seats</label>
-          <div className="relative"><select id={id("seat")} className={`${field} appearance-none pr-10`} value={form.carSeats} onChange={(e) => set("carSeats", e.target.value)}>
-            {CAR_SEAT_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select><ChevronDown aria-hidden size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-fg-muted" /></div>
-        </div>
-        <div>
           <label className={label} htmlFor={id("pn")}>Travelling passenger (if not the client)</label>
           <input id={id("pn")} className={field} value={form.passengerName} onChange={(e) => set("passengerName", e.target.value)} placeholder="Name" />
         </div>
@@ -233,16 +253,9 @@ export function LegForm({
           <label className={label} htmlFor={id("pp")}>Their phone</label>
           <input id={id("pp")} type="tel" className={field} value={form.passengerPhone} onChange={(e) => set("passengerPhone", e.target.value)} />
         </div>
-      </div>
+        </div>
       </details>
-      <div className="mt-5">
-        <label className={label} htmlFor={id("notes")}>Notes <span className="font-normal text-fg-muted">· optional</span></label>
-        <textarea id={id("notes")} rows={3} maxLength={NOTES_MAX} className={`${field} h-auto py-2`} value={form.notes} onChange={(e) => set("notes", e.target.value)} placeholder="Anything dispatch or the chauffeur should know, e.g. wheelchair, gate code, special instructions." />
-        <p className="mt-1 text-label text-fg-muted">{form.notes.length}/{NOTES_MAX}</p>
-      </div>
     </section>
-
-
     </>
   );
 }

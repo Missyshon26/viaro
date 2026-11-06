@@ -50,7 +50,7 @@ export default function PricingPage() {
   return (
     <ConsolePage
       title="City pricing"
-      description="Base fare and peak multiplier per city, and the tax and discounts added on top. Cities are stored lowercase, matched on the city a booking sends."
+      description="Base fare and peak multiplier per city, used only for vehicles that have no rate of their own. A vehicle with its own rate (see Vehicles) costs the same in every city, as on the old site. Cities are stored lowercase, matched on the city a booking sends."
     >
       {error ? <p className="mb-4 text-note font-bold text-danger">{error}</p> : null}
 
