@@ -122,7 +122,7 @@ describe('putting a booking on the calendar', () => {
     const [eventId, event] = cal.live()[0];
     expect(eventId).toBe(eventIdFor(id));
     expect(event.summary).toBe('Business Sedan · Pat Rider · Point to point');
-    expect(event.colorId).toBe('11');
+    expect(event.colorId).toBe('7');
 
     const saved = await Booking.findById(id).lean();
     expect(saved!.calendar).toMatchObject({ eventId, link: `https://calendar.test/event/${eventId}` });

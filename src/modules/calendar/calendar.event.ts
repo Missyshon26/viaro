@@ -11,13 +11,13 @@ import type { CalendarEventBody } from '../../integrations/googleCalendar';
  * The calendar's job is to answer "what is happening, when, and is it covered?" at a
  * glance. So:
  *   - the title says the car, the customer and the kind of trip;
- *   - the colour says whether a chauffeur has it: red until one is assigned, green after;
+ *   - the colour says whether a chauffeur has it: Google's default blue until one is assigned, green after;
  *   - the place is the pickup address, so it opens in a map;
  *   - the notes carry everything dispatch needs without opening the console.
  */
 
-/** Google Calendar colour ids: 11 = tomato (needs a chauffeur), 10 = basil (covered). */
-export const COLOR_UNASSIGNED = '11';
+/** Google Calendar colour ids: 7 = peacock, Google's default blue (needs a chauffeur), 10 = basil (covered). */
+export const COLOR_UNASSIGNED = '7';
 export const COLOR_ASSIGNED = '10';
 
 /** How long an event spans when the booking does not say. Hourly charters use their hours. */
@@ -117,9 +117,8 @@ export function buildCalendarEvent(input: CalendarEventInput): CalendarEventBody
     extras.length ? `Extras: ${extras.join(', ')}` : null,
     ...(b.serviceNotes?.length ? ['', ...b.serviceNotes] : []),
     '',
-    typeof b.estimatedFare === 'number'
-      ? `Fare: $${b.estimatedFare.toFixed(2)} · ${b.payment ? 'PAID' : 'not yet paid'}`
-      : null,
+    // Whether it is paid, never how much: the calendar is shared and the amount is not for it.
+    typeof b.estimatedFare === 'number' ? `Payment: ${b.payment ? 'PAID' : 'not yet paid'}` : null,
     chauffeur
       ? `Chauffeur: ${[chauffeur.name, chauffeur.phone].filter(Boolean).join(' · ')}`
       : 'Chauffeur: NOT ASSIGNED YET',

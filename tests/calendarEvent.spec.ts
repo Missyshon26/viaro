@@ -45,9 +45,10 @@ describe('the calendar event', () => {
     expect(e.description).toContain('Hours booked: 4');
   });
 
-  it('is red until a chauffeur has it, then green, and says who', () => {
+  it('is the default blue until a chauffeur has it, then green, and says who', () => {
     const open = buildCalendarEvent(input());
     expect(open.colorId).toBe(COLOR_UNASSIGNED);
+    expect(COLOR_UNASSIGNED).toBe('7'); // Google's Peacock, its default blue; never the old tomato red
     expect(open.description).toContain('Chauffeur: NOT ASSIGNED YET');
     const taken = buildCalendarEvent(input({}, { chauffeur: { name: 'Dee Driver', phone: '+12065550111' } }));
     expect(taken.colorId).toBe(COLOR_ASSIGNED);
@@ -82,14 +83,21 @@ describe('the calendar event', () => {
       'Occasion: Other (Anniversary)',
       'Extras: Meet and greet, 2 child car seats',
       'Cruise pickup. Meet at Pier 66.',
-      'Fare: $140.00 · PAID',
+      'Payment: PAID',
     ]) {
       expect(e.description).toContain(line);
     }
   });
 
   it('says plainly when a fare has not been paid', () => {
-    expect(buildCalendarEvent(input()).description).toContain('Fare: $140.00 · not yet paid');
+    expect(buildCalendarEvent(input()).description).toContain('Payment: not yet paid');
+  });
+
+  it('never puts the amount on the calendar, paid or not', () => {
+    for (const e of [buildCalendarEvent(input()), buildCalendarEvent(input({ payment: { amount: 140 } as never }))]) {
+      expect(e.description).not.toMatch(/Fare|140|[$]/);
+      expect(e.summary).not.toMatch(/140|[$]/);
+    }
   });
 
   it('labels each leg of a journey', () => {

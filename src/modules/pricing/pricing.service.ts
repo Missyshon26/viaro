@@ -167,15 +167,17 @@ export async function calculateFare(opts: {
    */
   locked?: { gratuityPct: number; taxPct: number; fuelPct?: number; discount?: Discount | null };
 }): Promise<FareBreakdown> {
-  const rule = await PricingRule.findOne({ city: opts.city.toLowerCase() }).lean();
-  if (!rule) throw ApiError.notFound(`No pricing rule configured for city '${opts.city}'`);
+  const city = opts.city.toLowerCase();
+  // Optional: a vehicle with its own rate (the old ABL way) prices anywhere. Only the city
+  // multiplier formula needs the rule, and that check is made once the model is known.
+  const rule = await PricingRule.findOne({ city }).lean();
 
   const when = opts.requestedAt ?? now();
   const peak = isPeakHour(when);
   const subscriber = opts.customerId ? await hasActiveSubscription(opts.customerId) : false;
 
   // Hourly trips bill the (possibly peak-adjusted) rate per hour booked.
-  const multiplier = subscriber || !peak ? 1 : rule.peakMultiplier;
+  const multiplier = subscriber || !peak ? 1 : (rule?.peakMultiplier ?? 1);
   const hours = opts.tripType === 'hourly' ? (opts.hours ?? 1) : undefined;
   // The class uplift compounds with the peak multiplier: a Sprinter in a peak window
   // pays both. A subscriber still escapes the peak part, never the class part — the
@@ -209,12 +211,15 @@ export async function calculateFare(opts: {
         ? 'hourly'
         : 'flat'
       : 'multiplier';
+  // Only the city formula depends on the city's rule; every other price comes from the
+  // vehicle, the route or the package, so an unlisted city is still quotable.
+  if (pricingModel === 'multiplier' && !rule) throw ApiError.notFound(`No pricing rule configured for city '${opts.city}'`);
   const computed = pkg
     ? pkg.price
     : route
     ? route.price
     : pricingModel === 'multiplier'
-      ? rule.baseFare * multiplier * (hours ?? 1) * rates.multiplier
+      ? (rule?.baseFare ?? 0) * multiplier * (hours ?? 1) * rates.multiplier
       : (rates.fixedRate as number) * (hours ?? 1);
 
   const floored = !pkg && rates.minimumFare !== null && computed < rates.minimumFare;
@@ -282,10 +287,10 @@ export async function calculateFare(opts: {
   });
 
   return {
-    city: rule.city,
+    city: rule?.city ?? city,
     tripType: opts.tripType,
-    baseFare: rule.baseFare,
-    peakMultiplier: rule.peakMultiplier,
+    baseFare: rule?.baseFare ?? 0,
+    peakMultiplier: rule?.peakMultiplier ?? 1,
     isPeak: peak,
     subscriber,
     ...(hours !== undefined ? { hours } : {}),
